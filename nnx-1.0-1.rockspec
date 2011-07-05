@@ -49,6 +49,7 @@ build = {
          install_files(/lua/nnx init.lua)
          install_files(/lua/nnx Narrow.lua)
          install_files(/lua/nnx SpatialLinear.lua)
+         add_subdirectory (test)
          install_targets(/lib nnx)
    ]],
 
