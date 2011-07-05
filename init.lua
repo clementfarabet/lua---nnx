@@ -1,6 +1,8 @@
 
 require 'torch'
 require 'nn'
-require 'nnx'
+
+require 'libnnx'
 
 torch.include('nnx', 'Narrow.lua')
+torch.include('nnx', 'SpatialLinear.lua')

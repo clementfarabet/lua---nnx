@@ -21,7 +21,8 @@ description = {
 
 dependencies = {
    "lua >= 5.1",
-   "xlua"
+   "torch",
+   "lunit"
 }
 
 build = {
@@ -38,15 +39,17 @@ build = {
 
          find_package (Torch REQUIRED)
 
-         SET(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+         set (CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-         include_directories (${TORCH_INCLUDE_DIR})
-         #add_library (nnx SHARED init.c)
-         #link_directories (${TORCH_LIBRARY_DIR})
-         #target_link_libraries (nnx ${TORCH_LIBRARIES})
+         include_directories (${TORCH_INCLUDE_DIR} ${PROJECT_SOURCE_DIR})
+         add_library (nnx SHARED init.c)
+         link_directories (${TORCH_LIBRARY_DIR})
+         target_link_libraries (nnx ${TORCH_LIBRARIES})
 
          install_files(/lua/nnx init.lua)
-         #install_targets(/lib nnx)
+         install_files(/lua/nnx Narrow.lua)
+         install_files(/lua/nnx SpatialLinear.lua)
+         install_targets(/lib nnx)
    ]],
 
    variables = {
