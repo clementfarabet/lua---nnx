@@ -2,7 +2,9 @@
 function nnx.test_all()
 
    require 'lunit'
-   module("test_all", lunit.testcase, package.seeall)
+
+   nnx._test_all_ = nil
+   module("nnx._test_all_", lunit.testcase, package.seeall)
 
    local precision = 1e-5
 
