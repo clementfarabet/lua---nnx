@@ -6,6 +6,8 @@ function nnx.test_all()
    nnx._test_all_ = nil
    module("nnx._test_all_", lunit.testcase, package.seeall)
 
+   math.randomseed(os.time())
+
    local precision = 1e-5
 
    local jac = nnx.jacobian
