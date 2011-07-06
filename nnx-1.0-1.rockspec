@@ -58,6 +58,7 @@ build = {
          install_files(/lua/nnx Threshold.lua)
          install_files(/lua/nnx SpatialConvolutionTable.lua)
          install_files(/lua/nnx SpatialLogSoftMax.lua)
+         install_files(/lua/nnx SpatialMaxPooling.lua)
          install_files(/lua/nnx SpatialLinear.lua)
          install_files(/lua/nnx SuperCriterion.lua)
          install_files(/lua/nnx Trainer.lua)

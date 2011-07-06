@@ -34,6 +34,25 @@ function nnx.test_all()
       assert_equal(0, berr, 'error in backward after i/o')
    end
 
+   function test_SpatialMaxPooling()
+      local fanin = math.random(1,10)
+      local osizex = math.random(1,4)
+      local osizey = math.random(1,4)
+      local mx = math.random(2,6)
+      local my = math.random(2,6)
+      local sizex = osizex*mx
+      local sizey = osizey*my
+      local module = nn.SpatialMaxPooling(mx,my)
+      local input = lab.rand(fanin,sizey,sizex)
+
+      local error = jac.test_jac(module, input)
+      assert_equal((error < precision), true, 'error on state: ' .. error)
+
+      local ferr, berr = jac.test_io(module, input)
+      assert_equal(0, ferr, 'error in forward after i/o')
+      assert_equal(0, berr, 'error in backward after i/o')
+   end
+
    function test_Power()
       local in1 = lab.rand(10,20)
       local mod = nn.Power(2)
