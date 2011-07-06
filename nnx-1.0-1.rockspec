@@ -58,6 +58,7 @@ build = {
          install_files(/lua/nnx Threshold.lua)
          install_files(/lua/nnx SpatialConvolutionTable.lua)
          install_files(/lua/nnx SpatialLinear.lua)
+         install_files(/lua/nnx SuperCriterion.lua)
          add_subdirectory (test)
          install_targets(/lib nnx)
    ]],

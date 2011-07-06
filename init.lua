@@ -61,3 +61,6 @@ torch.include('nnx', 'Narrow.lua')
 -- spatial (images) operators:
 torch.include('nnx', 'SpatialLinear.lua')
 torch.include('nnx', 'SpatialConvolutionTable.lua')
+
+-- criterions:
+torch.include('nnx', 'SuperCriterion.lua')
