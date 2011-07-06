@@ -18,13 +18,12 @@ static int nn_(SpatialConvolutionTable_forward)(lua_State *L)
   THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_(Tensor_id));
 
   luaL_argcheck(L, input->nDimension == 3, 2, "3D tensor expected");
-  luaL_argcheck(L, input->size[2] == nInputPlane, 2, "invalid number of input planes");
-  luaL_argcheck(L, input->size[0] >= kW && input->size[1] >= kH, 2, "input image smaller than kernel size");
+  luaL_argcheck(L, input->size[0] == nInputPlane, 2, "invalid number of input planes");
+  luaL_argcheck(L, input->size[2] >= kW && input->size[1] >= kH, 2, "input image smaller than kernel size");
 
-  THTensor_(resize3d)(output,
-                      (input->size[0] - kW) / dW + 1, 
-                      (input->size[1] - kH) / dH + 1,
-                      nOutputPlane);
+  THTensor_(resize3d)(output, nOutputPlane,
+                      (input->size[1] - kH) / dH + 1, 
+                      (input->size[2] - kW) / dW + 1);
 
   THTensor *inputPlane = THTensor_(new)();
   THTensor *weightPlane = THTensor_(new)();
@@ -63,7 +62,6 @@ static int nn_(SpatialConvolutionTable_forward)(lua_State *L)
 
 static int nn_(SpatialConvolutionTable_backward)(lua_State *L)
 {
-  const void* torch_(Tensor_id) = luaT_checktypename2id(L, "torch.Tensor");
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));  
   THTensor *gradOutput = luaT_checkudata(L, 3, torch_(Tensor_id));  
   int kW = luaT_getfieldcheckint(L, 1, "kW");
@@ -98,24 +96,29 @@ static int nn_(SpatialConvolutionTable_backward)(lua_State *L)
     gradBias_data[k] += THTensor_(sum)(gradOutputPlane);
   }
 
-  int nkernel = connTable->size[0];    
+  int nkernel = connTable->size[0];
   for(k = 0; k < nkernel; k++)
   {
     int outplaneid = (int)THTensor_(get2d)(connTable,k,1)-1;
     int inplaneid = (int)THTensor_(get2d)(connTable,k,0)-1;
     
-    /* Gradient to kernel */
+    /* Select all planes */
     THTensor_(select)(inputPlane, input, 0, inplaneid);
+    THTensor_(select)(gradInputPlane, gradInput, 0, inplaneid);
     THTensor_(select)(gradOutputPlane, gradOutput, 0, outplaneid);
+    THTensor_(select)(weightPlane, weight, 0, k);
     THTensor_(select)(gradWeightPlane, gradWeight, 0, k);
+
+    /* Gradient to kernel */
+    THTensor_(resize3d)(inputPlane, 1, inputPlane->size[0], inputPlane->size[1]);
+    THTensor_(resize3d)(gradOutputPlane, 1, gradOutputPlane->size[0], gradOutputPlane->size[1]);
+    THTensor_(resize4d)(gradWeightPlane, 1, 1, gradWeightPlane->size[0], gradWeightPlane->size[1]);
     THLab_(conv2DRevger)(gradWeightPlane, 1.0, inputPlane, gradOutputPlane, dH, dW);
     
     /* Gradient to input */
-    THTensor_(select)(gradInputPlane, gradInput, 0, inplaneid);
-
-    THTensor *weightPlane_t = THTensor_(newTranspose)(weightPlane,0,1);
-    THLab_(conv2Dmv)(gradInputPlane, 0.0, gradOutputPlane, weightPlane_t, dH, dW, "full");
-    THTensor_(free)(weightPlane_t);
+    THTensor_(resize3d)(gradInputPlane, 1, gradInputPlane->size[0], gradInputPlane->size[1]);
+    THTensor_(resize4d)(weightPlane, 1, 1, weightPlane->size[0], weightPlane->size[1]);
+    THLab_(conv2Dmv)(gradInputPlane, 1.0, gradOutputPlane, weightPlane, dH, dW, "full");
   }
 
   THTensor_(free)(gradInputPlane);
