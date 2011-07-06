@@ -20,6 +20,9 @@ static const void* torch_DoubleTensor_id = NULL;
 #include "generic/SpatialConvolutionTable.c"
 #include "THGenerateFloatTypes.h"
 
+#include "generic/SpatialLogSoftMax.c"
+#include "THGenerateFloatTypes.h"
+
 #include "generic/Threshold.c"
 #include "THGenerateFloatTypes.h"
 
@@ -33,12 +36,14 @@ DLL_EXPORT int luaopen_libnnx(lua_State *L)
   nn_FloatAbs_init(L);
   nn_FloatThreshold_init(L);
   nn_FloatSpatialConvolutionTable_init(L);
+  nn_FloatSpatialLogSoftMax_init(L);
 
   nn_DoubleSpatialLinear_init(L);
   nn_DoubleHardShrink_init(L);
   nn_DoubleAbs_init(L);
   nn_DoubleThreshold_init(L);
   nn_DoubleSpatialConvolutionTable_init(L);
+  nn_DoubleSpatialLogSoftMax_init(L);
 
   return 1;
 }
