@@ -133,6 +133,22 @@ function nnx.test_all()
       assert_equal(0, berr, torch.typename(module) .. ' - i/o backward err: ' .. berr)
    end
 
+   function test_SpatialLogSoftMax()
+      local ini = math.random(5,10)
+      local inj = math.random(5,10)
+      local ink = math.random(5,10)
+      local input = torch.Tensor(ink, inj, ini):zero()
+
+      local module = nn.SpatialLogSoftMax()
+
+      local err = jac.test_jac(module, input, 0.1, 2)
+      assert_equal((err < precision), true, 'error on state: ' .. err)
+
+      local ferr, berr = jac.test_io(module, input, 0.1, 2)
+      assert_equal(0, ferr, torch.typename(module) .. ' - i/o forward err: ' .. ferr)
+      assert_equal(0, berr, torch.typename(module) .. ' - i/o backward err: ' .. berr)
+   end
+
    function test_Sigmoid()
       local ini = math.random(5,10)
       local inj = math.random(5,10)
@@ -172,6 +188,22 @@ function nnx.test_all()
       local input = torch.Tensor(ink, inj, ini):zero()
 
       local module = nn.Abs()
+
+      local err = jac.test_jac(module, input)
+      assert_equal((err < precision), true, 'error on state: ' .. err)
+
+      local ferr, berr = jac.test_io(module, input)
+      assert_equal(0, ferr, torch.typename(module) .. ' - i/o forward err: ' .. ferr)
+      assert_equal(0, berr, torch.typename(module) .. ' - i/o backward err: ' .. berr)
+   end
+
+   function test_HardShrink()
+      local ini = math.random(5,10)
+      local inj = math.random(5,10)
+      local ink = math.random(5,10)
+      local input = torch.Tensor(ink, inj, ini):zero()
+
+      local module = nn.HardShrink()
 
       local err = jac.test_jac(module, input)
       assert_equal((err < precision), true, 'error on state: ' .. err)
