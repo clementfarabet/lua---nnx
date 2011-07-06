@@ -17,6 +17,9 @@ static const void* torch_DoubleTensor_id = NULL;
 #include "generic/SpatialLinear.c"
 #include "THGenerateFloatTypes.h"
 
+#include "generic/Threshold.c"
+#include "THGenerateFloatTypes.h"
+
 DLL_EXPORT int luaopen_libnnx(lua_State *L)
 {
   torch_FloatTensor_id = luaT_checktypename2id(L, "torch.FloatTensor");
@@ -25,10 +28,12 @@ DLL_EXPORT int luaopen_libnnx(lua_State *L)
   nn_FloatSpatialLinear_init(L);
   nn_FloatHardShrink_init(L);
   nn_FloatAbs_init(L);
+  nn_FloatThreshold_init(L);
 
   nn_DoubleSpatialLinear_init(L);
   nn_DoubleHardShrink_init(L);
   nn_DoubleAbs_init(L);
+  nn_DoubleThreshold_init(L);
 
   return 1;
 }

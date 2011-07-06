@@ -53,6 +53,7 @@ torch.include('nnx', 'Power.lua')
 torch.include('nnx', 'Square.lua')
 torch.include('nnx', 'Sqrt.lua')
 torch.include('nnx', 'HardShrink.lua')
+torch.include('nnx', 'Threshold.lua')
 
 -- reshapers:
 torch.include('nnx', 'Narrow.lua')
