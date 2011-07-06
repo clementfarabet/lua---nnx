@@ -22,6 +22,7 @@ description = {
 dependencies = {
    "lua >= 5.1",
    "torch",
+   "xlua",
    "lunit"
 }
 
@@ -47,7 +48,13 @@ build = {
          target_link_libraries (nnx ${TORCH_LIBRARIES})
 
          install_files(/lua/nnx init.lua)
+         install_files(/lua/nnx Abs.lua)
+         install_files(/lua/nnx ConfusionMatrix.lua)
+         install_files(/lua/nnx HardShrink.lua)
          install_files(/lua/nnx Narrow.lua)
+         install_files(/lua/nnx Power.lua)
+         install_files(/lua/nnx Square.lua)
+         install_files(/lua/nnx Sqrt.lua)
          install_files(/lua/nnx SpatialLinear.lua)
          add_subdirectory (test)
          install_targets(/lib nnx)

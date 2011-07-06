@@ -31,6 +31,7 @@
 ----------------------------------------------------------------------
 
 require 'torch'
+require 'xlua'
 require 'nn'
 
 -- create global nnx table:
@@ -43,6 +44,18 @@ require 'libnnx'
 torch.include('nnx', 'jacobian.lua')
 torch.include('nnx', 'test-all.lua')
 
--- modules:
+-- tools:
+torch.include('nnx', 'ConfusionMatrix.lua')
+
+-- pointwise modules:
+torch.include('nnx', 'Abs.lua')
+torch.include('nnx', 'Power.lua')
+torch.include('nnx', 'Square.lua')
+torch.include('nnx', 'Sqrt.lua')
+torch.include('nnx', 'HardShrink.lua')
+
+-- reshapers:
 torch.include('nnx', 'Narrow.lua')
+
+-- spatial (images) operators:
 torch.include('nnx', 'SpatialLinear.lua')
