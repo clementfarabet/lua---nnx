@@ -65,3 +65,7 @@ torch.include('nnx', 'SpatialConvolutionTable.lua')
 
 -- criterions:
 torch.include('nnx', 'SuperCriterion.lua')
+
+-- trainers:
+torch.include('nnx', 'Trainer.lua')
+torch.include('nnx', 'StochasticTrainer.lua')
