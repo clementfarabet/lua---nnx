@@ -63,9 +63,9 @@ function ConfusionMatrix:__tostring__()
       end
       if self.classes then
          if t == nclasses then
-            str = str .. ']]  ' .. pclass .. '% [class: ' .. (self.classes[t] or '') .. ']\n'
+            str = str .. ']]  ' .. pclass .. '% \t[class: ' .. (self.classes[t] or '') .. ']\n'
          else
-            str = str .. ']   ' .. pclass .. '% [class: ' .. (self.classes[t] or '') .. ']\n'
+            str = str .. ']   ' .. pclass .. '% \t[class: ' .. (self.classes[t] or '') .. ']\n'
          end
       else
          if t == nclasses then
