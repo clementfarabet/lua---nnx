@@ -43,9 +43,13 @@ require 'libnnx'
 -- for testing:
 torch.include('nnx', 'jacobian.lua')
 torch.include('nnx', 'test-all.lua')
+torch.include('nnx', 'test-omp.lua')
 
 -- tools:
 torch.include('nnx', 'ConfusionMatrix.lua')
+
+-- OpenMP module:
+torch.include('nnx', 'OmpModule.lua')
 
 -- pointwise modules:
 torch.include('nnx', 'Abs.lua')

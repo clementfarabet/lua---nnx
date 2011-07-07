@@ -40,6 +40,13 @@ build = {
 
          find_package (Torch REQUIRED)
 
+         find_package (OpenMP REQUIRED)
+
+         if (OPENMP_FOUND)
+             message (STATUS "OpenMP Found with compiler flag : ${OpenMP_C_FLAGS}")
+             set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+         endif (OPENMP_FOUND)
+
          set (CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
          include_directories (${TORCH_INCLUDE_DIR} ${PROJECT_SOURCE_DIR})
@@ -56,6 +63,7 @@ build = {
          install_files(/lua/nnx Square.lua)
          install_files(/lua/nnx Sqrt.lua)
          install_files(/lua/nnx Threshold.lua)
+         install_files(/lua/nnx OmpModule.lua)
          install_files(/lua/nnx SpatialConvolutionTable.lua)
          install_files(/lua/nnx SpatialLogSoftMax.lua)
          install_files(/lua/nnx SpatialMaxPooling.lua)

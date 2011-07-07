@@ -53,6 +53,7 @@ static int nn_(SpatialConvolutionTable_forward)(lua_State *L)
     THLab_(conv2Dmul)(outputPlane, 1.0, inputPlane, weightPlane, dH, dW, "valid");
   }
 
+  /* Cleanup */
   THTensor_(free)(inputPlane);
   THTensor_(free)(weightPlane);
   THTensor_(free)(outputPlane);
