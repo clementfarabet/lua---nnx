@@ -11,27 +11,31 @@ static int nn_(SpatialMaxPooling_forward)(lua_State *L)
   int dH = luaT_getfieldcheckint(L, 1, "dH");
   THTensor *indices = luaT_getfieldcheckudata(L, 1, "indices", torch_(Tensor_id));
   THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_(Tensor_id));
+  int threads = luaT_getfieldcheckint(L, 1, "threads");
 
   luaL_argcheck(L, input->nDimension == 3, 2, "3D tensor expected");
   luaL_argcheck(L, input->size[2] >= kW && input->size[1] >= kH, 2, "input image smaller than kernel size");
-
-  THTensor *outputPlane, *inputPlane, *unfoldedInputPlane, *localInput;
-  int k,i,j;
 
   THTensor_(resize3d)(output, input->size[0],
                       (input->size[1] - kH) / dH + 1, 
                       (input->size[2] - kW) / dW + 1 );
 
-  inputPlane = THTensor_(new)();
-  outputPlane = THTensor_(new)();
-  localInput = THTensor_(new)();
-  unfoldedInputPlane = THTensor_(new)();
-
   /* indices will contain i,j locatyions for each output point */
   THTensor_(resize4d)(indices, 2,output->size[0],output->size[1],output->size[2]);
 
+  omp_set_num_threads(threads);
+  omp_lock_t lock; omp_init_lock(&lock);
+  int k,i,j;
+  #pragma omp parallel for private(k,i,j)
   for (k = 0; k < input->size[0]; k++)
   {
+    THTensor *outputPlane, *inputPlane, *unfoldedInputPlane, *localInput;
+    omp_set_lock(&lock);
+    inputPlane = THTensor_(new)();
+    outputPlane = THTensor_(new)();
+    localInput = THTensor_(new)();
+    unfoldedInputPlane = THTensor_(new)();
+
     /* get input and output plane */
     THTensor_(select)(outputPlane, output, 0, k);
     THTensor_(select)(inputPlane, input, 0, k);
@@ -39,6 +43,7 @@ static int nn_(SpatialMaxPooling_forward)(lua_State *L)
     /* Unfold input to get each local window */
     THTensor_(unfold)(unfoldedInputPlane, inputPlane, 0, kH, dH);
     THTensor_(unfold)(unfoldedInputPlane, NULL,       1, kW, dW);
+    omp_unset_lock(&lock);
 
     /* Calculate max points */
     for(i = 0; i < outputPlane->size[0]; i++) {
@@ -63,11 +68,17 @@ static int nn_(SpatialMaxPooling_forward)(lua_State *L)
 	THTensor_(set2d)(outputPlane,i,j,maxval);
       }
     }
+
+    omp_set_lock(&lock);
+    THTensor_(free)(inputPlane);
+    THTensor_(free)(outputPlane);
+    THTensor_(free)(unfoldedInputPlane);
+    THTensor_(free)(localInput);
+    omp_unset_lock(&lock);
   }
-  THTensor_(free)(inputPlane);
-  THTensor_(free)(outputPlane);
-  THTensor_(free)(unfoldedInputPlane);
-  THTensor_(free)(localInput);
+
+  /* Cleanup */
+  omp_destroy_lock(&lock);
 
   return 1;
 }
@@ -118,6 +129,7 @@ static int nn_(SpatialMaxPooling_backward)(lua_State *L)
     }
   }
 
+  /* Cleanup */
   THTensor_(free)(gradInputPlane);
   THTensor_(free)(gradOutputPlane);
   THTensor_(free)(unfoldedGradInputPlane);

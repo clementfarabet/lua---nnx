@@ -1,4 +1,4 @@
-local SpatialMaxPooling, parent = torch.class('nn.SpatialMaxPooling', 'nn.Module')
+local SpatialMaxPooling, parent = torch.class('nn.SpatialMaxPooling', 'nn.OmpModule')
 
 local help_desc =
 [[Applies a 2D sub-sampling over an input image composed of
