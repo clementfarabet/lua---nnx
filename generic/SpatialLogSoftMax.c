@@ -9,7 +9,7 @@ static int nn_(SpatialLogSoftMax_forward)(lua_State *L)
   THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_(Tensor_id));
 
   // dims
-  int width = input->size[0];
+  int width = input->size[2];
   int height = input->size[1];
 
   // select planes
@@ -55,7 +55,7 @@ static int nn_(SpatialLogSoftMax_backward)(lua_State *L)
   THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_(Tensor_id));
 
   // dims
-  int width = input->size[0];
+  int width = input->size[2];
   int height = input->size[1];
 
   // zero gradInput
