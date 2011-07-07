@@ -59,6 +59,12 @@ torch.include('nnx', 'Sqrt.lua')
 torch.include('nnx', 'HardShrink.lua')
 torch.include('nnx', 'Threshold.lua')
 
+-- table-based modules:
+torch.include('nnx', 'CMulTable.lua')
+torch.include('nnx', 'CAddTable.lua')
+torch.include('nnx', 'CDivTable.lua')
+torch.include('nnx', 'CSubTable.lua')
+
 -- reshapers:
 torch.include('nnx', 'Narrow.lua')
 
