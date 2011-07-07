@@ -37,7 +37,7 @@ function ConfusionMatrix:updateValids()
    self.averageValid = 0
    local nvalids = 0
    for t = 1,self.mat:size(1) do
-      if not xlua.isNaN(self.valids[t]) then
+      if not sys.isNaN(self.valids[t]) then
          self.averageValid = self.averageValid + self.valids[t]
          nvalids = nvalids + 1
       end

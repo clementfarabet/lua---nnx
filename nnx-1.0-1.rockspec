@@ -22,6 +22,7 @@ description = {
 dependencies = {
    "lua >= 5.1",
    "torch",
+   "sys",
    "xlua",
    "lunit"
 }
@@ -71,6 +72,8 @@ build = {
          install_files(/lua/nnx SuperCriterion.lua)
          install_files(/lua/nnx Trainer.lua)
          install_files(/lua/nnx StochasticTrainer.lua)
+         install_files(/lua/nnx DataSet.lua)
+         install_files(/lua/nnx DataList.lua)
          add_subdirectory (test)
          install_targets(/lib nnx)
    ]],

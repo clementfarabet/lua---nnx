@@ -23,7 +23,7 @@ function StochasticTrainer:__init(...)
       {arg='learningRateDecay', type='number', help='learning rate decay (rate = rate * (1-decay), at each epoch)', default=0},
       {arg='weightDecay', type='number', help='amount of weight decay (W = W - decay*W)', default=0},
       {arg='momentum', type='number', help='amount of momentum on weights (dE/W = dE/dW + momentum*prev(dE/dW))', default=0},
-      {arg='maxIteration', type='number', help='maximum number of epochs', default=50},
+      {arg='maxEpoch', type='number', help='maximum number of epochs', default=50},
 
       {arg='maxTarget', type='boolean', help='replaces an CxHxW target map by a HxN target of max values (for NLL criterions)', default=false},
       {arg='dispProgress', type='boolean', help='display a progress bar during training/testing', default=true},
@@ -65,7 +65,7 @@ function StochasticTrainer:train(dataset)
       for t = 1,dataset:size() do
          -- disp progress
          if self.dispProgress then
-            xlua.dispProgress(t, dataset:size())
+            xlua.progress(t, dataset:size())
          end
 
          -- load new sample
@@ -117,7 +117,7 @@ function StochasticTrainer:train(dataset)
             end
 
             -- weight decay ?
-            if self.weightDecay ~= 0 then
+            if self.weightDecay ~= 0 and module.decayParameters then
                module:decayParameters(self.weightDecay)
             end
 
@@ -175,7 +175,7 @@ function StochasticTrainer:test(dataset)
    for t = 1,dataset:size() do
       -- disp progress
       if self.dispProgress then
-         xlua.dispProgress(t, dataset:size())
+         xlua.progress(t, dataset:size())
       end
 
       -- get new sample

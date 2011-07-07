@@ -74,3 +74,7 @@ torch.include('nnx', 'SuperCriterion.lua')
 -- trainers:
 torch.include('nnx', 'Trainer.lua')
 torch.include('nnx', 'StochasticTrainer.lua')
+
+-- datasets:
+torch.include('nnx', 'DataSet.lua')
+torch.include('nnx', 'DataList.lua')
