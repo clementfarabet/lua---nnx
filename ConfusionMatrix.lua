@@ -61,10 +61,18 @@ function ConfusionMatrix:__tostring__()
       for p = 1,nclasses do
          str = str .. '' .. string.format('%8d\t', self.mat[t][p])
       end
-      if t == nclasses then
-         str = str .. ']]  ' .. pclass .. '% ' .. (self.classes[t] or '') .. '\n'
+      if self.classes then
+         if t == nclasses then
+            str = str .. ']]  ' .. pclass .. '% [class: ' .. (self.classes[t] or '') .. ']\n'
+         else
+            str = str .. ']   ' .. pclass .. '% [class: ' .. (self.classes[t] or '') .. ']\n'
+         end
       else
-         str = str .. ']   ' .. pclass .. '% ' .. (self.classes[t] or '') .. '\n'
+         if t == nclasses then
+            str = str .. ']]  ' .. pclass .. '% \n'
+         else
+            str = str .. ']   ' .. pclass .. '% \n'
+         end
       end
    end
    str = str .. ' + average row correct: ' .. (self.averageValid*100) .. '% \n'

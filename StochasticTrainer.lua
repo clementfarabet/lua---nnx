@@ -27,7 +27,9 @@ function StochasticTrainer:__init(...)
 
       {arg='maxTarget', type='boolean', help='replaces an CxHxW target map by a HxN target of max values (for NLL criterions)', default=false},
       {arg='dispProgress', type='boolean', help='display a progress bar during training/testing', default=true},
-      {arg='skipUniformTargets', type='boolean', help='skip uniform (flat) targets during training', default=false}
+      {arg='skipUniformTargets', type='boolean', help='skip uniform (flat) targets during training', default=false},
+
+      {arg='save', type='string', help='path to save networks and log training'}
    )
    -- detect criterion type
    if torch.typename(self.criterion) == 'nn.ClassNLLCriterion' then
@@ -37,6 +39,16 @@ function StochasticTrainer:__init(...)
    self.errorArray = self.skipUniformTargets
    self.trainOffset = 0
    self.testOffset = 0
+end
+
+function StochasticTrainer:log()
+   -- save network
+   os.execute('mkdir -p ' .. self.save)
+   local filename = sys.concat(self.save .. '/network-'..os.date("%Y_%m_%d_%X"))
+   print('<trainer> saving network to '..filename)
+   local file = torch.DiskFile(filename,'w')
+   self.module:write(file)
+   file:close()
 end
 
 function StochasticTrainer:train(dataset)
@@ -137,6 +149,8 @@ function StochasticTrainer:train(dataset)
       if self.hookTrainEpoch then
          self.hookTrainEpoch(self)
       end
+
+      if self.save then self:log() end
 
       self.epoch = self.epoch + 1
       currentLearningRate = self.learningRate/(1+self.epoch*self.learningRateDecay)
