@@ -18,9 +18,9 @@ local help_example =
 [[EX:
 -- create a contrast normalizer, with a 9x9 gaussian kernel
 -- works on 8 input feature maps, therefore the mean+dev will
--- be estimated on 9x9x8 cubes
-stimulus = lab.randn(500,500,8)
-gaussian = image.gaussian{width=9}
+-- be estimated on 8x9x9 cubes
+stimulus = lab.randn(8,500,500)
+gaussian = image.gaussian(9)
 mod = nn.SpatialNormalization(gaussian, 8)
 result = mod:forward(stimulus)]]
 
@@ -95,7 +95,7 @@ function SpatialNormalization:__init(...) -- kernel for weighted mean | nb of fe
    convo1 = nn.Sequential()
    convo1:add(nn.SpatialPadding(self.padW,self.padW-self.kerWisPair,
                                     self.padH,self.padH-self.kerHisPair))
-   local ctable = nn.SpatialConvolutionTable:OneToOneTable(nf)
+   local ctable = nn.tables.oneToOne(nf)
    convo1:add(nn.SpatialConvolutionTable(ctable,ker:size(1),ker:size(2)))
    convo1:add(nn.Sum(3))
    convo1:add(nn.Replicate(nf))
@@ -110,7 +110,7 @@ function SpatialNormalization:__init(...) -- kernel for weighted mean | nb of fe
       local convo2 = nn.Sequential()
       convo2:add(nn.SpatialPadding(self.pad2W,self.pad2W-self.ker2WisPair,
                                    self.pad2H,self.pad2H-self.ker2HisPair))
-      local ctable = nn.SpatialConvolutionTable:OneToOneTable(nf)
+      local ctable = nn.tables.oneToOne(nf)
       convo2:add(nn.SpatialConvolutionTable(ctable,ker2:size(1),ker2:size(2)))
       convo2:add(nn.Sum(3))
       convo2:add(nn.Replicate(nf))
