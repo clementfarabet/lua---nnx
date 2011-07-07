@@ -87,6 +87,14 @@ function nnx.test_omp(threads)
 --       backward('SpatialMaxPooling_backward')
    end
 
+   function test_SpatialLinear()
+      ts = {}
+      times['SpatialLinear_forward'] = ts
+      n = nn.SpatialLinear(maps,maps2)
+      vec = lab.randn(maps,height,width)
+      forward('SpatialLinear_forward')
+   end
+
    -- run all tests
    lunit.main()
 

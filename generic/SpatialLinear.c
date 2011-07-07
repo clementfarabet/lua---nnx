@@ -9,6 +9,7 @@ static int nn_(SpatialLinear_forward)(lua_State *L)
   THTensor *bias = luaT_getfieldcheckudata(L, 1, "bias", torch_(Tensor_id));
   THTensor *weight = luaT_getfieldcheckudata(L, 1, "weight", torch_(Tensor_id));
   THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_(Tensor_id));
+  int threads = luaT_getfieldcheckint(L, 1, "threads");
 
   // dims
   int iwidth = input->size[2];
@@ -18,26 +19,37 @@ static int nn_(SpatialLinear_forward)(lua_State *L)
   int oheight = iheight;
   int ochannels = output->size[0];
 
-  // select planes
-  THTensor *outputPlane = THTensor_(new)();
-  THTensor *inputPlane = THTensor_(new)();
-
   // process each plane
   int ok,ik;
+  omp_set_num_threads(threads);
+  omp_lock_t lock; omp_init_lock(&lock);
+  #pragma omp parallel for private(ok,ik)
   for (ok=0; ok<ochannels; ok++) {
-    // get output plane
+
+    // select planes
+    omp_set_lock(&lock);
+    THTensor *outputPlane = THTensor_(new)();
+    THTensor *inputPlane = THTensor_(new)();
     THTensor_(select)(outputPlane, output, 0, ok);
     THTensor_(fill)(outputPlane, THTensor_(get1d)(bias,ok));
+    omp_unset_lock(&lock);
+
     for (ik=0; ik<ichannels; ik++) {
       // get input plane
       THTensor_(select)(inputPlane, input, 0, ik);
       THTensor_(cadd)(outputPlane, THTensor_(get2d)(weight,ok,ik), inputPlane);
     }
+
+    // cleanup
+    omp_set_lock(&lock);
+    THTensor_(free)(inputPlane);
+    THTensor_(free)(outputPlane);
+    omp_unset_lock(&lock);
   }
 
   // cleanup
-  THTensor_(free)(inputPlane);
-  THTensor_(free)(outputPlane);
+  omp_destroy_lock(&lock);
+
   return 1;
 }
 
@@ -52,6 +64,7 @@ static int nn_(SpatialLinear_backward)(lua_State *L)
   THTensor *gradWeight = luaT_getfieldcheckudata(L, 1, "gradWeight", torch_(Tensor_id));
   THTensor *gradBias = luaT_getfieldcheckudata(L, 1, "gradBias", torch_(Tensor_id));
   int weightDecay = luaT_getfieldcheckint(L, 1, "weightDecay");
+  int threads = luaT_getfieldcheckint(L, 1, "threads");
 
   // dims
   int iwidth = input->size[2];
