@@ -213,7 +213,7 @@ function lDataSet:popSubset(args)
    -- parse args
    local nElement = args.nElement
    local ratio = args.ratio or 0.1
-   local subset = args.outputSet or DataSet()
+   local subset = args.outputSet or nn.DataSet()
 
    -- get nb of samples to pop
    local start_index
