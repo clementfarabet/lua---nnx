@@ -78,6 +78,7 @@ build = {
          install_files(/lua/nnx CAddTable.lua)
          install_files(/lua/nnx CDivTable.lua)
          install_files(/lua/nnx CSubTable.lua)
+         install_files(/lua/nnx Replicate.lua)
          add_subdirectory (test)
          install_targets(/lib nnx)
    ]],

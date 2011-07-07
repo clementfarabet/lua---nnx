@@ -67,6 +67,7 @@ torch.include('nnx', 'CSubTable.lua')
 
 -- reshapers:
 torch.include('nnx', 'Narrow.lua')
+torch.include('nnx', 'Replicate.lua')
 
 -- spatial (images) operators:
 torch.include('nnx', 'SpatialLinear.lua')

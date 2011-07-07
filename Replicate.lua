@@ -7,22 +7,27 @@ function Replicate:__init(nf)
 end
 
 function Replicate:forward(input)
-   local sz = torch.LongStorage(input:dim()):copy(input:size()):resize(input:dim()+1,true)
-   sz[sz:size()] = self.nfeatures
-   local st = torch.LongStorage(input:dim()):copy(input:stride()):resize(input:dim()+1,true)
-   st[st:size()] = 0
+   local sz = torch.LongStorage(input:dim()+1)
+   sz[1] = self.nfeatures
+   for i = 1,input:dim() do
+      sz[i+1] = input:size(i)
+   end
+   local st = torch.LongStorage(input:stride()+1)
+   st[1] = 0
+   for i = 1,input:stride() do
+      sz[i+1] = input:stride(i)
+   end
    self.output:set(input:storage(),input:storageOffset(),sz,st)
    return self.output
 end
 
 function Replicate:backward(input, gradOutput)
    self.gradInput:resizeAs(input):zero()
-   for k=1,gradOutput:size(3) do
-      self.gradInput:add(gradOutput:select(3,k))
+   for k = 1,gradOutput:size(1) do
+      self.gradInput:add(gradOutput[k])
    end
    return self.gradInput
 end
-   
 
 function Replicate:write(file)
    parent.write(self,file)
