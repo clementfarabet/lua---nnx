@@ -27,23 +27,23 @@ function SpatialPadding:setPadding(pad_l, pad_r, pad_t, pad_b)
 end
 
 function SpatialPadding:forward(input)
-   local w = input:size(1) + self.pad_l + self.pad_r
    local h = input:size(2) + self.pad_t + self.pad_b
+   local w = input:size(3) + self.pad_l + self.pad_r
    if w < 1 or h < 1 then error("Input too small") end
-   self.output:resize(w, h, input:size(3))
+   self.output:resize(input:size(1), h, w)
    self.output:zero()
    -- crop input if necessary
    local c_input = input
-   if self.pad_l < 0 then c_input = c_input:narrow(1, 1 - self.pad_l, c_input:size(1) + self.pad_l) end
-   if self.pad_r < 0 then c_input = c_input:narrow(1, 1, c_input:size(1) + self.pad_r) end
    if self.pad_t < 0 then c_input = c_input:narrow(2, 1 - self.pad_t, c_input:size(2) + self.pad_t) end
    if self.pad_b < 0 then c_input = c_input:narrow(2, 1, c_input:size(2) + self.pad_b) end
+   if self.pad_l < 0 then c_input = c_input:narrow(3, 1 - self.pad_l, c_input:size(3) + self.pad_l) end
+   if self.pad_r < 0 then c_input = c_input:narrow(3, 1, c_input:size(3) + self.pad_r) end
    -- crop outout if necessary
    local c_output = self.output
-   if self.pad_l > 0 then c_output = c_output:narrow(1, 1 + self.pad_l, c_output:size(1) - self.pad_l) end
-   if self.pad_r > 0 then c_output = c_output:narrow(1, 1, c_output:size(1) - self.pad_r) end
    if self.pad_t > 0 then c_output = c_output:narrow(2, 1 + self.pad_t, c_output:size(2) - self.pad_t) end
    if self.pad_b > 0 then c_output = c_output:narrow(2, 1, c_output:size(2) - self.pad_b) end
+   if self.pad_l > 0 then c_output = c_output:narrow(3, 1 + self.pad_l, c_output:size(3) - self.pad_l) end
+   if self.pad_r > 0 then c_output = c_output:narrow(3, 1, c_output:size(3) - self.pad_r) end
    -- copy input to output
    c_output:copy(c_input)
    return self.output
@@ -53,16 +53,16 @@ function SpatialPadding:backward(input, gradOutput)
    self.gradInput:resizeAs(input):zero()
    -- crop gradInput if necessary
    local cg_input = self.gradInput
-   if self.pad_l < 0 then cg_input = cg_input:narrow(1, 1 - self.pad_l, cg_input:size(1) + self.pad_l) end
-   if self.pad_r < 0 then cg_input = cg_input:narrow(1, 1, cg_input:size(1) + self.pad_r) end
    if self.pad_t < 0 then cg_input = cg_input:narrow(2, 1 - self.pad_t, cg_input:size(2) + self.pad_t) end
    if self.pad_b < 0 then cg_input = cg_input:narrow(2, 1, cg_input:size(2) + self.pad_b) end
+   if self.pad_l < 0 then cg_input = cg_input:narrow(3, 1 - self.pad_l, cg_input:size(3) + self.pad_l) end
+   if self.pad_r < 0 then cg_input = cg_input:narrow(3, 1, cg_input:size(3) + self.pad_r) end
    -- crop gradOutout if necessary
    local cg_output = gradOutput
-   if self.pad_l > 0 then cg_output = cg_output:narrow(1, 1 + self.pad_l, cg_output:size(1) - self.pad_l) end
-   if self.pad_r > 0 then cg_output = cg_output:narrow(1, 1, cg_output:size(1) - self.pad_r) end
    if self.pad_t > 0 then cg_output = cg_output:narrow(2, 1 + self.pad_t, cg_output:size(2) - self.pad_t) end
    if self.pad_b > 0 then cg_output = cg_output:narrow(2, 1, cg_output:size(2) - self.pad_b) end
+   if self.pad_l > 0 then cg_output = cg_output:narrow(3, 1 + self.pad_l, cg_output:size(3) - self.pad_l) end
+   if self.pad_r > 0 then cg_output = cg_output:narrow(3, 1, cg_output:size(3) - self.pad_r) end
    -- copy gradOuput to gradInput
    cg_input:copy(cg_output)
    return self.gradInput

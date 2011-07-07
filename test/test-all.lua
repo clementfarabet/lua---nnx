@@ -12,6 +12,25 @@ function nnx.test_all()
 
    local jac = nnx.jacobian
 
+   function test_SpatialPadding()
+      local fanin = math.random(1,3)
+      local sizex = math.random(4,16)
+      local sizey = math.random(4,16)
+      local pad_l = math.random(0,8)
+      local pad_r = math.random(0,8)
+      local pad_t = math.random(0,8)
+      local pad_b = math.random(0,8)
+      local module = nn.SpatialPadding(pad_l, pad_r, pad_t, pad_b)
+      local input = lab.rand(fanin,sizey,sizex)
+
+      local error = jac.test_jac(module, input)
+      assert_equal((error < precision), true, 'error on state: ' .. error)
+
+      local ferr, berr = jac.test_io(module, input)
+      assert_equal(0, ferr, 'error in forward after i/o')
+      assert_equal(0, berr, 'error in backward after i/o')
+   end
+
    function test_SpatialLinear()
       local fanin = math.random(1,10)
       local fanout = math.random(1,10)
