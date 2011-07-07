@@ -1,11 +1,12 @@
 
 local ConfusionMatrix = torch.class('nn.ConfusionMatrix')
 
-function ConfusionMatrix:__init(nclasses)
+function ConfusionMatrix:__init(nclasses, classes)
    self.mat = lab.zeros(nclasses,nclasses)
    self.valids = lab.zeros(nclasses)
    self.totalValid = 0
    self.averageValid = 0
+   self.classes = classes
 end
 
 function ConfusionMatrix:add(prediction, target)
@@ -61,9 +62,9 @@ function ConfusionMatrix:__tostring__()
          str = str .. '' .. string.format('%8d\t', self.mat[t][p])
       end
       if t == nclasses then
-         str = str .. ']]  ' .. pclass .. '% \n'
+         str = str .. ']]  ' .. pclass .. '% ' .. (self.classes[t] or '') .. '\n'
       else
-         str = str .. ']   ' .. pclass .. '% \n'
+         str = str .. ']   ' .. pclass .. '% ' .. (self.classes[t] or '') .. '\n'
       end
    end
    str = str .. ' + average row correct: ' .. (self.averageValid*100) .. '% \n'
