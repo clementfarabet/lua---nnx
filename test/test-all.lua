@@ -453,6 +453,22 @@ function nnxtest.SpatialFovea_focused() template_SpatialFovea(4,7) end
 function nnxtest.SpatialFovea_unfocused() template_SpatialFovea() end
 function nnxtest.SpatialFovea_bilinear() template_SpatialFovea(nil,nil,true) end
 
+local function template_SpatialGraph(channels, iwidth, iheight, dist, norm)
+   local module = nn.SpatialGraph{normalize=norm, dist=dist}
+   local input = lab.rand(iwidth, iheight, channels)
+   local err = nn.Jacobian.testJacobian(module, input, 0.1, 1)
+   mytester:assertlt(err, precision, 'error on state ')
+
+   local ferr, berr = nn.Jacobian.testIO(module, input)
+   mytester:asserteq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
+   mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
+end
+function nnxtest.SpatialGraph_1() template_SpatialGraph(3, 16, 16, 'euclid', true) end
+function nnxtest.SpatialGraph_2() template_SpatialGraph(16, 4, 4, 'euclid', true) end
+function nnxtest.SpatialGraph_3() template_SpatialGraph(256, 2, 2, 'euclid', false) end
+function nnxtest.SpatialGraph_4() template_SpatialGraph(2, 16, 16, 'cosine', false) end
+function nnxtest.SpatialGraph_5() template_SpatialGraph(64, 3, 3, 'cosine', false) end
+
 function nnx.test()
    xlua.require('image',true)
    mytester = torch.Tester()

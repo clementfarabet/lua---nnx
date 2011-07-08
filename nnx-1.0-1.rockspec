@@ -88,6 +88,7 @@ build = {
          install_files(/lua/nnx SpatialClassNLLCriterion.lua)
          install_files(/lua/nnx SparseCriterion.lua)
          install_files(/lua/nnx SpatialSparseCriterion.lua)
+         install_files(/lua/nnx SpatialGraph.lua)
          add_subdirectory (test)
          install_targets(/lib nnx)
    ]],
