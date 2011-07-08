@@ -73,6 +73,7 @@ build = {
          install_files(/lua/nnx SpatialUpSampling.lua)
          install_files(/lua/nnx SpatialReSampling.lua)
          install_files(/lua/nnx SuperCriterion.lua)
+         install_files(/lua/nnx SpatialCriterion.lua)
          install_files(/lua/nnx Trainer.lua)
          install_files(/lua/nnx StochasticTrainer.lua)
          install_files(/lua/nnx DataSet.lua)
@@ -83,6 +84,8 @@ build = {
          install_files(/lua/nnx CSubTable.lua)
          install_files(/lua/nnx Replicate.lua)
          install_files(/lua/nnx SpatialFovea.lua)
+         install_files(/lua/nnx SpatialMSECriterion.lua)
+         install_files(/lua/nnx SpatialClassNLLCriterion.lua)
          add_subdirectory (test)
          install_targets(/lib nnx)
    ]],
