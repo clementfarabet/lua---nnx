@@ -1,7 +1,8 @@
 
 function nnx.test_all()
 
-   require 'lunit'
+   xlua.require('lunit',true)
+   xlua.require('image',true)
 
    nnx._test_all_ = nil
    module("nnx._test_all_", lunit.testcase, package.seeall)
@@ -362,6 +363,43 @@ function nnx.test_all()
       local ferr, berr = jac.test_io(module, input)
       assert_equal(0, ferr, torch.typename(module) .. ' - i/o forward err: ' .. ferr)
       assert_equal(0, berr, torch.typename(module) .. ' - i/o backward err: ' .. berr)
+   end
+
+   function test_SpatialNormalization_Gaussian2D()
+      local inputSize = math.random(11,20)
+      local kersize = 9
+      local nbfeatures = math.random(5,10)
+      local kernel = image.gaussian(kersize)
+      local module = nn.SpatialNormalization(nbfeatures,kernel,0.1)
+      local input = lab.rand(nbfeatures,inputSize,inputSize)
+      local error = jac.test_jac(module, input)
+      assert_equal((error < precision), true, torch.typename(module) ..  " w/ 2D Gaussian")
+   end
+
+   function test_SpatialNormalization_Gaussian1D()
+      local inputSize = math.random(14,20)
+      local kersize = 15
+      local nbfeatures = math.random(5,10)
+      local kernelh = image.gaussian1D(11):resize(11,1)
+      local kernelv = kernelh:t()
+      local module = nn.SpatialNormalization{kernels={kernelv,kernelh},
+                                             nInputPlane=nbfeatures,
+                                             threshold=0.1}
+      local input = lab.rand(nbfeatures,inputSize,inputSize)
+      local error = jac.test_jac(module, input)
+      assert_equal((error < precision), true, torch.typename(module) ..  " w/ 1D Gaussian")
+   end
+
+   function test_SpatialNormalization_io()
+      local inputSize = math.random(11,20)
+      local kersize = 7
+      local nbfeatures = math.random(2,5)
+      local kernel = image.gaussian(kersize)
+      local module = nn.SpatialNormalization(nbfeatures,kernel)
+      local input = lab.rand(nbfeatures,inputSize,inputSize)
+      local error_f, error_b = jac.test_io(module,input)
+      assert_equal(0, error_f, torch.typename(module) .. " - i/o forward")
+      assert_equal(0, error_b, torch.typename(module) .. " - i/o backward")
    end
 
    lunit.main()

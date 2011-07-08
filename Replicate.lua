@@ -12,12 +12,12 @@ function Replicate:forward(input)
    for i = 1,input:dim() do
       sz[i+1] = input:size(i)
    end
-   local st = torch.LongStorage(input:stride()+1)
+   local st = torch.LongStorage(input:dim()+1)
    st[1] = 0
-   for i = 1,input:stride() do
-      sz[i+1] = input:stride(i)
+   for i = 1,input:dim() do
+      st[i+1] = input:stride(i)
    end
-   self.output:set(input:storage(),input:storageOffset(),sz,st)
+   self.output = torch.Tensor(input:storage(),input:storageOffset(),sz,st)
    return self.output
 end
 
