@@ -45,7 +45,7 @@ function nnxtest.SpatialLinear()
 end
 
 function nnxtest.SpatialMaxPooling()
-   local fanin = math.random(1,10)
+   local fanin = math.random(1,4)
    local osizex = math.random(1,4)
    local osizey = math.random(1,4)
    local mx = math.random(2,6)
@@ -53,6 +53,40 @@ function nnxtest.SpatialMaxPooling()
    local sizex = osizex*mx
    local sizey = osizey*my
    local module = nn.SpatialMaxPooling(mx,my)
+   local input = lab.rand(fanin,sizey,sizex)
+
+   local err = nn.jacobian.test_jac(module, input)
+   mytester:assert_lt(err, precision, 'error on state ')
+
+   local ferr, berr = nn.jacobian.test_io(module, input)
+   mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
+   mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
+end
+
+function nnxtest.SpatialUpSampling()
+   local fanin = math.random(1,4)
+   local sizex = math.random(1,4)
+   local sizey = math.random(1,4)
+   local mx = math.random(2,6)
+   local my = math.random(2,6)
+   local module = nn.SpatialUpSampling(mx,my)
+   local input = lab.rand(fanin,sizey,sizex)
+
+   local err = nn.jacobian.test_jac(module, input)
+   mytester:assert_lt(err, precision, 'error on state ')
+
+   local ferr, berr = nn.jacobian.test_io(module, input)
+   mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
+   mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
+end
+
+function nnxtest.SpatialReSampling()
+   local fanin = math.random(1,4)
+   local sizex = math.random(4,8)
+   local sizey = math.random(4,8)
+   local osizex = math.random(1,12)
+   local osizey = math.random(1,12)
+   local module = nn.SpatialReSampling(osizex,osizey)
    local input = lab.rand(fanin,sizey,sizex)
 
    local err = nn.jacobian.test_jac(module, input)
@@ -295,8 +329,8 @@ function nnxtest.SpatialConvolutionTable_2()
 end
 
 function nnxtest.SpatialConvolutionTable_3()
-   local from = math.random(2,10)
-   local to = math.random(1,10)
+   local from = math.random(2,6)
+   local to = math.random(4,8)
    local ini = math.random(10,20)
    local inj = math.random(10,20)
    local ki = math.random(1,10)

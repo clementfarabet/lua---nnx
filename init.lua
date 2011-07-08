@@ -76,6 +76,8 @@ torch.include('nnx', 'SpatialConvolutionTable.lua')
 torch.include('nnx', 'SpatialMaxPooling.lua')
 torch.include('nnx', 'SpatialPadding.lua')
 torch.include('nnx', 'SpatialNormalization.lua')
+torch.include('nnx', 'SpatialUpSampling.lua')
+torch.include('nnx', 'SpatialReSampling.lua')
 
 -- criterions:
 torch.include('nnx', 'SuperCriterion.lua')
