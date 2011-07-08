@@ -31,8 +31,9 @@ static int nn_(SpatialLinear_forward)(lua_State *L)
     THTensor *outputPlane = THTensor_(new)();
     THTensor *inputPlane = THTensor_(new)();
     THTensor_(select)(outputPlane, output, 0, ok);
-    THTensor_(fill)(outputPlane, THTensor_(get1d)(bias,ok));
     omp_unset_lock(&lock);
+
+    THTensor_(fill)(outputPlane, THTensor_(get1d)(bias,ok));
 
     for (ik=0; ik<ichannels; ik++) {
       // get input plane
