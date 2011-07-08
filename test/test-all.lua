@@ -1,8 +1,7 @@
 
-local mytester = torch.Tester()
-local jac = nn.jacobian
-local precision = 1e-5
 local nnxtest = {}
+local precision = 1e-5
+local mytester
 
 function nnxtest.SpatialPadding()
    local fanin = math.random(1,3)
@@ -15,10 +14,10 @@ function nnxtest.SpatialPadding()
    local module = nn.SpatialPadding(pad_l, pad_r, pad_t, pad_b)
    local input = lab.rand(fanin,sizey,sizex)
 
-   local err = jac.test_jac(module, input)
+   local err = nn.jacobian.test_jac(module, input)
    mytester:assert_lt(err, precision, 'error on state ')
 
-   local ferr, berr = jac.test_io(module, input)
+   local ferr, berr = nn.jacobian.test_io(module, input)
    mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
    mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
@@ -31,16 +30,16 @@ function nnxtest.SpatialLinear()
    local module = nn.SpatialLinear(fanin, fanout)
    local input = lab.rand(fanin,sizey,sizex)
 
-   local err = jac.test_jac(module, input)
+   local err = nn.jacobian.test_jac(module, input)
    mytester:assert_lt(err, precision, 'error on state ')
 
-   local err = jac.test_jac_param(module, input, module.weight, module.gradWeight)
+   local err = nn.jacobian.test_jac_param(module, input, module.weight, module.gradWeight)
    mytester:assert_lt(err, precision, 'error on weight ')
 
-   local err = jac.test_jac_param(module, input, module.bias, module.gradBias)
+   local err = nn.jacobian.test_jac_param(module, input, module.bias, module.gradBias)
    mytester:assert_lt(err, precision, 'error on bias ')
 
-   local ferr, berr = jac.test_io(module, input)
+   local ferr, berr = nn.jacobian.test_io(module, input)
    mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
    mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
@@ -56,10 +55,10 @@ function nnxtest.SpatialMaxPooling()
    local module = nn.SpatialMaxPooling(mx,my)
    local input = lab.rand(fanin,sizey,sizex)
 
-   local err = jac.test_jac(module, input)
+   local err = nn.jacobian.test_jac(module, input)
    mytester:assert_lt(err, precision, 'error on state ')
 
-   local ferr, berr = jac.test_io(module, input)
+   local ferr, berr = nn.jacobian.test_io(module, input)
    mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
    mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
@@ -79,10 +78,10 @@ function nnxtest.Power()
 
    local module = nn.Power(pw)
 
-   local err = jac.test_jac(module, input, 0.1, 2)
+   local err = nn.jacobian.test_jac(module, input, 0.1, 2)
    mytester:assert_lt(err, precision, 'error on state ')
 
-   local ferr, berr = jac.test_io(module,input)
+   local ferr, berr = nn.jacobian.test_io(module,input)
    mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
    mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
@@ -101,10 +100,10 @@ function nnxtest.Square()
 
    local module = nn.Square()
 
-   local err = jac.test_jac(module, input)
+   local err = nn.jacobian.test_jac(module, input)
    mytester:assert_lt(err, precision, 'error on state ')
 
-   local ferr, berr = jac.test_io(module, input)
+   local ferr, berr = nn.jacobian.test_io(module, input)
    mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
    mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
@@ -123,10 +122,10 @@ function nnxtest.Sqrt()
 
    local module = nn.Sqrt()
 
-   local err = jac.test_jac(module, input, 0.1, 2)
+   local err = nn.jacobian.test_jac(module, input, 0.1, 2)
    mytester:assert_lt(err, precision, 'error on state ')
 
-   local ferr, berr = jac.test_io(module, input, 0.1, 2)
+   local ferr, berr = nn.jacobian.test_io(module, input, 0.1, 2)
    mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
    mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
@@ -139,10 +138,10 @@ function nnxtest.HardShrink()
 
    local module = nn.HardShrink()
 
-   local err = jac.test_jac(module, input, 0.1, 2)
+   local err = nn.jacobian.test_jac(module, input, 0.1, 2)
    mytester:assert_lt(err, precision, 'error on state ')
 
-   local ferr, berr = jac.test_io(module, input, 0.1, 2)
+   local ferr, berr = nn.jacobian.test_io(module, input, 0.1, 2)
    mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
    mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
@@ -155,10 +154,10 @@ function nnxtest.SpatialLogSoftMax()
 
    local module = nn.SpatialLogSoftMax()
 
-   local err = jac.test_jac(module, input, 0.1, 2)
+   local err = nn.jacobian.test_jac(module, input, 0.1, 2)
    mytester:assert_lt(err, precision, 'error on state ')
 
-   local ferr, berr = jac.test_io(module, input, 0.1, 2)
+   local ferr, berr = nn.jacobian.test_io(module, input, 0.1, 2)
    mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
    mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
@@ -171,10 +170,10 @@ function nnxtest.Threshold()
 
    local module = nn.Threshold(random.uniform(-2,2),random.uniform(-2,2))
 
-   local err = jac.test_jac(module, input)
+   local err = nn.jacobian.test_jac(module, input)
    mytester:assert_lt(err, precision, 'error on state ')
 
-   local ferr, berr = jac.test_io(module, input)
+   local ferr, berr = nn.jacobian.test_io(module, input)
    mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
    mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
@@ -187,10 +186,10 @@ function nnxtest.Abs()
 
    local module = nn.Abs()
 
-   local err = jac.test_jac(module, input)
+   local err = nn.jacobian.test_jac(module, input)
    mytester:assert_lt(err, precision, 'error on state ')
 
-   local ferr, berr = jac.test_io(module, input)
+   local ferr, berr = nn.jacobian.test_io(module, input)
    mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
    mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
@@ -203,10 +202,10 @@ function nnxtest.HardShrink()
 
    local module = nn.HardShrink()
 
-   local err = jac.test_jac(module, input)
+   local err = nn.jacobian.test_jac(module, input)
    mytester:assert_lt(err, precision, 'error on state ')
 
-   local ferr, berr = jac.test_io(module, input)
+   local ferr, berr = nn.jacobian.test_io(module, input)
    mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
    mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
@@ -223,16 +222,16 @@ function nnxtest.SpatialConvolution()
    local module = nn.SpatialConvolution(from, to, ki, kj, si, sj)
    local input = torch.Tensor(from, inj, ini):zero()
 
-   local err = jac.test_jac(module, input)
+   local err = nn.jacobian.test_jac(module, input)
    mytester:assert_lt(err, precision, 'error on state ')
 
-   local err = jac.test_jac_param(module, input, module.weight, module.gradWeight)
+   local err = nn.jacobian.test_jac_param(module, input, module.weight, module.gradWeight)
    mytester:assert_lt(err, precision, 'error on weight ')
 
-   local err = jac.test_jac_param(module, input, module.bias, module.gradBias)
+   local err = nn.jacobian.test_jac_param(module, input, module.bias, module.gradBias)
    mytester:assert_lt(err, precision, 'error on bias ')
 
-   local ferr, berr = jac.test_io(module, input)
+   local ferr, berr = nn.jacobian.test_io(module, input)
    mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
    mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
@@ -252,16 +251,16 @@ function nnxtest.SpatialConvolutionTable_1()
    local input = torch.Tensor(from, inj, ini):zero()
    module:reset()
 
-   local err = jac.test_jac(module, input)
+   local err = nn.jacobian.test_jac(module, input)
    mytester:assert_lt(err, precision, 'error on state ')
 
-   local err = jac.test_jac_param(module, input, module.weight, module.gradWeight)
+   local err = nn.jacobian.test_jac_param(module, input, module.weight, module.gradWeight)
    mytester:assert_lt(err, precision, 'error on weight ')
 
-   local err = jac.test_jac_param(module, input, module.bias, module.gradBias)
+   local err = nn.jacobian.test_jac_param(module, input, module.bias, module.gradBias)
    mytester:assert_lt(err, precision, 'error on bias ')
 
-   local ferr, berr = jac.test_io(module, input)
+   local ferr, berr = nn.jacobian.test_io(module, input)
    mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
    mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
@@ -281,16 +280,16 @@ function nnxtest.SpatialConvolutionTable_2()
    local input = torch.Tensor(from, inj, ini):zero()
    module:reset()
 
-   local err = jac.test_jac(module, input)
+   local err = nn.jacobian.test_jac(module, input)
    mytester:assert_lt(err, precision, 'error on state ')
 
-   local err = jac.test_jac_param(module, input, module.weight, module.gradWeight)
+   local err = nn.jacobian.test_jac_param(module, input, module.weight, module.gradWeight)
    mytester:assert_lt(err, precision, 'error on weight ')
 
-   local err = jac.test_jac_param(module, input, module.bias, module.gradBias)
+   local err = nn.jacobian.test_jac_param(module, input, module.bias, module.gradBias)
    mytester:assert_lt(err, precision, 'error on bias ')
 
-   local ferr, berr = jac.test_io(module, input)
+   local ferr, berr = nn.jacobian.test_io(module, input)
    mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
    mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
@@ -310,16 +309,16 @@ function nnxtest.SpatialConvolutionTable_3()
    local input = torch.Tensor(from, inj, ini):zero()
    module:reset()
 
-   local err = jac.test_jac(module, input)
+   local err = nn.jacobian.test_jac(module, input)
    mytester:assert_lt(err, precision, 'error on state ')
 
-   local err = jac.test_jac_param(module, input, module.weight, module.gradWeight)
+   local err = nn.jacobian.test_jac_param(module, input, module.weight, module.gradWeight)
    mytester:assert_lt(err, precision, 'error on weight ')
 
-   local err = jac.test_jac_param(module, input, module.bias, module.gradBias)
+   local err = nn.jacobian.test_jac_param(module, input, module.bias, module.gradBias)
    mytester:assert_lt(err, precision, 'error on bias ')
 
-   local ferr, berr = jac.test_io(module, input)
+   local ferr, berr = nn.jacobian.test_io(module, input)
    mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
    mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
@@ -331,7 +330,7 @@ function nnxtest.SpatialNormalization_Gaussian2D()
    local kernel = image.gaussian(kersize)
    local module = nn.SpatialNormalization(nbfeatures,kernel,0.1)
    local input = lab.rand(nbfeatures,inputSize,inputSize)
-   local err = jac.test_jac(module, input)
+   local err = nn.jacobian.test_jac(module, input)
    mytester:assert_lt(err, precision, 'error on state ')
 end
 
@@ -343,7 +342,7 @@ function nnxtest.SpatialNormalization_Gaussian1D()
    local kernelh = kernelv:t()
    local module = nn.SpatialNormalization(nbfeatures, {kernelv,kernelh}, 0.1)
    local input = lab.rand(nbfeatures,inputSize,inputSize)
-   local err = jac.test_jac(module, input)
+   local err = nn.jacobian.test_jac(module, input)
    mytester:assert_lt(err, precision, 'error on state ')
 end
 
@@ -354,18 +353,15 @@ function nnxtest.SpatialNormalization_io()
    local kernel = image.gaussian(kersize)
    local module = nn.SpatialNormalization(nbfeatures,kernel)
    local input = lab.rand(nbfeatures,inputSize,inputSize)
-   local ferr, berr = jac.test_io(module,input)
+   local ferr, berr = nn.jacobian.test_io(module,input)
    mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
    mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
 
-mytester:add(nnxtest)
 function nnx.test()
-   print '<nnx> verifying all modules'
    xlua.require('image',true)
+   mytester = torch.Tester()
+   mytester:add(nnxtest)
    math.randomseed(os.time())
    mytester:run()
-
-   print '<nn> verifying all modules'
-   nn.test()
 end
