@@ -77,6 +77,7 @@ torch.include('nnx', 'SpatialPadding.lua')
 torch.include('nnx', 'SpatialNormalization.lua')
 torch.include('nnx', 'SpatialUpSampling.lua')
 torch.include('nnx', 'SpatialReSampling.lua')
+torch.include('nnx', 'SpatialRecursiveFovea.lua')
 torch.include('nnx', 'SpatialFovea.lua')
 torch.include('nnx', 'SpatialGraph.lua')
 

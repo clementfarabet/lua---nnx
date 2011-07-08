@@ -1,7 +1,6 @@
-local RecursiveFovea, parent = torch.class('nn.RecursiveFovea', 'nn.Module')
+local SpatialRecursiveFovea, parent = torch.class('nn.SpatialRecursiveFovea', 'nn.Module')
 
-local help_desc =
-[[
+local help_desc = [[
 From a given image, generates a pyramid of scales, and process each scale
 with the given list of preprocessors and processors. 
 The result of each module/scale is upsampled to feed the next stage of recursion.
@@ -30,41 +29,27 @@ the current error with respect to some target vectors. If
 criterions are provided, then target vectors can be provided as
 well to the forward and backward functions.]]
 
-function RecursiveFovea:__init(...)
+function SpatialRecursiveFovea:__init(...)
    parent.__init(self)
+
    -- check args
    xlua.unpack_class(
       self,
       {...},
-      'nn.RecursiveFovea',
+      'nn.SpatialRecursiveFovea',
       help_desc,
-      {arg='nInputPlane', type='number',
-       help='number of input planes', 
-       req=true},
-      {arg='nRecursivePlane', type='number', 
-       help='number of recursive planes (e.g. nb of output planes used by next input stage', req=true},
-      {arg='ratios', type='table', 
-       help='list of downsampling ratios, in decreasing order', 
-       req=true},
-      {arg='processors', type='table', 
-       help='list of processors (each processor sees a single scale)', 
-       req=true},
-      {arg='preProcessors', type='table', 
-       help='list of preprocessors (applied before padding)'},
-      {arg='postProcessors', type='table', 
-       help='list of postprocessors (applied before criterions, and on last stage)'},
-      {arg='criterions', type='table', 
-       help='list of criterions (applied to each intermediate output)'},
-      {arg='fov', type='number', 
-       help='field of view (== processors\' receptive field)', default=1},
-      {arg='batchSize', type='number', 
-       help='size of mini-batch used when computing gradient [default = fov/sub]'},
-      {arg='sub', type='number', 
-       help='global subsampling (== processors\' subsampling ratio)', default=1},
-      {arg='scale_target_values', type='boolean', 
-       help='scale the target values as well as dimension',default=false},
-      {arg='verbose', type='boolean', 
-       help='prints a lot of information', default=true}
+      {arg='nInputPlane',       type='number',  help='number of input planes', req=true},
+      {arg='nRecursivePlane',   type='number',  help='number of recursive planes (e.g. nb of output planes used by next input stage', req=true},
+      {arg='ratios',            type='table',   help='list of downsampling ratios, in decreasing order', req=true},
+      {arg='processors',        type='table',   help='list of processors (each processor sees a single scale)', req=true},
+      {arg='preProcessors',     type='table',   help='list of preprocessors (applied before padding)'},
+      {arg='postProcessors',    type='table',   help='list of postprocessors (applied before criterions, and on last stage)'},
+      {arg='criterions',        type='table',   help='list of criterions (applied to each intermediate output)'},
+      {arg='fov',               type='number',  help='field of view (== processors\' receptive field)', default=1},
+      {arg='batchSize',         type='number',  help='size of mini-batch used when computing gradient [default = fov/sub]'},
+      {arg='sub',               type='number',  help='global subsampling (== processors\' subsampling ratio)', default=1},
+      {arg='scaleTargetValues', type='boolean', help='scale the target values as well as dimension', default=false},
+      {arg='verbose',           type='boolean', help='prints a lot of information', default=true}
    )
 
    -- batchSize ?
@@ -112,15 +97,15 @@ function RecursiveFovea:__init(...)
    -- check preprocessors/processors/criterions
    if #self.processors ~= #self.ratios then
       xerror('the number of processors provided should == the number of ratios (scales): ' .. #self.ratios,
-             'nn.RecursiveFovea')
+             'nn.SpatialRecursiveFovea')
    end
    if self.preProcessors[1] and #self.preProcessors ~= #self.ratios then
       xerror('the number of preProcessors provided should == the number of ratios (scales): ' .. #self.ratios,
-             'nn.RecursiveFovea')
+             'nn.SpatialRecursiveFovea')
    end
    if self.criterions[1] and #self.criterions ~= #self.ratios then
       xerror('the number of criterions provided should == the number of ratios (scales): ' .. #self.ratios,
-             'nn.RecursiveFovea')
+             'nn.SpatialRecursiveFovea')
    end
 
    -- sort scales, in decreasing order
@@ -132,7 +117,7 @@ function RecursiveFovea:__init(...)
    end
 end
 
-function RecursiveFovea:configure(fov, sub, input_w, input_h)
+function SpatialRecursiveFovea:configure(fov, sub, input_w, input_h)
    -- don't reconfigure if params have not changed
    if fov == self.fov and input_w == self.input_w and input_h == self.input_h then
       return
@@ -156,7 +141,7 @@ function RecursiveFovea:configure(fov, sub, input_w, input_h)
    self.bilinear = false
    for idx = 1,nscales do
       if ratios[idx] < 1 then
-         xerror('ratios should be >= 1','nn.RecursiveFovea')
+         xerror('ratios should be >= 1','nn.SpatialRecursiveFovea')
       elseif ratios[idx] ~= math.floor(ratios[idx]) then
          self.bilinear = true
       end
@@ -167,7 +152,7 @@ function RecursiveFovea:configure(fov, sub, input_w, input_h)
       -- check order
       if idx > 1 and self.ratios[idx] > self.ratios[idx-1] then
          xerror('downsampling ratios should be provided in decreasing order, for proper coarse-to-fine recursion',
-                'nn.RecursiveFovea')
+                'nn.SpatialRecursiveFovea')
       end
       -- pyramid size
       pyramid[idx] = {w = math.floor(input_w / ratios[idx]), h = math.floor(input_h / ratios[idx])}
@@ -194,7 +179,7 @@ function RecursiveFovea:configure(fov, sub, input_w, input_h)
       -- downsamplers (for pyramid)
       local r = ratios[idx]
       if self.bilinear then
-         self.downsamplers[idx] = nn.SpatialReSampling(pyramid[idx].w, pyramid[idx].h)
+         self.downsamplers[idx] = nn.SpatialReSampling(1/r, 1/r)
       else
          self.downsamplers[idx] = nn.SpatialSubSampling(self.nInputPlane, r, r, r, r)
          self.downsamplers[idx].weight:fill(1/(r^2))
@@ -216,9 +201,9 @@ function RecursiveFovea:configure(fov, sub, input_w, input_h)
          local upw = (ratios[idx] / ratios[idx+1]) * sub
          local uph = (ratios[idx] / ratios[idx+1]) * sub
          if self.bilinear then
-            self.upsamplers[idx] = nn.SpatialReSampling(pyramid[idx+1].w, pyramid[idx+1].h)
+            self.upsamplers[idx] = nn.SpatialReSampling(upw, uph)
          else
-            self.upsamplers[idx] = nn.SpatialUpSampling(self.nInputPlane, upw, uph)
+            self.upsamplers[idx] = nn.SpatialUpSampling(upw, uph)
          end
       end
    end
@@ -232,7 +217,7 @@ function RecursiveFovea:configure(fov, sub, input_w, input_h)
    -- info
    if self.debug then
       print('')
-      xprint('reconfig complete:','nn.RecursiveFovea')
+      xprint('reconfig complete:','nn.SpatialRecursiveFovea')
       for idx = 1,nscales do
          print('scale ' .. idx .. ' :')
          print('  + pyramid   > ' .. pyramid[idx].w .. 'x' .. pyramid[idx].h)
@@ -244,8 +229,8 @@ function RecursiveFovea:configure(fov, sub, input_w, input_h)
    end
 end
 
-function RecursiveFovea:__tostring__()
-   local str = 'nn.RecursiveFovea:\n'
+function SpatialRecursiveFovea:__tostring__()
+   local str = 'nn.SpatialRecursiveFovea:\n'
    str = str .. '  + number of recursion stages : '..(#self.ratios) .. '\n'
    str = str .. '  + downsampling ratios (scales) :'
    for idx = 1,#self.ratios do
@@ -261,7 +246,7 @@ function RecursiveFovea:__tostring__()
    return str
 end
 
-function RecursiveFovea:focus(x,y)
+function SpatialRecursiveFovea:focus(x,y)
    -- fprop and bprop sizes must be different 
    -- * frop must create an output which will be upsampled to batchsize+fov
    -- * bprop creates a batchsize+fov sized input around center of focus 
@@ -290,10 +275,10 @@ function RecursiveFovea:focus(x,y)
    self.corners = corners
 end
 
-function RecursiveFovea:forward(input,target,x,y)
+function SpatialRecursiveFovea:forward(input,target,x,y)
    -- input must be 3D
    if input:nDimension() ~= 3 or input:size(3) ~= self.nInputPlane then
-      xerror('input must be 3d and have ' .. self.nInputPlane .. ' input planes','nn.RecursiveFovea')
+      xerror('input must be 3d and have ' .. self.nInputPlane .. ' input planes','nn.SpatialRecursiveFovea')
    end
 
    -- focus ?
@@ -331,24 +316,23 @@ function RecursiveFovea:forward(input,target,x,y)
 
       -- (4) is fovea focused ?
       self.narrowed[idx] 
-         = self.padded[idx]:narrow(1,1,self.narrowed_size[idx].w):narrow(2,1,self.narrowed_size[idx].h)
+         = self.padded[idx]:narrow(3,1,self.narrowed_size[idx].w):narrow(2,1,self.narrowed_size[idx].h)
 
       -- (5) concatenate current input and upsampled result from previous stage in the recursion
       self.concatenated[idx] = self.concatenated[idx] or torch.Tensor()
-      self.concatenated[idx]:resize(self.narrowed[idx]:size(1), self.narrowed[idx]:size(2),
-                                    self.narrowed[idx]:size(3) + self.nRecursivePlane)
-      self.concatenated[idx]:narrow(3,1,self.narrowed[idx]:size(3)):copy(self.narrowed[idx])
+      self.concatenated[idx]:resize(self.narrowed[idx]:size(1) + self.nRecursivePlane,
+                                    self.narrowed[idx]:size(2), self.narrowed[idx]:size(3))
+      self.concatenated[idx]:narrow(1,1,self.narrowed[idx]:size(1)):copy(self.narrowed[idx])
       if idx > 1 then
-         local p = self.concatenated[idx]:narrow(3,self.narrowed[idx]:size(3)+1,
-                                                 self.nRecursivePlane)
+         local p = self.concatenated[idx]:narrow(1,self.narrowed[idx]:size(1)+1, self.nRecursivePlane)
          p:copy(self.upsampledNarrowed[idx-1])
-         if self.scale_target_values then
+         if self.scaleTargetValues then
             local r = self.ratios[idx-1]/self.ratios[idx]
             p:mul(r)
          end
          
       else
-         self.concatenated[idx]:narrow(3,self.narrowed[idx]:size(3)+1,self.nRecursivePlane):zero()
+         self.concatenated[idx]:narrow(1,self.narrowed[idx]:size(1)+1,self.nRecursivePlane):zero()
       end
 
       -- (6) apply processors to pyramid
@@ -364,7 +348,7 @@ function RecursiveFovea:forward(input,target,x,y)
 
          -- (7.c)
          self.upsampledNarrowed[idx]
-            = self.upsampledPadded[idx]:narrow(1,1,self.narrowed_size[idx+1].w):narrow(2,1,self.narrowed_size[idx+1].h)
+            = self.upsampledPadded[idx]:narrow(3,1,self.narrowed_size[idx+1].w):narrow(2,1,self.narrowed_size[idx+1].h)
       end
    end
 
@@ -408,7 +392,7 @@ function RecursiveFovea:forward(input,target,x,y)
          -- 20px shift at scale 1 is a 10px shift at scale 2, this
          -- changes the dimension of the target.  Need some sensibly
          -- named tag for this
-         if self.scale_target_values then
+         if self.scaleTargetValues then
             local ts = self.targets_scaled[idx]
             ts:mul(1/self.ratios[idx])
          end
@@ -435,7 +419,7 @@ function RecursiveFovea:forward(input,target,x,y)
       -- DEBUG
       if self.debug then
          print('')
-         xprint('adjusted focus points','nn.RecursiveFovea')
+         xprint('adjusted focus points','nn.SpatialRecursiveFovea')
          for idx = 1,nscales do
             if self.focused then
                print('  + at scale ' .. idx .. ', focused on corner: ' .. corners[idx].x .. ',' .. corners[idx].y ..
@@ -450,7 +434,7 @@ function RecursiveFovea:forward(input,target,x,y)
    return self.output, error
 end
 
-function RecursiveFovea:backward(input)
+function SpatialRecursiveFovea:backward(input)
    -- local params
    local nscales = #self.ratios
    local fov = self.fov
@@ -525,31 +509,31 @@ function RecursiveFovea:backward(input)
    return self.gradInput
 end
 
-function RecursiveFovea:reset(stdv)
+function SpatialRecursiveFovea:reset(stdv)
    for idx = 1,#self.processors do
       self.processors[idx]:reset(stdv)
    end
 end
 
-function RecursiveFovea:zeroGradParameters(momentum)
+function SpatialRecursiveFovea:zeroGradParameters(momentum)
    for idx = 1,#self.processors do
       self.processors[idx]:zeroGradParameters(momentum)
    end
 end
 
-function RecursiveFovea:updateParameters(learningRate)
+function SpatialRecursiveFovea:updateParameters(learningRate)
    for idx = 1,#self.processors do
       self.processors[idx]:updateParameters(learningRate)
    end
 end
 
-function RecursiveFovea:decayParameters(decay)
+function SpatialRecursiveFovea:decayParameters(decay)
    for idx = 1,#self.processors do
       self.processors[idx]:decayParameters(decay)
    end
 end
 
-function RecursiveFovea:write(file)
+function SpatialRecursiveFovea:write(file)
    parent.write(self, file)
    -- params
    file:writeInt(self.nInputPlane)
@@ -580,7 +564,7 @@ function RecursiveFovea:write(file)
    file:writeObject(self.predicted)
 end
 
-function RecursiveFovea:read(file)
+function SpatialRecursiveFovea:read(file)
    parent.read(self, file)
    -- params
    self.nInputPlane = file:readInt()
