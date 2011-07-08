@@ -50,7 +50,7 @@ static int nn_(SpatialConvolutionTable_forward)(lua_State *L)
     THTensor_(select)(weightPlane, weight, 0, k);
 
     /* Convolve */
-    THLab_(conv2Dmul)(outputPlane, 1.0, inputPlane, weightPlane, dH, dW, "valid");
+    THLab_(conv2Dmul)(outputPlane, 1.0, inputPlane, weightPlane, dH, dW, "vx");
   }
 
   /* Cleanup */
@@ -119,7 +119,7 @@ static int nn_(SpatialConvolutionTable_backward)(lua_State *L)
     /* Gradient to input */
     THTensor_(resize3d)(gradInputPlane, 1, gradInputPlane->size[0], gradInputPlane->size[1]);
     THTensor_(resize4d)(weightPlane, 1, 1, weightPlane->size[0], weightPlane->size[1]);
-    THLab_(conv2Dmv)(gradInputPlane, 1.0, gradOutputPlane, weightPlane, dH, dW, "full");
+    THLab_(conv2Dmv)(gradInputPlane, 1.0, gradOutputPlane, weightPlane, dH, dW, "fx");
   }
 
   THTensor_(free)(gradInputPlane);
