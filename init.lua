@@ -85,6 +85,7 @@ torch.include('nnx', 'SuperCriterion.lua')
 torch.include('nnx', 'SparseCriterion.lua')
 torch.include('nnx', 'SpatialMSECriterion.lua')
 torch.include('nnx', 'SpatialClassNLLCriterion.lua')
+torch.include('nnx', 'SpatialSparseCriterion.lua')
 
 -- trainers:
 torch.include('nnx', 'Trainer.lua')

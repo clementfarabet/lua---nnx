@@ -36,6 +36,9 @@ static const void* torch_DoubleTensor_id = NULL;
 #include "generic/SparseCriterion.c"
 #include "THGenerateFloatTypes.h"
 
+#include "generic/SpatialSparseCriterion.c"
+#include "THGenerateFloatTypes.h"
+
 #include "generic/Threshold.c"
 #include "THGenerateFloatTypes.h"
 
@@ -54,6 +57,7 @@ DLL_EXPORT int luaopen_libnnx(lua_State *L)
   nn_FloatSpatialUpSampling_init(L);
   nn_FloatSpatialReSampling_init(L);
   nn_FloatSparseCriterion_init(L);
+  nn_FloatSpatialSparseCriterion_init(L);
 
   nn_DoubleSpatialLinear_init(L);
   nn_DoubleHardShrink_init(L);
@@ -65,6 +69,7 @@ DLL_EXPORT int luaopen_libnnx(lua_State *L)
   nn_DoubleSpatialUpSampling_init(L);
   nn_DoubleSpatialReSampling_init(L);
   nn_DoubleSparseCriterion_init(L);
+  nn_DoubleSpatialSparseCriterion_init(L);
 
   return 1;
 }
