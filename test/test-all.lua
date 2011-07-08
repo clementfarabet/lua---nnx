@@ -80,13 +80,33 @@ function nnxtest.SpatialUpSampling()
    mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
 
-function nnxtest.SpatialReSampling()
+function nnxtest.SpatialReSampling_1()
    local fanin = math.random(1,4)
    local sizex = math.random(4,8)
    local sizey = math.random(4,8)
-   local osizex = math.random(1,12)
-   local osizey = math.random(1,12)
+   local osizex = math.random(2,12)
+   local osizey = math.random(2,12)
    local module = nn.SpatialReSampling(osizex,osizey)
+   local input = lab.rand(fanin,sizey,sizex)
+
+   local err = nn.jacobian.test_jac(module, input)
+   mytester:assert_lt(err, precision, 'error on state ')
+
+   local ferr, berr = nn.jacobian.test_io(module, input)
+   mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
+   mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
+end
+
+function nnxtest.SpatialReSampling_2()
+   local fanin = math.random(1,4)
+   local mx = math.random()*4 + 0.1
+   local my = math.random()*4 + 0.1
+   local osizex = math.random(4,6)
+   local osizey = math.random(4,6)
+   local sizex = osizex/mx
+   local sizey = osizey/my
+   print(sizex,sizey,mx,my)
+   local module = nn.SpatialReSampling(nil,nil,mx,my)
    local input = lab.rand(fanin,sizey,sizex)
 
    local err = nn.jacobian.test_jac(module, input)
