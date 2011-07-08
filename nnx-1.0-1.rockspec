@@ -23,8 +23,7 @@ dependencies = {
    "lua >= 5.1",
    "torch",
    "sys",
-   "xlua",
-   "lunit"
+   "xlua"
 }
 
 build = {
