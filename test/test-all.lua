@@ -105,7 +105,6 @@ function nnxtest.SpatialReSampling_2()
    local osizey = math.random(4,6)
    local sizex = osizex/mx
    local sizey = osizey/my
-   print(sizex,sizey,mx,my)
    local module = nn.SpatialReSampling(nil,nil,mx,my)
    local input = lab.rand(fanin,sizey,sizex)
 
