@@ -12,45 +12,6 @@ function SpatialMSECriterion:__init(...)
       {arg='sizeAverage', type='number', help='if true, forward() returns an average instead of a sum of errors', default=true},
       {arg='ignoreClass', type='number', help='all gradients for this class will be zeroed', default=false}
    )
-
-   xrequire('inline',true)
-
-   self.forward_c = inline.load [[
-         const void* torch_DoubleTensor_id = luaT_checktypename2id(L, "torch.DoubleTensor");
-         THDoubleTensor *input  = luaT_checkudata(L, 2, torch_DoubleTensor_id);
-         THDoubleTensor *target  = luaT_checkudata(L, 3, torch_DoubleTensor_id);
-         THDoubleTensor *output = luaT_getfieldcheckudata(L, 1, "fullOutput", torch_DoubleTensor_id);
-         double z = 0;
-         TH_TENSOR_APPLY3(double, output, double, input, double, target,
-                          z = (*input_data - *target_data);
-                          *output_data =  0.5*z*z;)
-         return 1;
-   ]]
-
-   SpatialMSECriterion.backward_c = inline.load [[
-         const void* torch_DoubleTensor_id = luaT_checktypename2id(L, "torch.DoubleTensor");
-         THDoubleTensor *input  = luaT_checkudata(L, 2, torch_DoubleTensor_id);
-         THDoubleTensor *target  = luaT_checkudata(L, 3, torch_DoubleTensor_id);
-         THDoubleTensor *gradInput  = luaT_checkudata(L, 4, torch_DoubleTensor_id);
-         TH_TENSOR_APPLY3(double, gradInput, double, input, double, target,
-                          *gradInput_data = (*input_data - *target_data);)
-         return 1;
-   ]]
-
-   self.createTarget_c = inline.load [[
-         const void* torch_DoubleTensor_id = luaT_checktypename2id(L, "torch.DoubleTensor");
-         THDoubleTensor *new  = luaT_checkudata(L, 1, torch_DoubleTensor_id);
-         THDoubleTensor *old  = luaT_checkudata(L, 2, torch_DoubleTensor_id);
-         int height = new->size[1];
-         int width = new->size[2];
-         int k,x,y;
-         for (y=0; y<height; y++) {
-            for (x=0; x<width; x++) {
-               THDoubleTensor_set3d(new, THDoubleTensor_get2d(old, y, x)-1, y, x, 1);
-            }
-         }
-         return 1;
-   ]]
 end
 
 function SpatialMSECriterion:adjustTarget(input, target)
@@ -62,7 +23,7 @@ function SpatialMSECriterion:adjustTarget(input, target)
    if target:dim() == 2 then
       self.newtarget = self.newtarget or torch.Tensor()
       self.newtarget:resizeAs(input):fill(-1)
-      self.createTarget_c(self.newtarget, target)
+      input.nn.SpatialMSECriterion_retarget(self.newtarget, target)
       target = self.newtarget
    end
    -- (2) if the target map has an incorrect size, it is assumed
@@ -109,7 +70,7 @@ function SpatialMSECriterion:forward(input,target)
    self.fullOutput = self.fullOutput or torch.Tensor()
    self.fullOutput:resizeAs(input)
    -- (3) compute the dense errors:
-   self:forward_c(input,target)
+   input.nn.SpatialMSECriterion_forward(self, input, target)
    -- (4) prune the errors, either by averaging, or accumulation:
    if self.sizeAverage then
       self.output = self.fullOutput:mean()
@@ -127,12 +88,12 @@ function SpatialMSECriterion:backward(input,target)
    -- (3) compute input gradients, based on the nbGradients param
    if self.nbGradients == -1 then
       -- dense gradients
-      self:backward_c(input,target,self.gradInput)
+      input.nn.SpatialMSECriterion_backward(self, input, target, self.gradInput)
    elseif self.nbGradients == 1 then
       -- only 1 gradient is computed, sampled in the center
       self.fullGradInput = torch.Tensor() or self.fullGradInput
       self.fullGradInput:resizeAs(input):zero()
-      self:backward_c(input,target,self.fullGradInput)
+      input.nn.SpatialMSECriterion_backward(self, input, target, self.fullGradInput)
       local y = math.ceil(self.gradInput:size(2)/2)
       local x = math.ceil(self.gradInput:size(3)/2)
       self.gradInput:select(3,x):select(2,y):copy(self.fullGradInput:select(3,x):select(2,y))
@@ -140,7 +101,7 @@ function SpatialMSECriterion:backward(input,target)
       -- only N gradients are computed, sampled in random locations
       self.fullGradInput = torch.Tensor() or self.fullGradInput
       self.fullGradInput:resizeAs(input):zero()
-      self:backward_c(input,target,self.fullGradInput)
+      input.nn.SpatialMSECriterion_backward(self, input, target, self.fullGradInput)
       for i = 1,self.nbGradients do
          local x = math.random(1,self.gradInput:size(1))
          local y = math.random(1,self.gradInput:size(2))

@@ -11,40 +11,6 @@ function SpatialClassNLLCriterion:__init(...)
       {arg='nbGradients', type='number', help='number of gradients to backpropagate (-1:all, >=1:nb)', default=-1},
       {arg='sizeAverage', type='number', help='if true, forward() returns an average instead of a sum of errors', default=true}
    )
-
-   xrequire('inline',true)
-
-   SpatialClassNLLCriterion.forward_c = inline.load [[
-         const void* torch_DoubleTensor_id = luaT_checktypename2id(L, "torch.DoubleTensor");
-         THDoubleTensor *input  = luaT_checkudata(L, 2, torch_DoubleTensor_id);
-         THDoubleTensor *target  = luaT_checkudata(L, 3, torch_DoubleTensor_id);
-         THDoubleTensor *output = luaT_getfieldcheckudata(L, 1, "fullOutput", torch_DoubleTensor_id);
-         int height = target->size[0];
-         int width = target->size[1];
-         int x,y;
-         for (y=0; y<height; y++) {
-            for (x=0; x<width; x++) {
-               THDoubleTensor_set2d(output, y, x, -THDoubleTensor_get3d(input, THDoubleTensor_get2d(target, y, x)-1, y, x) );
-            }
-         }
-         return 1;
-   ]]
-
-   SpatialClassNLLCriterion.backward_c = inline.load [[
-         const void* torch_DoubleTensor_id = luaT_checktypename2id(L, "torch.DoubleTensor");
-         THDoubleTensor *input  = luaT_checkudata(L, 2, torch_DoubleTensor_id);
-         THDoubleTensor *target  = luaT_checkudata(L, 3, torch_DoubleTensor_id);
-         THDoubleTensor *gradInput  = luaT_checkudata(L, 4, torch_DoubleTensor_id);
-         int height = target->size[0];
-         int width = target->size[1];
-         int x,y;
-         for (y=0; y<height; y++) {
-            for (x=0; x<width; x++) {
-               THDoubleTensor_set3d(gradInput, THDoubleTensor_get2d(target, y, x)-1, y, x, -1);
-            }
-         }
-         return 1;
-   ]]
 end
 
 function SpatialClassNLLCriterion:adjustTarget(input, target)
@@ -88,7 +54,7 @@ function SpatialClassNLLCriterion:forward(input,target)
    self.fullOutput = self.fullOutput or torch.Tensor()
    self.fullOutput:resizeAs(target)
    -- (3) compute the dense errors:
-   self:forward_c(input,target)
+   input.nn.SpatialClassNLLCriterion_forward(self,input,target)
    -- (4) prune the errors, either by averaging, or accumulation:
    if self.sizeAverage then
       self.output = self.fullOutput:mean()
@@ -106,12 +72,12 @@ function SpatialClassNLLCriterion:backward(input,target)
    -- (3) compute input gradients, based on the nbGradients param
    if self.nbGradients == -1 then
       -- dense gradients
-      self:backward_c(input,target,self.gradInput)
+      input.nn.SpatialClassNLLCriterion_backward(self,input,target,self.gradInput)
    elseif self.nbGradients == 1 then
       -- only 1 gradient is computed, sampled in the center
       self.fullGradInput = torch.Tensor() or self.fullGradInput
       self.fullGradInput:resizeAs(input):zero()
-      self:backward_c(input,target,self.fullGradInput)
+      input.nn.SpatialClassNLLCriterion_backward(self,input,target,self.fullGradInput)
       local y = math.ceil(self.gradInput:size(2)/2)
       local x = math.ceil(self.gradInput:size(3)/2)
       self.gradInput:select(3,x):select(2,y):copy(self.fullGradInput:select(3,x):select(2,y))
@@ -119,7 +85,7 @@ function SpatialClassNLLCriterion:backward(input,target)
       -- only N gradients are computed, sampled in random locations
       self.fullGradInput = torch.Tensor() or self.fullGradInput
       self.fullGradInput:resizeAs(input):zero()
-      self:backward_c(input,target,self.fullGradInput)
+      input.nn.SpatialClassNLLCriterion_backward(self,input,target,self.fullGradInput)
       for i = 1,self.nbGradients do
          local x = math.random(1,self.gradInput:size(1))
          local y = math.random(1,self.gradInput:size(2))
