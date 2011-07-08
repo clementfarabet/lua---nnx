@@ -23,10 +23,10 @@ function SpatialReSampling:__init(...)
    parent.__init(self)
    xlua.unpack_class(
       self, {...}, 'nn.SpatialReSampling', help_desc,
-      {arg='owidth', type='number', help='output width'},
-      {arg='oheight', type='number', help='output height'},
       {arg='rwidth', type='number', help='ratio: owidth/iwidth'},
-      {arg='rheight', type='number', help='ratio: oheight/iheight'}
+      {arg='rheight', type='number', help='ratio: oheight/iheight'},
+      {arg='owidth', type='number', help='output width'},
+      {arg='oheight', type='number', help='output height'}
    )
 end
 

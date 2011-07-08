@@ -86,7 +86,7 @@ function nnxtest.SpatialReSampling_1()
    local sizey = math.random(4,8)
    local osizex = math.random(2,12)
    local osizey = math.random(2,12)
-   local module = nn.SpatialReSampling(osizex,osizey)
+   local module = nn.SpatialReSampling(nil,nil,osizex,osizey)
    local input = lab.rand(fanin,sizey,sizex)
 
    local err = nn.jacobian.test_jac(module, input)
@@ -105,7 +105,7 @@ function nnxtest.SpatialReSampling_2()
    local osizey = math.random(4,6)
    local sizex = osizex/mx
    local sizey = osizey/my
-   local module = nn.SpatialReSampling(nil,nil,mx,my)
+   local module = nn.SpatialReSampling(mx,my)
    local input = lab.rand(fanin,sizey,sizex)
 
    local err = nn.jacobian.test_jac(module, input)
