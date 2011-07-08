@@ -78,6 +78,7 @@ torch.include('nnx', 'SpatialPadding.lua')
 torch.include('nnx', 'SpatialNormalization.lua')
 torch.include('nnx', 'SpatialUpSampling.lua')
 torch.include('nnx', 'SpatialReSampling.lua')
+torch.include('nnx', 'SpatialFovea.lua')
 
 -- criterions:
 torch.include('nnx', 'SuperCriterion.lua')

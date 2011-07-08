@@ -411,6 +411,36 @@ function nnxtest.SpatialNormalization_io()
    mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
 
+local function template_SpatialFovea(fx,fy,bilinear)
+   local channels = math.random(1,4)
+   local iwidth = 16
+   local iheight = 16
+
+   local module = nn.SpatialFovea{nInputPlane = channels,
+                                  ratios = {1,2},
+                                  preProcessors = {nn.Identity(),
+                                                   nn.Identity()},
+                                  processors = {nn.SpatialConvolution(channels,4,3,3),
+                                                nn.SpatialConvolution(channels,4,3,3)},
+                                  bilinear = bilinear,
+                                  fov = 3,
+                                  sub = 1}
+
+   input = lab.rand(channels, iheight, iwidth)
+
+   module:focus(fx,fy,3)
+   local err = nn.jacobian.test_jac(module, input)
+   mytester:assert_lt(err, precision, 'error on state ')
+
+   module:focus()
+   local ferr, berr = nn.jacobian.test_io(module, input)
+   mytester:assert_eq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
+   mytester:assert_eq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
+end
+function nnxtest.SpatialFovea_focused() template_SpatialFovea(4,7) end
+function nnxtest.SpatialFovea_unfocused() template_SpatialFovea() end
+function nnxtest.SpatialFovea_bilinear() template_SpatialFovea(nil,nil,true) end
+
 function nnx.test()
    xlua.require('image',true)
    mytester = torch.Tester()

@@ -63,9 +63,12 @@ function SpatialFovea:__init(...)
 
    -- check processors
    if #self.processors ~= #self.ratios then
-      xerror('the number of processors provided should == the number of ratiios (scales): ' .. #self.ratios,
-             'nn.SpatialFovea')
+      xlua.error('the number of processors provided should == the number of ratiios (scales): ' 
+                 .. #self.ratios, 'nn.SpatialFovea')
    end
+
+   -- reset
+   self:reset()
 end
 
 function SpatialFovea:focus(x,y,fov)
@@ -87,7 +90,7 @@ function SpatialFovea:configure(width,height)
 
       -- downsamplers
       if self.bilinear then
-         self.downsamplers[idx] = nn.SpatialReSampling(width/r, height/r)
+         self.downsamplers[idx] = nn.SpatialReSampling(1/r,1/r)
       else
          self.downsamplers[idx] = nn.SpatialSubSampling(self.nInputPlane, r, r, r, r)
          self.downsamplers[idx].weight:fill(1/(r^2))
@@ -104,7 +107,11 @@ function SpatialFovea:configure(width,height)
       end
 
       -- upsamplers
-      self.upsamplers[idx] = nn.SpatialUpSampling(self.nInputPlane, r, r)
+      if self.bilinear then
+         self.upsamplers[idx] = nn.SpatialReSampling(r, r)
+      else
+         self.upsamplers[idx] = nn.SpatialUpSampling(r, r)
+      end
    end
 end
 
@@ -113,11 +120,11 @@ function SpatialFovea:forward(input)
    if input:nDimension() ~= 3 then
       xerror('input must be 3d','nn.SpatialFovea')
    end
-   local width = input:size(1)
+   local width = input:size(3)
    local height = input:size(2)
-   local nmaps = input:size(3)
+   local nmaps = input:size(1)
    local nscales = #self.ratios
-   if input:size(3) ~= self.nInputPlane then
+   if input:size(1) ~= self.nInputPlane then
       xerror('input must have ' .. self.nInputPlane .. ' input planes' ,'nn.SpatialFovea')
    end
    self:configure(width,height)
@@ -147,7 +154,7 @@ function SpatialFovea:forward(input)
          local fov = self.fov
          local ox = math.floor(math.floor((self.x-1) / self.ratios[idx]) / self.sub) * self.sub + 1
          local oy = math.floor(math.floor((self.y-1) / self.ratios[idx]) / self.sub) * self.sub + 1
-         self.narrowed[idx] = self.padded[idx]:narrow(1,ox,fov):narrow(2,oy,fov)
+         self.narrowed[idx] = self.padded[idx]:narrow(3,ox,fov):narrow(2,oy,fov)
       end
    else
       for idx = 1,nscales do
@@ -174,14 +181,14 @@ function SpatialFovea:forward(input)
    -- (7) concatenate all maps into a single 3D volume
    local currentslice = 1
    for idx = 1,nscales do
-      currentslice = currentslice + self.processed[idx]:size(3)
+      currentslice = currentslice + self.processed[idx]:size(1)
    end
-   self.output:resize(self.upsampled[1]:size(1), self.upsampled[1]:size(2), currentslice-1)
+   self.output:resize(currentslice-1, self.upsampled[1]:size(2), self.upsampled[1]:size(3))
    currentslice = 1
    for idx = 1,nscales do
-      local omap = self.output:narrow(3, currentslice, self.upsampled[idx]:size(3))
+      local omap = self.output:narrow(1, currentslice, self.upsampled[idx]:size(1))
       omap:copy( self.upsampled[idx] )
-      currentslice = currentslice + self.upsampled[idx]:size(3)
+      currentslice = currentslice + self.upsampled[idx]:size(1)
    end
    return self.output
 end
@@ -193,8 +200,8 @@ function SpatialFovea:backward(input, gradOutput)
    -- (7) extract different scales
    local currentslice = 1
    for idx = 1,nscales do
-      self.gradUpsampled[idx] = gradOutput:narrow(3, currentslice, self.processed[idx]:size(3))
-      currentslice = currentslice + self.upsampled[idx]:size(3)
+      self.gradUpsampled[idx] = gradOutput:narrow(1, currentslice, self.processed[idx]:size(1))
+      currentslice = currentslice + self.upsampled[idx]:size(1)
    end
 
    -- (6) bprop through upsamplers
@@ -221,7 +228,7 @@ function SpatialFovea:backward(input, gradOutput)
          local fov = self.fov
          local ox = math.floor(math.floor((self.x-1) / self.ratios[idx]) / self.sub) * self.sub + 1
          local oy = math.floor(math.floor((self.y-1) / self.ratios[idx]) / self.sub) * self.sub + 1
-         self.gradPadded[idx]:narrow(1,ox,fov):narrow(2,oy,fov):copy(self.gradNarrowed[idx])
+         self.gradPadded[idx]:narrow(3,ox,fov):narrow(2,oy,fov):copy(self.gradNarrowed[idx])
       end
    else
       for idx = 1,nscales do
@@ -281,6 +288,7 @@ function SpatialFovea:write(file)
    file:writeInt(self.padding)
    file:writeInt(self.fov)
    file:writeInt(self.sub)
+   file:writeBool(self.bilinear)
    file:writeObject(self.ratios)
    file:writeObject(self.downsamplers)
    file:writeObject(self.padders)
@@ -296,15 +304,12 @@ function SpatialFovea:write(file)
 end
 
 function SpatialFovea:read(file)
-   if nn.SpatialFovea_legacy then
-      self:read_legacy(file)
-      return
-   end
    parent.read(self, file)
    self.nInputPlane = file:readInt()
    self.padding = file:readInt()
    self.fov = file:readInt()
    self.sub = file:readInt()
+   self.bilinear = file:readBool()
    self.ratios = file:readObject()
    self.downsamplers = file:readObject()
    self.padders = file:readObject()
@@ -323,24 +328,4 @@ function SpatialFovea:read(file)
    self.gradPadded = {}
    self.gradPreProcessed = {}
    self.gradPyramid = {}
-end
-
-function SpatialFovea:read_legacy(file)
-   local parentsargs = {}
-   parent.read(parentsargs, file)
-   local nInputPlane = file:readInt()
-   local padding = file:readInt()
-   local fov = file:readInt()
-   local ratios = file:readObject()
-   local sub = fov-padding
-
-   local downsamplers = file:readObject()
-   local upsamplers = file:readObject()
-   local processors = file:readObject()
-   local preProcessors = file:readObject()
-
-   self:__init(nInputPlane,ratios,processors,preProcessors,fov,sub)
-   for k,a in pairs(parentsargs) do
-      self[k] = a
-   end
 end
