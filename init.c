@@ -51,6 +51,9 @@ static const void* torch_DoubleTensor_id = NULL;
 #include "generic/SpatialGraph.c"
 #include "THGenerateFloatTypes.h"
 
+#include "generic/DataSetLabelMe.c"
+#include "THGenerateFloatTypes.h"
+
 DLL_EXPORT int luaopen_libnnx(lua_State *L)
 {
   torch_FloatTensor_id = luaT_checktypename2id(L, "torch.FloatTensor");
@@ -70,6 +73,7 @@ DLL_EXPORT int luaopen_libnnx(lua_State *L)
   nn_FloatSpatialMSECriterion_init(L);
   nn_FloatSpatialClassNLLCriterion_init(L);
   nn_FloatSpatialGraph_init(L);
+  nn_FloatDataSetLabelMe_init(L);
 
   nn_DoubleSpatialLinear_init(L);
   nn_DoubleHardShrink_init(L);
@@ -85,6 +89,7 @@ DLL_EXPORT int luaopen_libnnx(lua_State *L)
   nn_DoubleSpatialMSECriterion_init(L);
   nn_DoubleSpatialClassNLLCriterion_init(L);
   nn_DoubleSpatialGraph_init(L);
+  nn_DoubleDataSetLabelMe_init(L);
 
   return 1;
 }

@@ -95,3 +95,4 @@ torch.include('nnx', 'StochasticTrainer.lua')
 -- datasets:
 torch.include('nnx', 'DataSet.lua')
 torch.include('nnx', 'DataList.lua')
+torch.include('nnx', 'DataSetLabelMe.lua')

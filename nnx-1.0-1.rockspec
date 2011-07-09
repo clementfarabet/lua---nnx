@@ -78,6 +78,7 @@ build = {
          install_files(/lua/nnx StochasticTrainer.lua)
          install_files(/lua/nnx DataSet.lua)
          install_files(/lua/nnx DataList.lua)
+         install_files(/lua/nnx DataSetLabelMe.lua)
          install_files(/lua/nnx CMulTable.lua)
          install_files(/lua/nnx CAddTable.lua)
          install_files(/lua/nnx CDivTable.lua)

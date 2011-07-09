@@ -1,7 +1,7 @@
 --------------------------------------------------------------------------------
 -- DataSet: a class to handle standard datasets.
 --
--- Authors: Corda, Farabet
+-- Authors: Clement Farabet, Benoit Corda
 --------------------------------------------------------------------------------
 
 local lDataSet = torch.class('nn.DataSet')
@@ -16,6 +16,16 @@ end
 
 function lDataSet:size()
    return self.nbSamples
+end
+
+function lDataSet:__tostring__()
+   str = 'DataSet:\n'
+   if self.nbSamples then
+      str = str .. ' + nb samples : '..self.nbSamples
+   else
+      str = str .. ' + empty set...'
+   end
+   return str
 end
 
 function lDataSet:load(...)
@@ -302,10 +312,6 @@ function lDataSet:display(args) -- opt args : scale, nbSamples
       w:blit(tmp, scale, step_x, step_y, title)
       step_x = step_x + self[i][1]:size()[1]*scale
    end
-end
-
-function lDataSet:__show()
-   self:display{nbSamples=100}
 end
 
 function lDataSet:useCacheFile(fileName)

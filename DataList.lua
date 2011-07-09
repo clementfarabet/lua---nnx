@@ -16,8 +16,8 @@ function DataList:__init()
 end
 
 function DataList:__tostring__()
-   str = 'DataList'
-   str = str .. ' + nb samples : '..self.nbSamples
+   str = 'DataList:\n'
+   str = str .. ' + nb samples : '..self.nbSamples..'\n'
    str = str .. ' + nb classes : '..self.nbClass
    return str
 end
