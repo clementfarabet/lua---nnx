@@ -36,7 +36,6 @@ function DataSetLabelMe:__init(...)
       {arg='classToSkip', type='number', help='index of class to skip during sampling', default=0},
       {arg='preloadSamples', type='boolean', help='if true, all samples are preloaded in memory', default=false},
       {arg='cacheFile', type='string', help='path to cache file (once cached, loading is much faster)'},
-      {arg='processor', type='nn.fovea', help='module that postprocess the data for training'},
       {arg='verbose', type='boolean', help='dumps information', default=false}
    )
 
@@ -193,20 +192,14 @@ function DataSetLabelMe:__index__(key)
       end
 
       -- generate patch
-      local subx,suby
       self:loadSample(self.tags[which_tag].data[tag_idx+2])
       local ctr_x = self.tags[which_tag].data[tag_idx]
       local ctr_y = self.tags[which_tag].data[tag_idx+1]
-      local subtensor
-      if self.processor then
-         subtensor = self.processor:forward(self.currentSample,ctr_x,ctr_y)
-      else
-         subx = math.floor(ctr_x - self.patchSize/2) + 1
-         self.currentX = subx/self.currentSample:size(1)
-         suby = math.floor(ctr_y - self.patchSize/2) + 1
-         self.currentY = suby/self.currentSample:size(1)
-         subtensor = self.currentSample:narrow(3,subx,self.patchSize):narrow(2,suby,self.patchSize)
-      end
+      local subx = math.floor(ctr_x - self.patchSize/2) + 1
+      self.currentX = subx/self.currentSample:size(3)
+      local suby = math.floor(ctr_y - self.patchSize/2) + 1
+      self.currentY = suby/self.currentSample:size(2)
+      local subtensor = self.currentSample:narrow(3,subx,self.patchSize):narrow(2,suby,self.patchSize)
 
       if self.labelType == 'center' then
          -- generate label vector for patch centre
@@ -319,9 +312,9 @@ function DataSetLabelMe:__index__(key)
       local ctr_x = self.tags[which_tag].data[tag_idx]
       local ctr_y = self.tags[which_tag].data[tag_idx+1]
       local subx = math.floor(ctr_x - self.patchSize/2) + 1
-      self.currentX = subx/self.currentSample:size(1)
+      self.currentX = subx/self.currentSample:size(3)
       local suby = math.floor(ctr_y - self.patchSize/2) + 1
-      self.currentY = suby/self.currentSample:size(1)
+      self.currentY = suby/self.currentSample:size(2)
       local subtensor = self.currentSample:narrow(3,subx,self.patchSize):narrow(2,suby,self.patchSize)
       -- make a copy otherwise it will be overwritten
       subtensor = torch.Tensor():resizeAs(subtensor):copy(subtensor)
@@ -336,9 +329,9 @@ function DataSetLabelMe:__index__(key)
       local ctr_x2 = self.tags[which_tag2].data[tag_idx2]
       local ctr_y2 = self.tags[which_tag2].data[tag_idx2+1]
       local subx2 = math.floor(ctr_x2 - self.patchSize/2) + 1
-      self.currentX = subx2/self.currentSample:size(1)
+      self.currentX = subx2/self.currentSample:size(3)
       local suby2 = math.floor(ctr_y2 - self.patchSize/2) + 1
-      self.currentY = suby2/self.currentSample:size(1)
+      self.currentY = suby2/self.currentSample:size(2)
       local subtensor2 = self.currentSample:narrow(3,subx2,self.patchSize):narrow(2,suby2,self.patchSize)
       -- make a copy otherwise it will be overwritten
       subtensor2 = torch.Tensor():resizeAs(subtensor2):copy(subtensor2)
@@ -402,16 +395,16 @@ function DataSetLabelMe:loadSample(index)
          self.currentMask = torch.Tensor(h,w)
          image.scale(mask_loaded, self.currentMask, 'simple')
 
-      elseif self.rawSampleMaxSize and (self.rawSampleMaxSize < img_loaded:size(1)
+      elseif self.rawSampleMaxSize and (self.rawSampleMaxSize < img_loaded:size(3)
                                      or self.rawSampleMaxSize < img_loaded:size(2)) then
          -- resize to fit in bounding box
          local w,h
-         if img_loaded:size(1) >= img_loaded:size(2) then
+         if img_loaded:size(3) >= img_loaded:size(2) then
             w = self.rawSampleMaxSize
-            h = math.floor((w*img_loaded:size(2))/img_loaded:size(1))
+            h = math.floor((w*img_loaded:size(2))/img_loaded:size(3))
          else
             h = self.rawSampleMaxSize
-            w = math.floor((h*img_loaded:size(1))/img_loaded:size(2))
+            w = math.floor((h*img_loaded:size(3))/img_loaded:size(2))
          end
          self.currentSample = torch.Tensor(img_loaded:size(1),h,w)
          image.scale(img_loaded, self.currentSample, 'bilinear')
@@ -490,9 +483,9 @@ function DataSetLabelMe:parseMask(existing_tags)
    end
    local mask = self.currentMask
    local x_start = math.ceil(self.patchSize/2)
-   local x_end = mask:size(1) - math.ceil(self.patchSize/2)
+   local x_end = mask:size(2) - math.ceil(self.patchSize/2)
    local y_start = math.ceil(self.patchSize/2)
-   local y_end = mask:size(2) - math.ceil(self.patchSize/2)
+   local y_end = mask:size(1) - math.ceil(self.patchSize/2)
    mask.nn.DataSetLabelMe_extract(tags, mask, x_start, x_end, y_start, y_end, self.currentIndex)
    return tags
 end

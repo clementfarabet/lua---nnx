@@ -17,7 +17,7 @@ static int nn_(DataSetLabelMe_extract)(lua_State *L)
   THShortStorage *data;
   for (x=x_start; x<=x_end; x++) {
     for (y=y_start; y<=y_end; y++) {
-      label = THTensor_(get2d)(mask, x-1, y-1);                                   // label = mask[x][y]
+      label = THTensor_(get2d)(mask, y-1, x-1);                                   // label = mask[x][y]
       lua_rawgeti(L, tags, label);                                              // tag = tags[label]
       tag = lua_gettop(L);
       lua_pushstring(L, "size"); lua_rawget(L, tag);                            // size = tag.size
