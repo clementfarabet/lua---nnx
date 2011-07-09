@@ -2,6 +2,10 @@
 local ConfusionMatrix = torch.class('nn.ConfusionMatrix')
 
 function ConfusionMatrix:__init(nclasses, classes)
+   if type(nclasses) == 'table' then
+      classes = nclasses
+      nclasses = #classes
+   end
    self.mat = lab.zeros(nclasses,nclasses)
    self.valids = lab.zeros(nclasses)
    self.nclasses = nclasses
