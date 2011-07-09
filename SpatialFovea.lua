@@ -260,7 +260,9 @@ end
 
 function SpatialFovea:reset(stdv)
    for idx = 1,#self.processors do
-      self.processors[idx]:reset(stdv)
+      if self.processors[idx].reset then
+         self.processors[idx]:reset(stdv)
+      end
    end
 end
 

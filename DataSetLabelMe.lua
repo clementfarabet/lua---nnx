@@ -16,7 +16,7 @@ local path_masks = 'Masks'
 
 function DataSetLabelMe:__init(...)
    -- check args
-   toolBox.unpack_class(
+   xlua.unpack_class(
       self,
       {...},
       'DataSetLabelMe',
@@ -26,7 +26,7 @@ function DataSetLabelMe:__init(...)
       {arg='classNames', type='table', help='list of class names', default={'no name'}},
       {arg='nbRawSamples', type='number', help='number of images'},
       {arg='rawSampleMaxSize', type='number', help='resize all images to fit in a MxM window'},
-      {arg='rawSampleSize', type='table', help='resize all images precisely'},
+      {arg='rawSampleSize', type='table', help='resize all images precisely: {w=,h=}}'},
       {arg='nbPatchPerSample', type='number', help='number of patches to extract from each image', default=100},
       {arg='patchSize', type='number', help='size of patches to extract from images', default=64},
       {arg='samplingMode', type='string', help='patch sampling method: random | uniform', default='random'},
@@ -41,9 +41,10 @@ function DataSetLabelMe:__init(...)
    )
 
    -- fixed parameters
-   self.colorMap = image.createColorMap(self.nbClasses)
+   self.colorMap = image.colormap(self.nbClasses)
    self.rawdata = {}
    self.currentIndex = -1
+
    --location of the patch in the img
    self.currentX = 0
    self.currentY = 0
@@ -59,11 +60,11 @@ function DataSetLabelMe:__init(...)
                local imgf = paths.concat(self.path,path_images,folder,file)
                local maskf = paths.concat(self.path,path_masks,folder,filepng)
                local annotf = paths.concat(self.path,path_annotations,folder,filexml)
-               local size_x, size_y, size_c = image.getJPGsize(imgf)
+               local size_c, size_y, size_x = image.getJPGsize(imgf)
                table.insert(self.rawdata, {imgfile=imgf,
                                            maskfile=maskf,
                                            annotfile=annotf,
-                                           size={size_x, size_y, size_c}})
+                                           size={size_c, size_y, size_x}})
             end
          end
       end
@@ -73,11 +74,11 @@ function DataSetLabelMe:__init(...)
    self.nbRawSamples = self.nbRawSamples or #self.rawdata
 
    -- extract some info (max sizes)
-   self.maxX = self.rawdata[1].size[1]
    self.maxY = self.rawdata[1].size[2]
+   self.maxX = self.rawdata[1].size[3]
    for i = 2,self.nbRawSamples do
-      if self.maxX < self.rawdata[i].size[1] then
-         self.maxX = self.rawdata[i].size[1]
+      if self.maxX < self.rawdata[i].size[3] then
+         self.maxX = self.rawdata[i].size[3]
       end
       if self.maxY < self.rawdata[i].size[2] then
          self.maxY = self.rawdata[i].size[2]
@@ -88,7 +89,7 @@ function DataSetLabelMe:__init(...)
 
    -- max size ?
    if not self.rawSampleMaxSize then
-      self.rawSampleMaxSize = math.max(self.rawSampleSize[1],self.rawSampleSize[2])
+      self.rawSampleMaxSize = math.max(self.rawSampleSize.w,self.rawSampleSize.h)
    end
    local maxXY = math.max(self.maxX, self.maxY)
    if maxXY < self.rawSampleMaxSize then
@@ -151,7 +152,7 @@ function DataSetLabelMe:__tostring__()
       str = str .. self.rawSampleMaxSize .. 'x' .. self.rawSampleMaxSize .. ' tensor'
       str = str .. ' [max raw size = ' .. self.maxX .. 'x' .. self.maxY .. ']\n'
       if self.rawSampleSize then
-         str = str .. '  + imposed ratio of ' .. self.rawSampleSize[1] .. 'x' .. self.rawSampleSize[2] .. '\n'
+         str = str .. '  + imposed ratio of ' .. self.rawSampleSize.w .. 'x' .. self.rawSampleSize.h .. '\n'
       end
    end
    str = str .. '  + patches size : ' .. self.patchSize .. 'x' .. self.patchSize .. '\n'
@@ -204,13 +205,13 @@ function DataSetLabelMe:__index__(key)
          self.currentX = subx/self.currentSample:size(1)
          suby = math.floor(ctr_y - self.patchSize/2) + 1
          self.currentY = suby/self.currentSample:size(1)
-         subtensor = self.currentSample:narrow(1,subx,self.patchSize):narrow(2,suby,self.patchSize)
+         subtensor = self.currentSample:narrow(3,subx,self.patchSize):narrow(2,suby,self.patchSize)
       end
 
       if self.labelType == 'center' then
          -- generate label vector for patch centre
-         local vector = torch.Tensor(1,1,self.nbClasses):fill(-1)
-         vector[1][1][which_tag] = 1
+         local vector = torch.Tensor(self.nbClasses,1,1):fill(-1)
+         vector[which_tag][1][1] = 1
 
          -- and optional string
          local label = self.classNames[which_tag]
@@ -230,8 +231,8 @@ function DataSetLabelMe:__index__(key)
          end
 
          -- generate label vector for patch centre
-         local vector = torch.Tensor(1,1,self.nbClasses):fill(-1)
-         vector[1][1][which_tag] = 1
+         local vector = torch.Tensor(self.nbClasses,1,1):fill(-1)
+         vector[which_tag][1][1] = 1
 
          -- and optional string
          local label = self.classNames[which_tag]
@@ -321,11 +322,11 @@ function DataSetLabelMe:__index__(key)
       self.currentX = subx/self.currentSample:size(1)
       local suby = math.floor(ctr_y - self.patchSize/2) + 1
       self.currentY = suby/self.currentSample:size(1)
-      local subtensor = self.currentSample:narrow(1,subx,self.patchSize):narrow(2,suby,self.patchSize)
+      local subtensor = self.currentSample:narrow(3,subx,self.patchSize):narrow(2,suby,self.patchSize)
       -- make a copy otherwise it will be overwritten
       subtensor = torch.Tensor():resizeAs(subtensor):copy(subtensor)
       -- generate label vector for patch centre
-      local vector = torch.Tensor(1,1,self.nbClasses):fill(-1)
+      local vector = torch.Tensor(self.nbClasses,1,1):fill(-1)
 
       -- generate pixelwise annotation
       local annotation = self.currentMask:narrow(1,subx,self.patchSize):narrow(2,suby,self.patchSize)
@@ -338,18 +339,18 @@ function DataSetLabelMe:__index__(key)
       self.currentX = subx2/self.currentSample:size(1)
       local suby2 = math.floor(ctr_y2 - self.patchSize/2) + 1
       self.currentY = suby2/self.currentSample:size(1)
-      local subtensor2 = self.currentSample:narrow(1,subx2,self.patchSize):narrow(2,suby2,self.patchSize)
+      local subtensor2 = self.currentSample:narrow(3,subx2,self.patchSize):narrow(2,suby2,self.patchSize)
       -- make a copy otherwise it will be overwritten
       subtensor2 = torch.Tensor():resizeAs(subtensor2):copy(subtensor2)
       -- generate label vector for patch centre
-      local vector2 = torch.Tensor(1,1,self.nbClasses):fill(-1)
+      local vector2 = torch.Tensor(self.nbClasses,1,1):fill(-1)
 
       -- generate pixelwise annotation
       local annotation2 = self.currentMask:narrow(1,subx2,self.patchSize):narrow(2,suby2,self.patchSize)
 
       if self.labelType == 'center' then
-         vector[1][1][which_tag] = 1
-         vector2[1][1][which_tag2] = 1
+         vector[which_tag][1][1] = 1
+         vector2[which_tag2][1][1] = 1
          -- and optional string
          local label = self.classNames[which_tag]
          local label2 = self.classNames[which_tag2]
@@ -394,11 +395,11 @@ function DataSetLabelMe:loadSample(index)
       -- resize ?
       if self.rawSampleSize then
          -- resize precisely
-         local w = self.rawSampleSize[1]
-         local h = self.rawSampleSize[2]
-         self.currentSample = torch.Tensor(w,h,img_loaded:size(3))
+         local w = self.rawSampleSize.w
+         local h = self.rawSampleSize.h
+         self.currentSample = torch.Tensor(img_loaded:size(1),h,w)
          image.scale(img_loaded, self.currentSample, 'bilinear')
-         self.currentMask = torch.Tensor(w,h)
+         self.currentMask = torch.Tensor(h,w)
          image.scale(mask_loaded, self.currentMask, 'simple')
 
       elseif self.rawSampleMaxSize and (self.rawSampleMaxSize < img_loaded:size(1)
@@ -412,9 +413,9 @@ function DataSetLabelMe:loadSample(index)
             h = self.rawSampleMaxSize
             w = math.floor((h*img_loaded:size(1))/img_loaded:size(2))
          end
-         self.currentSample = torch.Tensor(w,h,img_loaded:size(3))
+         self.currentSample = torch.Tensor(img_loaded:size(1),h,w)
          image.scale(img_loaded, self.currentSample, 'bilinear')
-         self.currentMask = torch.Tensor(w,h)
+         self.currentMask = torch.Tensor(h,w)
          image.scale(mask_loaded, self.currentMask, 'simple')
       else
          self.currentSample = img_loaded
@@ -443,12 +444,11 @@ function DataSetLabelMe:preload(saveFile)
    print('<DataSetLabelMe> preloading all images')
    self.preloaded = {samples={}, masks={}}
    for i = 1,self.nbRawSamples do
-      toolBox.dispProgress(i,self.nbRawSamples)
+      xlua.progress(i,self.nbRawSamples)
       -- load samples, and store them in raw byte tensors (min memory footprint)
       self:loadSample(i)
-      local rawTensor = torch.ByteTensor(self.currentSample:size())
-      local rawMask = torch.ByteTensor(self.currentMask:size()):copy(self.currentMask)
-      rawTensor:copy(self.currentSample:mul(255))
+      local rawTensor = torch.Tensor(self.currentSample:size()):copy(self.currentSample:mul(255))
+      local rawMask = torch.Tensor(self.currentMask:size()):copy(self.currentMask)
       -- insert them in our list
       table.insert(self.preloaded.samples, rawTensor)
       table.insert(self.preloaded.masks, rawMask)
@@ -515,7 +515,7 @@ function DataSetLabelMe:parseAllMasks(saveFile)
                    3*2/1024/1024)..'MB')
    self.tags = nil
    for i = 1,self.nbRawSamples do
-      toolBox.dispProgress(i,self.nbRawSamples)
+      xlua.progress(i,self.nbRawSamples)
       self:loadSample(i)
       self.tags = self:parseMask(self.tags)
    end
@@ -535,88 +535,6 @@ function DataSetLabelMe:parseAllMasks(saveFile)
       file:binary()
       file:writeObject(self.tags)
       file:close()
-   end
-end
-
-function DataSetLabelMe:exportIDX(samplefile, labelfile)
-   -- current limitation for IDX files
-   local idxMaxSize = 2^31-1
-
-   if samplefile then
-      -- message
-      print('<DataSetLabelMe> exporting data to '..samplefile..'-n|N.idx')
-
-      -- check for global size
-      local chanels = self.preloaded.samples[1]:size(3)
-      local exportSize = self.rawSampleMaxSize^2 * chanels * self.nbRawSamples * 4
-      local nbFiles = math.ceil(exportSize / idxMaxSize)
-      local offset = 0
-
-      for n = 1,nbFiles do
-         local exported
-         local nbSamplesPerFile = math.floor(idxMaxSize / (self.rawSampleMaxSize^2 * chanels * 4))
-         if n == nbFiles then
-            nbSamplesPerFile = self.nbRawSamples - ((nbFiles-1)*nbSamplesPerFile)
-         end
-         exported = torch.FloatTensor(self.rawSampleMaxSize, self.rawSampleMaxSize,
-                                      chanels, nbSamplesPerFile)
-
-         local filename = samplefile..'-'..string.format("%05d",n)..'|'..string.format("%05d",nbFiles)..'.idx'
-         print('+ doing '..filename..' ('..exported:size(4)..' samples)')
-         if not paths.filep(filename) then
-            -- export samples
-            for i = 1,exported:size(4) do
-               toolBox.dispProgress(i,exported:size(4))
-               local sample = self.preloaded.samples[offset+i]
-               local w = sample:size(1)
-               local h = sample:size(2)
-               exported:select(4,i):narrow(1,1,w):narrow(2,1,h):copy(sample)
-            end
-            offset = offset + exported:size(4)
-
-            -- write file
-            local file = torch.DiskFile(filename,'w')
-            file:binary()
-            file:writeInt(0x1e3d4c51) -- float type
-            file:writeInt(4) -- nb dims
-            file:writeInt(exported:size(4)) -- dim[0]
-            file:writeInt(exported:size(3)) -- dim[1]
-            file:writeInt(exported:size(2)) -- dim[2]
-            file:writeInt(exported:size(1)) -- dim[3]
-            file:writeFloat(exported:storage()) -- data
-            file:close()
-         end
-      end
-   end
-   if labelfile then
-      print('<DataSetLabelMe> exporting labels to '..labelfile..'-N.idx (N=0..'..tostring(#self.tags-1)..')')
-      -- export each tag list in a separate file
-      local tags = self.tags
-      local nbtags = #tags
-      for i = 1,nbtags do
-         local exportSize = tags[i].size
-         toolBox.dispProgress(i,nbtags)
-         if exportSize ~= 0 and not paths.filep(labelfile..'-'..tostring(i-1)..'.idx') then
-            local dest = torch.ShortTensor(exportSize)
-            local src = torch.ShortTensor():set(tags[i].data,1,exportSize)
-            dest:copy(src)
-            -- add 1 to the whole tensor, to go to 0-based indexing
-            dest:apply(function (x) return x-1 end)
-            -- write file
-            local file = torch.DiskFile(labelfile..'-'..string.format("%05d",tostring(i-1))..'.idx', 'w')
-            file:binary()
-            file:writeInt(0x1e3d4c56) -- short type
-            file:writeInt(2) -- nb dims
-            file:writeInt(exportSize/3) -- dim[0]
-            file:writeInt(3) -- dim[1]
-            file:writeInt(1) -- unused dim
-            file:writeShort(dest:storage()) -- data
-            file:close()
-            -- garbage cleaning
-            dest = nil
-            collectgarbage()
-         end
-      end
    end
 end
 
@@ -643,11 +561,11 @@ function DataSetLabelMe:display(args)
    end
 
    -- load the samples and display them
-   local dispTensor = torch.Tensor(sizeX*scale,sizeY*scale,3)
-   local dispMask = torch.Tensor(sizeX*scale,sizeY*scale)
+   local dispTensor = torch.Tensor(3,sizeY*scale,sizeX*scale)
+   local dispMask = torch.Tensor(sizeY*scale,sizeX*scale)
    local displayer = Displayer()
    for i=1,nbSamples do
-      toolBox.dispProgress(i,nbSamples)
+      xlua.progress(i,nbSamples)
       self:loadSample(i)
       image.scale(self.currentSample, dispTensor, 'simple')
       image.scale(self.currentMask, dispMask, 'simple')
