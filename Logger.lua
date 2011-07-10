@@ -3,10 +3,12 @@ local Logger = torch.class('nn.Logger')
 
 function Logger:__init(filename)
    if filename then
+      os.execute('mkdir -p ' .. sys.dirname(filename))
+      filename = sys.concat(filename .. '-'..os.date("%Y_%m_%d_%X"))
       self.file = io.open(filename,'w')
    else
       self.file = io.stdout
-      print('<Logger> warning: no file name provided, logging to std out') 
+      print('<Logger> warning: no path provided, logging to std out') 
    end
    self.empty = true
    self.symbols = {}
@@ -49,15 +51,28 @@ function Logger:plot(...)
       end
       return
    end
-   for name,list in pairs(self.symbols) do
-      local nelts = #list
-      local plot_x = lab.range(1,nelts)
-      local plot_y = torch.Tensor(nelts)
-      for i = 1,nelts do
-         plot_y[i] = list[i]
+   local plotsymbol = 
+      function(name,list)
+         if #list > 1 then
+            local nelts = #list
+            local plot_x = lab.range(1,nelts)
+            local plot_y = torch.Tensor(nelts)
+            for i = 1,nelts do
+               plot_y[i] = list[i]
+            end
+            self.figures[name] = lab.figure(self.figures[name])
+            lab.plot(name, plot_x, plot_y, '-')
+            lab.title(name)
+         end
       end
-      self.figures[name] = lab.figure(self.figures[name])
-      lab.plot(name, plot_x, plot_y, '-')
-      lab.title(name)
+   local args = {...}
+   if not args[1] then -- plot all symbols
+      for name,list in pairs(self.symbols) do
+         plotsymbol(name,list)
+      end
+   else -- plot given symbols
+      for i,name in ipairs(args) do
+         plotsymbol(name,self.symbols[name])
+      end
    end
 end
