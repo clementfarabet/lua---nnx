@@ -60,6 +60,7 @@ function ConfusionMatrix:__tostring__()
    str = str .. '['
    for t = 1,nclasses do
       local pclass = self.valids[t] * 100
+      pclass = string.format('%2.3f', pclass)
       if t == 1 then
          str = str .. '['
       else
