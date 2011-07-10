@@ -1,8 +1,8 @@
 #ifndef TH_GENERIC_FILE
-#define TH_GENERIC_FILE "generic/SpatialConvolutionTable.c"
+#define TH_GENERIC_FILE "generic/SpatialConvolutionSparse.c"
 #else
 
-static int nn_(SpatialConvolutionTable_forward)(lua_State *L)
+static int nn_(SpatialConvolutionSparse_forward)(lua_State *L)
 {
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));  
   int kW = luaT_getfieldcheckint(L, 1, "kW");
@@ -61,7 +61,7 @@ static int nn_(SpatialConvolutionTable_forward)(lua_State *L)
   return 1;
 }
 
-static int nn_(SpatialConvolutionTable_backward)(lua_State *L)
+static int nn_(SpatialConvolutionSparse_backward)(lua_State *L)
 {
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));  
   THTensor *gradOutput = luaT_checkudata(L, 3, torch_(Tensor_id));  
@@ -131,16 +131,16 @@ static int nn_(SpatialConvolutionTable_backward)(lua_State *L)
   return 1;
 }
 
-static const struct luaL_Reg nn_(SpatialConvolutionTable__) [] = {
-  {"SpatialConvolutionTable_forward", nn_(SpatialConvolutionTable_forward)},
-  {"SpatialConvolutionTable_backward", nn_(SpatialConvolutionTable_backward)},
+static const struct luaL_Reg nn_(SpatialConvolutionSparse__) [] = {
+  {"SpatialConvolutionSparse_forward", nn_(SpatialConvolutionSparse_forward)},
+  {"SpatialConvolutionSparse_backward", nn_(SpatialConvolutionSparse_backward)},
   {NULL, NULL}
 };
 
-static void nn_(SpatialConvolutionTable_init)(lua_State *L)
+static void nn_(SpatialConvolutionSparse_init)(lua_State *L)
 {
   luaT_pushmetaclass(L, torch_(Tensor_id));
-  luaT_registeratname(L, nn_(SpatialConvolutionTable__), "nn");
+  luaT_registeratname(L, nn_(SpatialConvolutionSparse__), "nn");
   lua_pop(L,1);
 }
 

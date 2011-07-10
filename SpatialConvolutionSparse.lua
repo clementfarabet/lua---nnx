@@ -1,4 +1,4 @@
-local SpatialConvolutionTable, parent = torch.class('nn.SpatialConvolutionTable', 'nn.Module')
+local SpatialConvolutionSparse, parent = torch.class('nn.SpatialConvolutionSparse', 'nn.Module')
 
 local help_desc =
 [[Applies a 2D convolution over an input image composed of 
@@ -30,8 +30,7 @@ local help_example =
 [[-- create a filter bank with 8 inputs, 32 outputs, and
 -- random connections with a fanin of 4, filters are 9x9
 stimulus = lab.randn(8,500,500)
-randTable = nn.SpatialConvolutionTable:RandomTable(8,32,4)
-mod = nn.SpatialConvolutionTable(randTable, 9, 9)
+mod = nn.SpatialConvolutionSparse(nn.tables.random(8,32,4), 9, 9)
 result = mod:forward(stimulus)]]
 
 nn.tables = nn.tables or {}
@@ -88,12 +87,12 @@ function nn.tables.random(nin, nout, nto)
    return tbl
 end
 
-function SpatialConvolutionTable:__init(conMatrix, kW, kH, dW, dH)
+function SpatialConvolutionSparse:__init(conMatrix, kW, kH, dW, dH)
    parent.__init(self)
 
    -- usage
    if not conMatrix or not kW or not kH or type(conMatrix) ~= 'userdata' then
-      error(xlua.usage('nn.SpatialConvolutionTable', help_desc, help_example,
+      error(xlua.usage('nn.SpatialConvolutionSparse', help_desc, help_example,
                           {type='torch.Tensor', help='a Nx2 array, N being the number of kernels',
                                                 req=true},
                           {type='number', help='kernel width', req=true},
@@ -121,7 +120,7 @@ function SpatialConvolutionTable:__init(conMatrix, kW, kH, dW, dH)
    self:reset()
 end
 
-function SpatialConvolutionTable:reset(stdv)
+function SpatialConvolutionSparse:reset(stdv)
    if stdv then
       stdv = stdv * math.sqrt(3)
       self.weight:apply(function()
@@ -144,17 +143,17 @@ function SpatialConvolutionTable:reset(stdv)
    end
 end
 
-function SpatialConvolutionTable:forward(input)
-   input.nn.SpatialConvolutionTable_forward(self, input)
+function SpatialConvolutionSparse:forward(input)
+   input.nn.SpatialConvolutionSparse_forward(self, input)
    return self.output
 end
 
-function SpatialConvolutionTable:backward(input, gradOutput)
-   input.nn.SpatialConvolutionTable_backward(self, input, gradOutput)
+function SpatialConvolutionSparse:backward(input, gradOutput)
+   input.nn.SpatialConvolutionSparse_backward(self, input, gradOutput)
    return self.gradInput
 end
 
-function SpatialConvolutionTable:zeroGradParameters(momentum)
+function SpatialConvolutionSparse:zeroGradParameters(momentum)
    if momentum then
       self.gradWeight:mul(momentum)
       self.gradBias:mul(momentum)
@@ -164,17 +163,17 @@ function SpatialConvolutionTable:zeroGradParameters(momentum)
    end
 end
 
-function SpatialConvolutionTable:updateParameters(learningRate)
+function SpatialConvolutionSparse:updateParameters(learningRate)
    self.weight:add(-learningRate, self.gradWeight)
    self.bias:add(-learningRate, self.gradBias)
 end
 
-function SpatialConvolutionTable:decayParameters(decay)
+function SpatialConvolutionSparse:decayParameters(decay)
    self.weight:add(-decay, self.weight)
    self.bias:add(-decay, self.bias)
 end
 
-function SpatialConvolutionTable:write(file)
+function SpatialConvolutionSparse:write(file)
    parent.write(self, file)
    file:writeInt(self.kW)
    file:writeInt(self.kH)
@@ -189,7 +188,7 @@ function SpatialConvolutionTable:write(file)
    file:writeObject(self.connTable)
 end
 
-function SpatialConvolutionTable:read(file)
+function SpatialConvolutionSparse:read(file)
    parent.read(self, file)
    self.kW = file:readInt()
    self.kH = file:readInt()
