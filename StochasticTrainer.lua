@@ -31,10 +31,6 @@ function StochasticTrainer:__init(...)
 
       {arg='save', type='string', help='path to save networks and log training'}
    )
-   -- detect criterion type
-   if torch.typename(self.criterion) == 'nn.ClassNLLCriterion' then
-      self.maxTarget = true
-   end
    -- private params
    self.errorArray = self.skipUniformTargets
    self.trainOffset = 0
