@@ -257,7 +257,7 @@ function DataSetLabelMe:loadSample(index)
       collectgarbage()
       -- load image
       local img_loaded = image.load(self.rawdata[index].imgfile)
-      local mask_loaded = image.load(self.rawdata[index].maskfile):select(3,1)
+      local mask_loaded = image.load(self.rawdata[index].maskfile)[1]
       -- resize ?
       if self.rawSampleSize then
          -- resize precisely
