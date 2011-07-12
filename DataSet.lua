@@ -270,48 +270,12 @@ function lDataSet:shuffle()
    end
 end
 
-function lDataSet:display(args) -- opt args : scale, nbSamples
-   -- arg list:
-   local min, max, nbSamples, scale, w
-   local title = 'DataSet'
-   local resX = 800
-   local resY = 600
-   -- parse args:
-   args = args or {}
-   min = args.min
-   max = args.max
-   nbSamples = args.nbSamples or self.nbSamples
-   nbSamples = math.min(nbSamples,self.nbSamples)
-   scale = args.scale
-   title = args.title or title
-   w = window or gfx.Window(resX, resY, title)
-   resX = args.resX or resX
-   resY = args.resY or resY
-   print('<DataSet> displaying ' .. nbSamples .. ' samples')
-
-   local step_x = 0
-   local step_y = 0
-   self.window = w
-
-   if (scale == nil) then
-      --get the best scale to feet all data
-      local sizeX = self[1][1]:size()[1]
-      local sizeY = self[1][1]:size()[2]
-      scale = math.sqrt(resX*resY/ (sizeX*sizeY*nbSamples))
+function lDataSet:display(nSamples,legend)
+   local samplesToShow = {}
+   for i = 1,nSamples do
+      table.insert(samplesToShow, self[i][1])
    end
-
-   for i=1,nbSamples do
-      if (step_x >= resX) then
-         step_x = 0
-         step_y = step_y + self[i][1]:size()[2]*scale
-         if (step_y >= resY) then
-            break
-         end
-      end
-      local tmp  = image.scaleForDisplay{tensor=self[i][1], min=min, max=max}
-      w:blit(tmp, scale, step_x, step_y, title)
-      step_x = step_x + self[i][1]:size()[1]*scale
-   end
+   image.display{image=samplesToShow,gui=false,legend=legend}
 end
 
 function lDataSet:useCacheFile(fileName)
