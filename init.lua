@@ -98,3 +98,30 @@ torch.include('nnx', 'StochasticTrainer.lua')
 torch.include('nnx', 'DataSet.lua')
 torch.include('nnx', 'DataList.lua')
 torch.include('nnx', 'DataSetLabelMe.lua')
+
+-- helpers:
+function nnx.empty(module)
+   if module.modules then
+      -- find submodules in classic containers 'modules'
+      for _,module in ipairs(module.modules) do
+         nnx.empty(module)
+      end
+   else
+      -- find arbitrary submodules
+      for k,entry in pairs(module) do
+         local type = torch.typename(entry)
+         if type and type:find('^nn.') then
+            nnx.empty(entry)
+         end
+      end
+   end
+   -- empty module
+   if module.output and module.output.resize then 
+      module.output:resize()
+      module.output:storage():resize(0)
+   end
+   if module.gradInput and module.gradInput.resize then 
+      module.gradInput:resize()
+      module.gradInput:storage():resize(0)
+   end
+end
