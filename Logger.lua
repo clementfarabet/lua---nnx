@@ -10,6 +10,7 @@ function Logger:__init(filename, timestamp)
          filename = filename .. '-'..os.date("%Y_%m_%d_%X")
       end
       self.file = io.open(filename,'w')
+      self.epsfile = self.name .. '.eps'
    else
       self.file = io.stdout
       self.name = 'stdout'
@@ -100,5 +101,11 @@ function Logger:plot(...)
       self.figure = lab.figure(self.figure)
       lab.plot(plots)
       lab.title('<Logger::' .. self.name .. '>')
+      if self.epsfile then
+         os.execute('rm -f' .. self.epsfile)
+         lab.epsfigure(self.epsfile)
+         lab.plot(plots)
+         lab.title('<Logger::' .. self.name .. '>')
+      end
    end
 end
