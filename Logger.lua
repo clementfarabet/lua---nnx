@@ -102,7 +102,7 @@ function Logger:plot(...)
       lab.plot(plots)
       lab.title('<Logger::' .. self.name .. '>')
       if self.epsfile then
-         os.execute('rm -f' .. self.epsfile)
+         os.execute('rm -f ' .. self.epsfile)
          lab.epsfigure(self.epsfile)
          lab.plot(plots)
          lab.title('<Logger::' .. self.name .. '>')
