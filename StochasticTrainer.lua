@@ -47,10 +47,13 @@ function StochasticTrainer:log()
       filename = filename .. '-' .. os.date("%Y_%m_%d_%X")
    else
       -- if no timestamp, just store the previous one
-      os.execute('mv ' .. filename .. ' ' .. filename .. '.old')
+      if sys.filep(filename) then
+         os.execute('mv ' .. filename .. ' ' .. filename .. '.old')
+      end
    end
    print('<trainer> saving network to '..filename)
    local file = torch.DiskFile(filename,'w')
+   nnx.empty(self.module)
    self.module:write(file)
    file:close()
 end
