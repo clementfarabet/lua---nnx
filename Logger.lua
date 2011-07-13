@@ -106,6 +106,7 @@ function Logger:plot(...)
          lab.epsfigure(self.epsfile)
          lab.plot(plots)
          lab.title('<Logger::' .. self.name .. '>')
+         lab.plotflush()
       end
    end
 end
