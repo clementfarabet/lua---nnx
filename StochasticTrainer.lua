@@ -29,7 +29,8 @@ function StochasticTrainer:__init(...)
       {arg='dispProgress', type='boolean', help='display a progress bar during training/testing', default=true},
       {arg='skipUniformTargets', type='boolean', help='skip uniform (flat) targets during training', default=false},
 
-      {arg='save', type='string', help='path to save networks and log training'}
+      {arg='save', type='string', help='path to save networks and log training'},
+      {arg='timestamp', type='boolean', help='if true, appends a timestamp to each network saved', default=false}
    )
    -- private params
    self.errorArray = self.skipUniformTargets
@@ -40,7 +41,14 @@ end
 function StochasticTrainer:log()
    -- save network
    os.execute('mkdir -p ' .. self.save)
-   local filename = sys.concat(self.save .. '/network-'..os.date("%Y_%m_%d_%X"))
+   local filename = sys.concat(self.save .. '/network')
+   if self.timestamp then
+      -- use a timestamp to store all networks uniquely
+      filename = filename .. '-' .. os.date("%Y_%m_%d_%X")
+   else
+      -- if no timestamp, just store the previous one
+      os.execute('mv ' .. filename .. ' ' .. filename .. '-prev')
+   end
    print('<trainer> saving network to '..filename)
    local file = torch.DiskFile(filename,'w')
    self.module:write(file)
