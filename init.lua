@@ -47,6 +47,7 @@ torch.include('nnx', 'test-omp.lua')
 -- tools:
 torch.include('nnx', 'ConfusionMatrix.lua')
 torch.include('nnx', 'Logger.lua')
+torch.include('nnx', 'Probe.lua')
 
 -- OpenMP module:
 torch.include('nnx', 'OmpModule.lua')
