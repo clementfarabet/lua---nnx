@@ -18,8 +18,13 @@ function ConfusionMatrix:add(prediction, target)
    if type(prediction) == 'number' then
       -- comparing numbers
       self.mat[target][prediction] = self.mat[target][prediction] + 1
+   elseif type(target) == 'number' then
+      -- prediction is a vector, then target assumed to be an index
+      local prediction_1d = torch.Tensor(prediction):resize(self.nclasses)
+      local _,prediction = lab.max(prediction_1d)
+      self.mat[target][prediction[1]] = self.mat[target][prediction[1]] + 1
    else
-      -- comparing vectors
+      -- both prediction and target are vectors
       local prediction_1d = torch.Tensor(prediction):resize(self.nclasses)
       local target_1d = torch.Tensor(target):resize(self.nclasses)
       local _,prediction = lab.max(prediction_1d)
