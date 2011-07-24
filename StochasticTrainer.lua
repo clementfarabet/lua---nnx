@@ -53,7 +53,6 @@ function StochasticTrainer:log()
    end
    print('<trainer> saving network to '..filename)
    local file = torch.DiskFile(filename,'w')
-   nnx.empty(self.module)
    self.module:write(file)
    file:close()
 end
