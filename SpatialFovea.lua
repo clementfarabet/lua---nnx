@@ -34,7 +34,8 @@ function SpatialFovea:__init(...)
       {arg='preProcessors', type='table', help='list of preprocessors (applied before padding)'},
       {arg='fov', type='number', help='field of view (== processors\' receptive field)', default=1},
       {arg='sub', type='number', help='global subsampling (== processors\' subsampling ratio)', default=1},
-      {arg='bilinear', type='number', help='bilinear interpolation', default=false}
+      {arg='bilinear', type='number', help='bilinear interpolation', default=false},
+      {arg='cachePrePreproc', type='number', help='beta: cache preprocessed input based on input\' hash', default=false}
    )
 
    -- internal modules:
@@ -129,23 +130,55 @@ function SpatialFovea:forward(input)
    end
    self:configure(width,height)
 
-   -- (1) generate pyramid
-   for idx = 1,nscales do
-      self.pyramid[idx] = self.downsamplers[idx]:forward(input)
-   end
+   -- (beta) cache preprocessed data based on a unique hash
+   local retrieved = false
+   local hash = 0
+   if self.cachePrePreproc then
+      -- create or reuse list of cached inputs
+      self.cachedPreProcessed = self.cachedPreProcessed or {}
 
-   -- (2) preprocess
-   for idx = 1,nscales do
-      if self.preProcessors[idx] then
-         self.preProcessed[idx] = self.preProcessors[idx]:forward(self.pyramid[idx])
-      else
-         self.preProcessed[idx] = self.pyramid[idx]
+      -- the norm of the input should be enough to serve as a solid hash
+      hash = tostring(input:sum())
+
+      -- check if input was seend before
+      if self.cachedPreProcessed[hash] then
+         print('retrieving', hash)
+         for idx = 1,nscales do
+            self.padded[idx] = self.cachedPreProcessed[hash][idx]
+         end
+         retrieved = true
       end
    end
 
-   -- (3) pad inputs
-   for idx = 1,nscales do
-      self.padded[idx] = self.padders[idx]:forward(self.preProcessed[idx])
+   -- (beta) only compute input if it was not retrieved
+   if not retrieved then
+      -- (1) generate pyramid
+      for idx = 1,nscales do
+         self.pyramid[idx] = self.downsamplers[idx]:forward(input)
+      end
+
+      -- (2) preprocess
+      for idx = 1,nscales do
+         if self.preProcessors[idx] then
+            self.preProcessed[idx] = self.preProcessors[idx]:forward(self.pyramid[idx])
+         else
+            self.preProcessed[idx] = self.pyramid[idx]
+         end
+      end
+
+      -- (3) pad inputs
+      for idx = 1,nscales do
+         self.padded[idx] = self.padders[idx]:forward(self.preProcessed[idx])
+      end
+
+      -- store preprocessed input for future use
+      if self.cachePrePreproc then
+         print('storing new hash', hash)
+         self.cachedPreProcessed[hash] = {}
+         for idx = 1,nscales do
+            self.cachedPreProcessed[hash][idx] = self.padded[idx]:clone()
+         end
+      end
    end
 
    -- (4) is fovea focused ?
@@ -218,6 +251,12 @@ function SpatialFovea:backward(input, gradOutput)
    -- (5) bprop through processors
    for idx = 1,nscales do
       self.gradNarrowed[idx] = self.processors[idx]:backward(self.narrowed[idx], self.gradProcessed[idx])
+   end
+
+   -- (beta) if caching preprocessed input, no need to compute
+   -- backward past this point
+   if self.cachePrePreproc then
+      return self.gradNarrowed
    end
 
    -- (4) is fovea focused ?
