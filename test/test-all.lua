@@ -33,7 +33,7 @@ function nnxtest.SpatialLinear()
    local out = module:forward(in1)
    local ground = moduleg:forward(in1:select(2,1,1):select(2,1,1))
    local err = out:dist(ground)
-   mytester:asserteq(err, 0, torch.typename(module) .. ' - forward err ')
+   mytester:assertlt(err, precision, torch.typename(module) .. ' - forward err ')
 
    local fanin = math.random(1,10)
    local fanout = math.random(1,10)
@@ -301,7 +301,7 @@ function nnxtest.SpatialConvolution()
    mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
 
-function nnxtest.SpatialConvolutionTable_1()
+function nnxtest.SpatialConvolutionSparse_1()
    local from = math.random(1,10)
    local to = math.random(1,10)
    local ini = math.random(10,20)
@@ -312,7 +312,7 @@ function nnxtest.SpatialConvolutionTable_1()
    local sj = math.random(1,1)
 
    local ct = nn.tables.full(from,to)
-   local module = nn.SpatialConvolutionTable(ct, ki, kj, si, sj)
+   local module = nn.SpatialConvolutionSparse(ct, ki, kj, si, sj)
    local input = torch.Tensor(from, inj, ini):zero()
    module:reset()
 
@@ -330,7 +330,7 @@ function nnxtest.SpatialConvolutionTable_1()
    mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
 
-function nnxtest.SpatialConvolutionTable_2()
+function nnxtest.SpatialConvolutionSparse_2()
    local from = math.random(1,10)
    local to = math.random(1,10)
    local ini = math.random(10,20)
@@ -341,7 +341,7 @@ function nnxtest.SpatialConvolutionTable_2()
    local sj = math.random(1,1)
 
    local ct = nn.tables.oneToOne(from)
-   local module = nn.SpatialConvolutionTable(ct, ki, kj, si, sj)
+   local module = nn.SpatialConvolutionSparse(ct, ki, kj, si, sj)
    local input = torch.Tensor(from, inj, ini):zero()
    module:reset()
 
@@ -359,7 +359,7 @@ function nnxtest.SpatialConvolutionTable_2()
    mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
 
-function nnxtest.SpatialConvolutionTable_3()
+function nnxtest.SpatialConvolutionSparse_3()
    local from = math.random(2,6)
    local to = math.random(4,8)
    local ini = math.random(10,20)
@@ -370,7 +370,7 @@ function nnxtest.SpatialConvolutionTable_3()
    local sj = math.random(1,1)
 
    local ct = nn.tables.random(from,to,from-1)
-   local module = nn.SpatialConvolutionTable(ct, ki, kj, si, sj)
+   local module = nn.SpatialConvolutionSparse(ct, ki, kj, si, sj)
    local input = torch.Tensor(from, inj, ini):zero()
    module:reset()
 
