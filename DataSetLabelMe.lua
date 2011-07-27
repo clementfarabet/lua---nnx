@@ -30,6 +30,7 @@ function DataSetLabelMe:__init(...)
       {arg='nbPatchPerSample', type='number', help='number of patches to extract from each image', default=100},
       {arg='patchSize', type='number', help='size of patches to extract from images', default=64},
       {arg='samplingMode', type='string', help='patch sampling method: random | equal', default='random'},
+      {arg='samplingFilter', type='table', help='a filter to sample patches: {ratio=,size=,step}'},
       {arg='labelType', type='string', help='type of label returned: center | pixelwise', default='center'},
       {arg='labelGenerator', type='function', help='a function to generate sample+target (bypasses labelType)'},
       {arg='infiniteSet', type='boolean', help='if true, the set can be indexed to infinity, looping around samples', default=false},
@@ -358,12 +359,16 @@ function DataSetLabelMe:parseMask(existing_tags)
          end
       end
    end
+   -- use filter
+   local filter = self.samplingFilter or {ratio=0, size=self.patchSize, step=4}
+   -- extract labels
    local mask = self.currentMask
    local x_start = math.ceil(self.patchSize/2)
    local x_end = mask:size(2) - math.ceil(self.patchSize/2)
    local y_start = math.ceil(self.patchSize/2)
    local y_end = mask:size(1) - math.ceil(self.patchSize/2)
-   mask.nn.DataSetLabelMe_extract(tags, mask, x_start, x_end, y_start, y_end, self.currentIndex)
+   mask.nn.DataSetLabelMe_extract(tags, mask, x_start, x_end, y_start, y_end, self.currentIndex,
+                                  filter.ratio, filter.size, filter.step)
    return tags
 end
 
