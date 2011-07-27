@@ -166,13 +166,13 @@ function StochasticTrainer:train(dataset)
       self.epoch = self.epoch + 1
       currentLearningRate = self.learningRate/(1+self.epoch*self.learningRateDecay)
 
+      if dataset.infiniteSet then
+         self.trainOffset = self.trainOffset + dataset:size()
+      end
+
       if self.maxEpoch > 0 and self.epoch > self.maxEpoch then
          print("<trainer> you have reached the maximum number of epochs")
          break
-      end
-
-      if dataset.infiniteSet then
-         self.trainOffset = self.trainOffset + dataset:size()
       end
    end
 end

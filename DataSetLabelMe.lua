@@ -197,7 +197,6 @@ function DataSetLabelMe:__index__(key)
             tag_idx = math.floor((key-1)/self.nbClasses) + 1
          end
          tag_idx = ((tag_idx-1) % (self.tags[ctr_target].size/3))*3 + 1
-         print('key:', key, 'tag:', tag_idx, 'label', ctr_target)
       end
 
       -- generate patch
