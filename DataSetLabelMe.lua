@@ -191,8 +191,13 @@ function DataSetLabelMe:__index__(key)
             ctr_target = math.floor(random.uniform(1,self.nbClasses))
          end
          local nbSamplesPerClass = math.ceil(self.nbSamples / self.nbClasses)
-         tag_idx = math.floor((key*nbSamplesPerClass-1)/self.nbClasses) + 1
+         if self.infiniteSet then
+            tag_idx = math.random(1,self.tags[ctr_target].size/3)
+         else
+            tag_idx = math.floor((key-1)/self.nbClasses) + 1
+         end
          tag_idx = ((tag_idx-1) % (self.tags[ctr_target].size/3))*3 + 1
+         print('key:', key, 'tag:', tag_idx, 'label', ctr_target)
       end
 
       -- generate patch

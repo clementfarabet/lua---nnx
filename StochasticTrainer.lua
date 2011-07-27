@@ -72,7 +72,7 @@ function StochasticTrainer:train(dataset)
    else
       shuffledIndices = lab.randperm(dataset:size())
    end
-   
+
    while true do
       print('<trainer> on training set:')
       print("<trainer> stochastic gradient descent epoch # " .. self.epoch)
