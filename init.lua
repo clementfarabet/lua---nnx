@@ -1,6 +1,8 @@
 ----------------------------------------------------------------------
 --
--- Copyright (c) 2011 Clement Farabet, Marco Scoffier, Koray Kavukcuoglu
+-- Copyright (c) 2011 Clement Farabet, Marco Scoffier, 
+--                    Koray Kavukcuoglu, Benoit Corda
+--
 -- 
 -- Permission is hereby granted, free of charge, to any person obtaining
 -- a copy of this software and associated documentation files (the
