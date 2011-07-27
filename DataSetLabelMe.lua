@@ -223,7 +223,7 @@ function DataSetLabelMe:__index__(key)
          return ret, true
 
       elseif self.labelType == 'center' then
-         -- generate label vector for patch 
+         -- generate label vector for patch
          local vector = torch.Tensor(self.nbClasses):fill(-1)
          vector[ctr_target] = 1
          return {sample, vector}, true
@@ -408,50 +408,31 @@ function DataSetLabelMe:parseAllMasks(saveFile)
    end
 end
 
-function DataSetLabelMe:display(args)
-   -- parse args:
-   local title = args.title or 'DataSetLabelMe'
-   local min = args.min
-   local max = args.max
-   local nbSamples = args.nbSamples or 50
-   local scale = args.scale
-   local resX = args.resX or 1200
-   local resY = args.resY or 800
+function DataSetLabelMe:display(...)
+   -- check args
+   local _, title, samples, zoom = xlua.unpack(
+      {...},
+      'DataSetLabelMe.display',
+      'display masks, overlayed on dataset images',
+      {arg='title', type='string', help='window title', default='DataSetLabelMe'},
+      {arg='samples', type='number', help='number of samples to display', default=50},
+      {arg='zoom', type='number', help='zoom', default=0.5}
+   )
 
-   -- compute some geometry params
-   local painter = qtwidget.newwindow(resX,resY,title)
-   local step_x = 0
-   local step_y = 0
-   local sizeX = self.maxX
-   local sizeY = self.maxY
-   if not scale then
-      scale = math.sqrt(resX*resY/ (sizeX*sizeY*nbSamples))
-      local nbx = math.floor(resX/(scale*sizeX))
-      scale = resX/(sizeX*nbx)
-   end
+   -- require imgraph package to handle segmentation colors
+   require 'imgraph'
 
    -- load the samples and display them
-   local dispTensor = torch.Tensor(3,sizeY*scale,sizeX*scale)
-   local dispMask = torch.Tensor(sizeY*scale,sizeX*scale)
-   local displayer = Displayer()
-   for i=1,nbSamples do
-      xlua.progress(i,nbSamples)
+   local allimgs = {}
+   for i=1,samples do
       self:loadSample(i)
-      image.scale(self.currentSample, dispTensor, 'simple')
-      image.scale(self.currentMask, dispMask, 'simple')
-      local displayed = image.mergeSegmentation(dispTensor, dispMask, self.colorMap)
-      if (step_x > (resX-sizeX*scale)) then
-         step_x = 0
-         step_y = step_y +  sizeY*scale
-         if (step_y > (resY-sizeY*scale)) then
-            break
-         end
-      end
-      displayer:show{painter=painter,
-                     tensor=displayed,
-                     min=min, max=max,
-                     offset_x=step_x,
-                     offset_y=step_y}
-      step_x = step_x +  sizeX*scale
+      local dispTensor = self.currentSample:clone()
+      local dispMask = self.currentMask:clone()
+      dispMask, self.colormap = imgraph.colorize(dispMask, self.colormap)
+      dispTensor:add(dispMask)
+      allimgs[i] = dispTensor
    end
+
+   -- display
+   image.display{win=painter, image=allimgs, legend=title, zoom=0.5}
 end
