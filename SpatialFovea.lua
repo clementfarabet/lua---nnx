@@ -142,7 +142,6 @@ function SpatialFovea:forward(input)
 
       -- check if input was seend before
       if self.cachedPreProcessed[hash] then
-         print('retrieving', hash)
          for idx = 1,nscales do
             self.padded[idx] = self.cachedPreProcessed[hash][idx]
          end
@@ -173,7 +172,6 @@ function SpatialFovea:forward(input)
 
       -- store preprocessed input for future use
       if self.cachePrePreproc then
-         print('storing new hash', hash)
          self.cachedPreProcessed[hash] = {}
          for idx = 1,nscales do
             self.cachedPreProcessed[hash][idx] = self.padded[idx]:clone()
