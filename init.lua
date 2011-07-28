@@ -54,23 +54,27 @@ torch.include('nnx', 'Probe.lua')
 -- OpenMP module:
 torch.include('nnx', 'OmpModule.lua')
 
--- pointwise modules:
-torch.include('nnx', 'Abs.lua')
-torch.include('nnx', 'Power.lua')
-torch.include('nnx', 'Square.lua')
-torch.include('nnx', 'Sqrt.lua')
-torch.include('nnx', 'HardShrink.lua')
-torch.include('nnx', 'Threshold.lua')
+-- those packages are available in a beta branch of Torch7,
+-- and will soon disapear from here
+if not nn.Abs then
+   -- pointwise modules:
+   torch.include('nnx', 'Abs.lua')
+   torch.include('nnx', 'Power.lua')
+   torch.include('nnx', 'Square.lua')
+   torch.include('nnx', 'Sqrt.lua')
+   torch.include('nnx', 'HardShrink.lua')
+   torch.include('nnx', 'Threshold.lua')
 
--- table-based modules:
-torch.include('nnx', 'CMulTable.lua')
-torch.include('nnx', 'CAddTable.lua')
-torch.include('nnx', 'CDivTable.lua')
-torch.include('nnx', 'CSubTable.lua')
+   -- table-based modules:
+   torch.include('nnx', 'CMulTable.lua')
+   torch.include('nnx', 'CAddTable.lua')
+   torch.include('nnx', 'CDivTable.lua')
+   torch.include('nnx', 'CSubTable.lua')
 
--- reshapers:
-torch.include('nnx', 'Narrow.lua')
-torch.include('nnx', 'Replicate.lua')
+   -- reshapers:
+   torch.include('nnx', 'Narrow.lua')
+   torch.include('nnx', 'Replicate.lua')
+end
 
 -- spatial (images) operators:
 torch.include('nnx', 'SpatialLinear.lua')
