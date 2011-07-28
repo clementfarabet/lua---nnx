@@ -1,4 +1,4 @@
-local SpatialLinear, parent = torch.class('nn.SpatialLinear', 'nn.OmpModule')
+local SpatialLinear, parent = torch.class('nn.SpatialLinear', 'nn.Module')
 
 function SpatialLinear:__init(fanin, fanout)
    parent.__init(self)
