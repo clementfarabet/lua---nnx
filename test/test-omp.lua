@@ -1,5 +1,5 @@
 
-function nnx.test_omp(threads)
+function nnx.test_omp(nThread)
 
    require 'lunit'
    require 'sys'
@@ -9,9 +9,10 @@ function nnx.test_omp(threads)
 
    math.randomseed(os.time())
 
-   if not threads then
-      print('please specify number of threads to use for testing')
-      return
+   if openmp then
+      nThread = nThread or openmp.getNumThreads()
+   else
+      nThread = nThread or error('please specify number of threads')
    end
 
    -- test dimensions
@@ -28,7 +29,7 @@ function nnx.test_omp(threads)
 
    -- generic test function
    local function forward(name)
-      n.threads = 1
+      n.nThread = 1
       res = n:forward(vec)
       res1 = torch.Tensor():resizeAs(res)
       res2 = torch.Tensor():resizeAs(res)
@@ -40,7 +41,7 @@ function nnx.test_omp(threads)
       res:zero()
 
       t=sys.clock()
-      n.threads = threads
+      n.nThread = nThread
       res2:copy( n:forward(vec) )
       ts.omp = sys.clock()-t
 
@@ -50,7 +51,7 @@ function nnx.test_omp(threads)
 
    -- generic test function
    local function backward(name)
-      n.threads = 1
+      n.nThread = 1
       n:forward(vec)
       res = n:backward(vec,vecb)
       res1 = torch.Tensor():resizeAs(res)
@@ -63,7 +64,7 @@ function nnx.test_omp(threads)
       res:zero()
 
       t=sys.clock()
-      n.threads = threads
+      n.nThread = nThread
       res2:copy( n:backward(vec,vecb) )
       tsb.omp = sys.clock()-t
 

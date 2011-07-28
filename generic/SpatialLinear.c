@@ -9,7 +9,7 @@ static int nn_(SpatialLinear_forward)(lua_State *L)
   THTensor *bias = luaT_getfieldcheckudata(L, 1, "bias", torch_(Tensor_id));
   THTensor *weight = luaT_getfieldcheckudata(L, 1, "weight", torch_(Tensor_id));
   THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_(Tensor_id));
-  int threads = luaT_getfieldcheckint(L, 1, "threads");
+  int nThread = luaT_getfieldcheckint(L, 1, "nThread");
 
   // dims
   int iwidth = input->size[2];
@@ -21,7 +21,7 @@ static int nn_(SpatialLinear_forward)(lua_State *L)
 
   // process each plane
   int ok,ik;
-  omp_set_num_threads(threads);
+  omp_set_num_threads(nThread);
   omp_lock_t lock; omp_init_lock(&lock);
   #pragma omp parallel for private(ok,ik)
   for (ok=0; ok<ochannels; ok++) {
@@ -65,7 +65,7 @@ static int nn_(SpatialLinear_backward)(lua_State *L)
   THTensor *gradWeight = luaT_getfieldcheckudata(L, 1, "gradWeight", torch_(Tensor_id));
   THTensor *gradBias = luaT_getfieldcheckudata(L, 1, "gradBias", torch_(Tensor_id));
   int weightDecay = luaT_getfieldcheckint(L, 1, "weightDecay");
-  int threads = luaT_getfieldcheckint(L, 1, "threads");
+  int nThread = luaT_getfieldcheckint(L, 1, "nThread");
 
   // dims
   int iwidth = input->size[2];

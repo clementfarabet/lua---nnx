@@ -11,50 +11,61 @@ static int nn_(SpatialMaxPooling_forward)(lua_State *L)
   int dH = luaT_getfieldcheckint(L, 1, "dH");
   THTensor *indices = luaT_getfieldcheckudata(L, 1, "indices", torch_(Tensor_id));
   THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_(Tensor_id));
-  int threads = luaT_getfieldcheckint(L, 1, "threads");
+  int nThread = luaT_getfieldcheckint(L, 1, "nThread");
 
   luaL_argcheck(L, input->nDimension == 3, 2, "3D tensor expected");
   luaL_argcheck(L, input->size[2] >= kW && input->size[1] >= kH, 2, "input image smaller than kernel size");
 
-  THTensor_(resize3d)(output, input->size[0],
-                      (input->size[1] - kH) / dH + 1, 
-                      (input->size[2] - kW) / dW + 1 );
+  // sizes
+  long nslices = input->size[0];
+  long iheight = input->size[1];
+  long iwidth = input->size[2];
+  long oheight = (iheight - kH) / dH + 1;
+  long owidth = (iwidth - kW) / dW + 1;
 
-  /* indices will contain i,j locatyions for each output point */
-  THTensor_(resize4d)(indices, 2,output->size[0],output->size[1],output->size[2]);
+  // get contiguous input
+  input = THTensor_(newContiguous)(input);
 
-  omp_set_num_threads(threads);
-  omp_lock_t lock; omp_init_lock(&lock);
-  int k,i,j;
-  #pragma omp parallel for private(k,i,j)
-  for (k = 0; k < input->size[0]; k++)
-  {
-    THTensor *outputPlane, *inputPlane, *unfoldedInputPlane, *localInput;
-    omp_set_lock(&lock);
-    inputPlane = THTensor_(new)();
-    outputPlane = THTensor_(new)();
-    localInput = THTensor_(new)();
-    unfoldedInputPlane = THTensor_(new)();
+  // resize output
+  THTensor_(resize3d)(output, nslices, oheight, owidth);
 
-    /* get input and output plane */
-    THTensor_(select)(outputPlane, output, 0, k);
-    THTensor_(select)(inputPlane, input, 0, k);
+  // indices will contain i,j locatyions for each output point
+  THTensor_(resize4d)(indices, 2, nslices, oheight, owidth);
 
-    /* Unfold input to get each local window */
-    THTensor_(unfold)(unfoldedInputPlane, inputPlane, 0, kH, dH);
-    THTensor_(unfold)(unfoldedInputPlane, NULL,       1, kW, dW);
-    omp_unset_lock(&lock);
+  // get raw pointers
+  real *input_data = THTensor_(data)(input);
+  real *output_data = THTensor_(data)(output);
+  real *indices_data = THTensor_(data)(indices);
 
-    /* Calculate max points */
-    for(i = 0; i < outputPlane->size[0]; i++) {
-      for(j = 0; j < outputPlane->size[1]; j++) {
+  // compute max pooling for each input slice
+  long k;
+  omp_set_num_threads(nThread);
+  #pragma omp parallel for private(k)
+  for (k = 0; k < nslices; k++) {
+    // pointers to slices
+    real *input_p = input_data + k*iwidth*iheight;
+    real *output_p = output_data + k*owidth*oheight;
+    real *indx_p = indices_data + k*owidth*oheight;
+    real *indy_p = indices_data + (k+nslices)*owidth*oheight;
+
+    // loop over output
+    int i,j;
+    for(i = 0; i < oheight; i++) {
+      for(j = 0; j < owidth; j++) {
+        // local pointers
+        real *ip = input_p + i*iwidth*dH + j*dW;
+        real *op = output_p + i*owidth + j;
+        real *indxp = indx_p + i*owidth + j;
+        real *indyp = indy_p + i*owidth + j;
+
+        // compute local max:
 	long maxindex = -1;
-	double maxval = -THInf;
+	real maxval = -THInf;
 	long tcntr = 0;
         int x,y;
-        for(y = 0; y < unfoldedInputPlane->size[2]; y++) {
-          for(x = 0; x < unfoldedInputPlane->size[3]; x++) {
-            double val = THTensor_(get4d)(unfoldedInputPlane, i,j,y,x);
+        for(y = 0; y < kH; y++) {
+          for(x = 0; x < kW; x++) {
+            real val = *(ip + y*iwidth + x);
             if (val > maxval) {
               maxval = val;
               maxindex = tcntr;
@@ -63,22 +74,18 @@ static int nn_(SpatialMaxPooling_forward)(lua_State *L)
           }
         }
 
-	THTensor_(set4d)(indices,0,k,i,j, (int)(maxindex / dW)+1);
-	THTensor_(set4d)(indices,1,k,i,j, (maxindex % dW) +1);
-	THTensor_(set2d)(outputPlane,i,j,maxval);
+        // set output to local max
+        *op = maxval;
+
+        // store location of max (x,y)
+        *indxp = (int)(maxindex / dW)+1;
+        *indyp = (maxindex % dW) +1;
       }
     }
-
-    omp_set_lock(&lock);
-    THTensor_(free)(inputPlane);
-    THTensor_(free)(outputPlane);
-    THTensor_(free)(unfoldedInputPlane);
-    THTensor_(free)(localInput);
-    omp_unset_lock(&lock);
   }
 
-  /* Cleanup */
-  omp_destroy_lock(&lock);
+  // cleanup
+  THTensor_(free)(input);
 
   return 1;
 }
