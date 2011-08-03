@@ -137,8 +137,10 @@ function SpatialFovea:forward(input)
       -- create or reuse list of cached inputs
       self.cachedPreProcessed = self.cachedPreProcessed or {}
 
-      -- the norm of the input should be enough to serve as a solid hash
-      hash = tostring(input:sum())
+      -- compute an abritrary hash, should be strong enough
+      tohash = input:narrow(2,1,math.min(input:size(2),32)):narrow(3,1,math.min(input:size(3),32))
+      hash = tostring(tohash:sum())
+      hash = hash .. tostring(tohash:std())
 
       -- check if input was seend before
       if self.cachedPreProcessed[hash] then
