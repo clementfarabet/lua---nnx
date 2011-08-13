@@ -4,7 +4,7 @@ local Logger = torch.class('nn.Logger')
 function Logger:__init(filename, timestamp)
    if filename then
       self.name = filename
-      os.execute('mkdir -p ' .. sys.dirname(filename))
+      os.execute('mkdir -p "' .. sys.dirname(filename) .. '"')
       if timestamp then
          -- append timestamp to create unique log file
          filename = filename .. '-'..os.date("%Y_%m_%d_%X")
