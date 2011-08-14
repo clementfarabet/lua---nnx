@@ -433,6 +433,10 @@ function DataSetLabelMe:display(...)
       self:loadSample(i)
       local dispTensor = self.currentSample:clone()
       local dispMask = self.currentMask:clone()
+      if dispTensor:size(1) > 3 and dispTensor:nDimension() == 3 then
+         dispTensor = dispTensor:narrow(1,1,3)
+      end
+      dispTensor:div(dispTensor:max())
       dispMask, self.colormap = imgraph.colorize(dispMask, self.colormap)
       dispTensor:add(dispMask)
       allimgs[i] = dispTensor
