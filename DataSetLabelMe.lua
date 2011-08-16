@@ -297,6 +297,8 @@ function DataSetLabelMe:loadSample(index)
             mask_loaded = matrix
             break
          end
+         img_loaded = img_loaded:transpose(2,3)
+         mask_loaded = mask_loaded:transpose(1,2)
       else
          img_loaded = image.load(self.rawdata[index].imgfile)
          mask_loaded = image.load(self.rawdata[index].maskfile)[1]
@@ -337,8 +339,8 @@ function DataSetLabelMe:loadSample(index)
          end
       else
          self.currentMask:mul(self.nbClasses-1):add(0.5):floor():add(1)
-         self.currentIndex = index
       end
+      self.currentIndex = index
    end
 end
 
