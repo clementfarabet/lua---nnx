@@ -60,7 +60,23 @@ function DataSetLabelMe:__init(...)
                local imgf = paths.concat(self.path,path_images,folder,file)
                local maskf = paths.concat(self.path,path_masks,folder,filepng)
                local annotf = paths.concat(self.path,path_annotations,folder,filexml)
-               local size_c, size_y, size_x = image.getJPGsize(imgf)
+               local size_c, size_y, size_x
+               if file:find('.jpg$') then
+                  size_c, size_y, size_x = image.getJPGsize(imgf)
+               elseif file:find('.mat$') then
+                  if not xrequire 'mattorch' then 
+                     xerror('<DataSetLabelMe> mattorch package required to handle MAT files')
+                  end
+                  local loaded = mattorch.load(imgf)
+                  for _,matrix in pairs(loaded) do loaded = matrix; break end
+                  size_c = loaded:size(1)
+                  size_y = loaded:size(2)
+                  size_x = loaded:size(3)
+                  loaded = nil
+                  collectgarbage()
+               else
+                  xerror('images must either be JPG or MAT files', 'DataSetLabelMe')
+               end
                table.insert(self.rawdata, {imgfile=imgf,
                                            maskfile=maskf,
                                            annotfile=annotf,
@@ -260,9 +276,31 @@ function DataSetLabelMe:loadSample(index)
       self.currentSample = nil
       self.currentMask = nil
       collectgarbage()
+      -- matlab or regular images ?
+      local matlab = false
+      if self.rawdata[index].imgfile:find('.mat$') then
+         if not xrequire 'mattorch' then 
+            xerror('<DataSetLabelMe> mattorch package required to handle MAT files')
+         end
+         matlab = true
+      end
       -- load image
-      local img_loaded = image.load(self.rawdata[index].imgfile)
-      local mask_loaded = image.load(self.rawdata[index].maskfile)[1]
+      local img_loaded, mask_loaded
+      if matlab then
+         img_loaded = mattorch.load(self.rawdata[index].imgfile)
+         mask_loaded = mattorch.load(self.rawdata[index].maskfile)
+         for _,matrix in pairs(img_loaded) do
+            img_loaded = matrix
+            break
+         end
+         for _,matrix in pairs(mask_loaded) do
+            mask_loaded = matrix
+            break
+         end
+      else
+         img_loaded = image.load(self.rawdata[index].imgfile)
+         mask_loaded = image.load(self.rawdata[index].maskfile)[1]
+      end
       -- resize ?
       if self.rawSampleSize then
          -- resize precisely
@@ -293,8 +331,14 @@ function DataSetLabelMe:loadSample(index)
          self.currentMask = mask_loaded
       end
       -- process mask
-      self.currentMask:mul(self.nbClasses-1):add(0.5):floor():add(1)
-      self.currentIndex = index
+      if matlab then
+         if self.currentMask:min() == 0 then
+            self.currentMask:add(1)
+         end
+      else
+         self.currentMask:mul(self.nbClasses-1):add(0.5):floor():add(1)
+         self.currentIndex = index
+      end
    end
 end
 
