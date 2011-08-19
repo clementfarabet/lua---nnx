@@ -6,7 +6,7 @@ function SpatialMSECriterion:__init(...)
    xlua.unpack_class(self, {...},
       'nn.SpatialMSECriterion',
       'A spatial extension of the MSECriterion class.\n'
-        ..' Provides a set of parameters to deal with spatial mini-batch training.',
+         ..' Provides a set of parameters to deal with spatial mini-batch training.',
       {arg='resampleTarget', type='number', help='ratio to resample target (target is a KxHxW tensor)', default=1},
       {arg='nbGradients', type='number', help='number of gradients to backpropagate (-1:all, >=1:nb)', default=-1},
       {arg='sizeAverage', type='number', help='if true, forward() returns an average instead of a sum of errors', default=true},
@@ -30,7 +30,7 @@ function SpatialMSECriterion:adjustTarget(input, target)
    --     to be at the original scale of the data (e.g. for dense
    --     classification problems, like scene parsing, the target
    --     map is at the resolution of the input image. Now the input
-   --     of this criterion is the output of some neural network, 
+   --     of this criterion is the output of some neural network,
    --     and might have a smaller size/resolution than the original
    --     input). Step (2) corrects for convolutional-induced losses,
    --     while step (3) corrects for downsampling/strides.
@@ -41,7 +41,7 @@ function SpatialMSECriterion:adjustTarget(input, target)
       local x = math.floor((target:size(3) - (input:size(3)-1)*1/sratio)/2) + 1
       target = target:narrow(2,y,h):narrow(3,x,w)
    end
-   -- (3) correct target by resampling it to the size of the 
+   -- (3) correct target by resampling it to the size of the
    --     input. this is to compensate for downsampling/pooling
    --     operations.
    if sratio ~= 1 then
@@ -49,7 +49,7 @@ function SpatialMSECriterion:adjustTarget(input, target)
       image.scale(target, target_scaled, 'simple')
       target = target_scaled
    end
-   -- (4) last thing, optionally filter out some classes. In the 
+   -- (4) last thing, optionally filter out some classes. In the
    --     MSE regression setup, -1 is the negative target.
    if self.ignoreClass then
       target:select(1, self.ignoreClass):fill(-1)
@@ -115,13 +115,18 @@ function SpatialMSECriterion:write(file)
    parent.write(self, file)
    file:writeDouble(self.resampleTarget)
    file:writeInt(self.nbGradients)
-   file:writeInt(self.ignoreClass)
+   if not self.ignoreClass then
+      file:writeInt(-1)
+   end
 end
 
 function SpatialMSECriterion:read(file)
    parent.read(self, file)
    self.resampleTarget= file:readDouble()
    self.nbGradients = file:readInt()
-   self.fullOutput = torch.Tensor()
    self.ignoreClass = file:readInt()
+   if self.ignoreClass == -1 then
+      self.ignoreClass = false
+   end
+   self.fullOutput = torch.Tensor()
 end

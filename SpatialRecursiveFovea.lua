@@ -213,7 +213,7 @@ function SpatialRecursiveFovea:configure(fov, sub, input_w, input_h)
    self.padded_size = padded
    self.narrowed_size = narrowed
    self.processed_size = processed
-   
+
    -- info
    if self.debug then
       print('')
@@ -247,17 +247,17 @@ function SpatialRecursiveFovea:__tostring__()
 end
 
 function SpatialRecursiveFovea:focus(x,y)
-   -- fprop and bprop sizes must be different 
+   -- fprop and bprop sizes must be different
    -- * frop must create an output which will be upsampled to batchsize+fov
-   -- * bprop creates a batchsize+fov sized input around center of focus 
+   -- * bprop creates a batchsize+fov sized input around center of focus
    -- fov keeps track of the padding
    -- batchSize keeps track of the neighboring samples which will be bproped together
    -- in the simple case everything is fproped
    self.x = x
    self.y = y
-   if self.x and self.y then 
+   if self.x and self.y then
       self.focused = true
-   else 
+   else
       self.focused = false
       return
    end
@@ -277,7 +277,7 @@ end
 
 function SpatialRecursiveFovea:forward(input,target,x,y)
    -- input must be 3D
-   if input:nDimension() ~= 3 or input:size(3) ~= self.nInputPlane then
+   if input:nDimension() ~= 3 or input:size(1) ~= self.nInputPlane then
       xerror('input must be 3d and have ' .. self.nInputPlane .. ' input planes','nn.SpatialRecursiveFovea')
    end
 
@@ -287,9 +287,9 @@ function SpatialRecursiveFovea:forward(input,target,x,y)
    end
 
    -- configure fovea for given input and current parameters
-   local width = input:size(1)
+   local nmaps = input:size(1)
    local height = input:size(2)
-   local nmaps = input:size(3)
+   local width = input:size(3)
    local nscales = #self.ratios
    local fov = self.fov
    local sub = self.sub
@@ -315,7 +315,7 @@ function SpatialRecursiveFovea:forward(input,target,x,y)
       self.padded[idx] = self.padders[idx]:forward(self.preProcessed[idx])
 
       -- (4) is fovea focused ?
-      self.narrowed[idx] 
+      self.narrowed[idx]
          = self.padded[idx]:narrow(3,1,self.narrowed_size[idx].w):narrow(2,1,self.narrowed_size[idx].h)
 
       -- (5) concatenate current input and upsampled result from previous stage in the recursion
@@ -330,7 +330,7 @@ function SpatialRecursiveFovea:forward(input,target,x,y)
             local r = self.ratios[idx-1]/self.ratios[idx]
             p:mul(r)
          end
-         
+
       else
          self.concatenated[idx]:narrow(1,self.narrowed[idx]:size(1)+1,self.nRecursivePlane):zero()
       end
@@ -366,10 +366,10 @@ function SpatialRecursiveFovea:forward(input,target,x,y)
       for idx = 1,nscales do
          print('')
          print('scale ' .. idx .. ' :')
-         print('  + pyramid   > ' .. self.pyramid[idx]:size(1) .. 'x' .. self.pyramid[idx]:size(2))
-         print('  + padded    > ' .. self.padded[idx]:size(1) .. 'x' .. self.padded[idx]:size(2))
-         print('  + narrowed  > ' .. self.narrowed[idx]:size(1) .. 'x' .. self.narrowed[idx]:size(2))
-         print('  + processed > ' .. self.processed[idx]:size(1) .. 'x' .. self.processed[idx]:size(2))
+         print('  + pyramid   > ' .. self.pyramid[idx]:size(3) .. 'x' .. self.pyramid[idx]:size(2))
+         print('  + padded    > ' .. self.padded[idx]:size(3) .. 'x' .. self.padded[idx]:size(2))
+         print('  + narrowed  > ' .. self.narrowed[idx]:size(3) .. 'x' .. self.narrowed[idx]:size(2))
+         print('  + processed > ' .. self.processed[idx]:size(3) .. 'x' .. self.processed[idx]:size(2))
       end
    end
 
@@ -379,13 +379,13 @@ function SpatialRecursiveFovea:forward(input,target,x,y)
       for idx = 1,nscales do
          -- generate the target vector for each scale
          local ratio = self.ratios[idx]
-         local target_w = self.postProcessed[idx]:size(1)
          local target_h = self.postProcessed[idx]:size(2)
+         local target_w = self.postProcessed[idx]:size(3)
          self.targets_scaled[idx] = self.targets_scaled[idx] or torch.Tensor()
          if target:nDimension() == 3 then
-            self.targets_scaled[idx]:resize(self.processed[idx]:size(1), self.processed[idx]:size(2), target:size(3))
+            self.targets_scaled[idx]:resize(target:size(1), self.processed[idx]:size(2), self.processed[idx]:size(3))
          else
-            self.targets_scaled[idx]:resize(self.processed[idx]:size(1), self.processed[idx]:size(2))
+            self.targets_scaled[idx]:resize(self.processed[idx]:size(2), self.processed[idx]:size(3))
          end
          image.scale(target, self.targets_scaled[idx], 'simple')
          -- in the case of flow the value of the target is absolute a
@@ -401,10 +401,10 @@ function SpatialRecursiveFovea:forward(input,target,x,y)
             -- adjust focus point for each scale
             corners[idx].x = math.min(math.max(corners[idx].x, 1), self.postProcessed[idx]:size(1)-bs+1)
             corners[idx].y = math.min(math.max(corners[idx].y, 1), self.postProcessed[idx]:size(2)-bs+1)
-            
+
             -- then crop/extract mini batch patch on both targets and postProcessed vectors
-            self.predicted[idx] = self.postProcessed[idx]:narrow(1,corners[idx].x,bs):narrow(2,corners[idx].y,bs)
-            self.targets[idx] = self.targets_scaled[idx]:narrow(1,corners[idx].x,bs):narrow(2,corners[idx].y,bs)
+            self.predicted[idx] = self.postProcessed[idx]:narrow(3,corners[idx].x,bs):narrow(2,corners[idx].y,bs)
+            self.targets[idx] = self.targets_scaled[idx]:narrow(2,corners[idx].x,bs):narrow(1,corners[idx].y,bs)
          else
             self.predicted[idx] = self.postProcessed[idx]
             self.targets[idx] = self.targets_scaled[idx]
@@ -446,12 +446,12 @@ function SpatialRecursiveFovea:backward(input)
       -- bprop through criterion
       self.gradPredicted[idx] = self.criterions[idx]:backward(self.predicted[idx], self.targets[idx])
 
-      -- then remap partial grad vector 
+      -- then remap partial grad vector
       self.gradPostProcessed[idx] = self.gradPostProcessed[idx] or torch.Tensor()
       self.gradPostProcessed[idx]:resizeAs(self.postProcessed[idx]):zero()
       if self.focused then
          local bs = self.batchSize
-         self.gradPostProcessed[idx]:narrow(1,corners[idx].x,bs):narrow(2,corners[idx].y,bs):copy(self.gradPredicted[idx])
+         self.gradPostProcessed[idx]:narrow(3,corners[idx].x,bs):narrow(2,corners[idx].y,bs):copy(self.gradPredicted[idx])
       else
          self.gradPostProcessed[idx]:copy(self.gradPredicted[idx])
       end
@@ -476,14 +476,14 @@ function SpatialRecursiveFovea:backward(input)
 
    -- (5) bprop through concatenators
    for idx = 1,nscales do
-      self.gradNarrowed[idx] = self.gradConcatenated[idx]:narrow(3, 1, self.narrowed[idx]:size(3))
+      self.gradNarrowed[idx] = self.gradConcatenated[idx]:narrow(1, 1, self.narrowed[idx]:size(1))
    end
 
    -- (4) bprop through narrow
    for idx = 1,nscales do
       self.gradPadded[idx] = self.gradPadded[idx] or torch.Tensor()
       self.gradPadded[idx]:resizeAs(self.padded[idx]):zero()
-      self.gradPadded[idx]:narrow(1,1,self.narrowed_size[idx].w):narrow(2,1,self.narrowed_size[idx].h):copy(self.gradNarrowed[idx])
+      self.gradPadded[idx]:narrow(3,1,self.narrowed_size[idx].w):narrow(2,1,self.narrowed_size[idx].h):copy(self.gradNarrowed[idx])
    end
 
    -- (3) bprop through padders
@@ -529,7 +529,9 @@ end
 
 function SpatialRecursiveFovea:decayParameters(decay)
    for idx = 1,#self.processors do
-      self.processors[idx]:decayParameters(decay)
+      if self.processors[idx].decayParameters then
+         self.processors[idx]:decayParameters(decay)
+      end
    end
 end
 
