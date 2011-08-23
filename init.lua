@@ -103,6 +103,7 @@ torch.include('nnx', 'SGDOptimization.lua')
 
 -- trainers:
 torch.include('nnx', 'Trainer.lua')
+torch.include('nnx', 'OnlineTrainer.lua')
 torch.include('nnx', 'StochasticTrainer.lua')
 
 -- datasets:
