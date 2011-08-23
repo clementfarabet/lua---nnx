@@ -68,6 +68,9 @@ function SpatialFovea:__init(...)
                  .. #self.ratios, 'nn.SpatialFovea')
    end
 
+   -- to be compatible with classical container modules
+   self.modules = self.processors
+
    -- reset
    self:reset()
 end
@@ -305,21 +308,15 @@ function SpatialFovea:reset(stdv)
    end
 end
 
-function SpatialFovea:zeroGradParameters(momentum)
+function SpatialFovea:zeroGradParameters()
    for idx = 1,#self.processors do
-      self.processors[idx]:zeroGradParameters(momentum)
+      self.processors[idx]:zeroGradParameters()
    end
 end
 
 function SpatialFovea:updateParameters(learningRate)
    for idx = 1,#self.processors do
       self.processors[idx]:updateParameters(learningRate)
-   end
-end
-
-function SpatialFovea:decayParameters(decay)
-   for idx = 1,#self.processors do
-      self.processors[idx]:decayParameters(decay)
    end
 end
 
@@ -369,4 +366,5 @@ function SpatialFovea:read(file)
    self.gradPadded = {}
    self.gradPreProcessed = {}
    self.gradPyramid = {}
+   self.modules = self.processors
 end
