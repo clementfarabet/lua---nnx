@@ -95,7 +95,7 @@ function SpatialNormalization:__init(...) -- kernel for weighted mean | nb of fe
    convo1:add(nn.SpatialPadding(self.padW,self.padW-self.kerWisPair,
                                 self.padH,self.padH-self.kerHisPair))
    local ctable = nn.tables.oneToOne(nf)
-   convo1:add(nn.SpatialConvolutionSparse(ctable,ker:size(2),ker:size(1)))
+   convo1:add(nn.SpatialConvolutionMap(ctable,ker:size(2),ker:size(1)))
    convo1:add(nn.Sum(1))
    convo1:add(nn.Replicate(nf))
    -- set kernel
@@ -110,7 +110,7 @@ function SpatialNormalization:__init(...) -- kernel for weighted mean | nb of fe
       convo2:add(nn.SpatialPadding(self.pad2W,self.pad2W-self.ker2WisPair,
                                    self.pad2H,self.pad2H-self.ker2HisPair))
       local ctable = nn.tables.oneToOne(nf)
-      convo2:add(nn.SpatialConvolutionSparse(ctable,ker2:size(2),ker2:size(1)))
+      convo2:add(nn.SpatialConvolutionMap(ctable,ker2:size(2),ker2:size(1)))
       convo2:add(nn.Sum(1))
       convo2:add(nn.Replicate(nf))
       -- set kernel
@@ -131,7 +131,7 @@ function SpatialNormalization:__init(...) -- kernel for weighted mean | nb of fe
    local convostd1 = nn.Sequential()
    convostd1:add(nn.SpatialPadding(self.padW,self.padW-self.kerWisPair,
                                    self.padH,self.padH-self.kerHisPair))
-   convostd1:add(nn.SpatialConvolutionSparse(ctable,ker:size(2),ker:size(1)))
+   convostd1:add(nn.SpatialConvolutionMap(ctable,ker:size(2),ker:size(1)))
    convostd1:add(nn.Sum(1))
    convostd1:add(nn.Replicate(nf))
    -- set kernel
@@ -145,7 +145,7 @@ function SpatialNormalization:__init(...) -- kernel for weighted mean | nb of fe
       local convostd2 = nn.Sequential()
       convostd2:add(nn.SpatialPadding(self.pad2W,self.pad2W-self.ker2WisPair,
                                       self.pad2H,self.pad2H-self.ker2HisPair))
-      convostd2:add(nn.SpatialConvolutionSparse(ctable,ker2:size(2),ker2:size(1)))
+      convostd2:add(nn.SpatialConvolutionMap(ctable,ker2:size(2),ker2:size(1)))
       convostd2:add(nn.Sum(1))
       convostd2:add(nn.Replicate(nf))
       -- set kernel
