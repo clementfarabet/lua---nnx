@@ -73,6 +73,9 @@ function StochasticTrainer:train(dataset)
       shuffledIndices = lab.randperm(dataset:size())
    end
 
+   local parameters = nnx.getParameters(module)
+   local gradParameters = nnx.getGradParameters(module)
+
    while true do
       print('<trainer> on training set:')
       print("<trainer> stochastic gradient descent epoch # " .. self.epoch)
@@ -125,9 +128,17 @@ function StochasticTrainer:train(dataset)
             -- accumulate error
             self.currentError = self.currentError + error
 
+            -- reset gradients
+            if self.momentum ~= 0 then
+               for _,grad in ipairs(gradParameters) do
+                  grad:mul(self.momentum)
+               end
+            else
+               module:zeroGradParameters()
+            end
+
             -- backward through model
             -- (if no criterion, it is assumed that derror is internally generated)
-            module:zeroGradParameters(self.momentum)
             if criterion then
                local derror = criterion:backward(module.output, target)
                module:backward(input, derror)
@@ -136,8 +147,10 @@ function StochasticTrainer:train(dataset)
             end
 
             -- weight decay ?
-            if self.weightDecay ~= 0 and module.decayParameters then
-               module:decayParameters(self.weightDecay)
+            if self.weightDecay ~= 0 then
+               for _,param in ipairs(parameters) do
+                  param:add(-self.weightDecay, param)
+               end
             end
 
             -- update parameters in the model
