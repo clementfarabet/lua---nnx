@@ -97,6 +97,10 @@ torch.include('nnx', 'SpatialMSECriterion.lua')
 torch.include('nnx', 'SpatialClassNLLCriterion.lua')
 torch.include('nnx', 'SpatialSparseCriterion.lua')
 
+-- optimizations:
+torch.include('nnx', 'Optimization.lua')
+torch.include('nnx', 'SGDOptimization.lua')
+
 -- trainers:
 torch.include('nnx', 'Trainer.lua')
 torch.include('nnx', 'StochasticTrainer.lua')

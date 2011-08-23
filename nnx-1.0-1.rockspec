@@ -94,6 +94,8 @@ build = {
          install_files(/lua/nnx SpatialGraph.lua)
          install_files(/lua/nnx SpatialColorTransform.lua)
          install_files(/lua/nnx SpatialRecursiveFovea.lua)
+         install_files(/lua/nnx Optimization.lua)
+         install_files(/lua/nnx SGDOptimization.lua)
          add_subdirectory (test)
          install_targets(/lib nnx)
    ]],

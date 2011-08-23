@@ -32,6 +32,8 @@ function StochasticTrainer:__init(...)
       {arg='save', type='string', help='path to save networks and log training'},
       {arg='timestamp', type='boolean', help='if true, appends a timestamp to each network saved', default=false}
    )
+   -- instantiate SGD optimization module
+   self.optimizer = nn.SGDOptimization(self.learningRate, self.weightDecay, self.momentum)
    -- private params
    self.errorArray = self.skipUniformTargets
    self.trainOffset = 0
@@ -129,13 +131,7 @@ function StochasticTrainer:train(dataset)
             self.currentError = self.currentError + error
 
             -- reset gradients
-            if self.momentum ~= 0 then
-               for _,grad in ipairs(gradParameters) do
-                  grad:mul(self.momentum)
-               end
-            else
-               module:zeroGradParameters()
-            end
+            module:zeroGradParameters()
 
             -- backward through model
             -- (if no criterion, it is assumed that derror is internally generated)
@@ -146,15 +142,8 @@ function StochasticTrainer:train(dataset)
                module:backward(input)
             end
 
-            -- weight decay ?
-            if self.weightDecay ~= 0 then
-               for _,param in ipairs(parameters) do
-                  param:add(-self.weightDecay, param)
-               end
-            end
-
             -- update parameters in the model
-            module:updateParameters(currentLearningRate)
+            self.optimizer:forward(parameters, gradParameters)
          end
 
          -- call user hook, if any
@@ -178,6 +167,7 @@ function StochasticTrainer:train(dataset)
 
       self.epoch = self.epoch + 1
       currentLearningRate = self.learningRate/(1+self.epoch*self.learningRateDecay)
+      self.optimizer.learningRate = currentLearningRate
 
       if dataset.infiniteSet then
          self.trainOffset = self.trainOffset + dataset:size()
