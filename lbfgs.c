@@ -1404,8 +1404,6 @@ static int progress(void *instance,
   return 0;
 }
 
-#define N   100
-
 int lbfgs_run(lua_State *L) {
   // get params from userspace
   GL = L;
@@ -1415,7 +1413,7 @@ int lbfgs_run(lua_State *L) {
 
   // parameters for algorithm
   lbfgsfloatval_t fx;
-  lbfgsfloatval_t *x = lbfgs_malloc(N);
+  lbfgsfloatval_t *x = lbfgs_malloc(nParameter);
   lbfgs_parameter_t param;
 
   // initialize vector x <- parameters
@@ -1427,7 +1425,7 @@ int lbfgs_run(lua_State *L) {
 
   // Start the L-BFGS optimization; this will invoke the callback functions
   // evaluate() and progress() when necessary.
-  int ret = lbfgs(N, x, &fx, evaluate, progress, NULL, &param);
+  int ret = lbfgs(nParameter, x, &fx, evaluate, progress, NULL, &param);
 
   lbfgs_free(x);
   return 0;
