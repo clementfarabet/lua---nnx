@@ -98,10 +98,22 @@ struct tag_iteration_data {
 typedef struct tag_iteration_data iteration_data_t;
 
 static const lbfgs_parameter_t _defparam = {
-  6, 1e-5, 0, 1e-5,
-  0, LBFGS_LINESEARCH_DEFAULT, 40,
-  1e-20, 1e20, 1e-4, 0.9, 0.9, 1.0e-16,
-  0.0, 0, -1,
+  6,                          // max nb or corrections stored, to estimate hessian
+  1e-5,                       // espilon = stop condition on f(x)
+  0,                          // -
+  1e-5,                       // -
+  0,                          // number of complete bfgs iterations (0 = inf)
+  LBFGS_LINESEARCH_DEFAULT,   // line search method
+  40,                         // max number of trials for line search
+  1e-20,                      // min step for line search
+  1e20,                       // max step for line search
+  1e-4,                       // ftol = granularity for f(x) estimation
+  0.9,                        // wolfe
+  0.9,                        // gtol = granularity for df/dx estimation
+  1.0e-16,                    // floating-point precision
+  0.0,                        // sparsity constraint
+  0,                          // sparsity offset
+  -1                          // sparsity end
 };
 
 /* Forward function declarations. */
@@ -1361,7 +1373,11 @@ static const void *torch_DoubleTensor_id = NULL;
 static THDoubleTensor *parameters = NULL;
 static THDoubleTensor *gradParameters = NULL;
 static int nParameter = 0;
-lua_State *GL = NULL;
+static lua_State *GL = NULL;
+static lbfgs_parameter_t lbfgs_param;
+static int nEvaluation = 0;
+static int nIteration = 0;
+static int verbose = 0;
 
 static lbfgsfloatval_t evaluate(void *instance,
                                 const lbfgsfloatval_t *x,
@@ -1378,6 +1394,9 @@ static lbfgsfloatval_t evaluate(void *instance,
   lua_remove(GL, -2);                            /* remove 'lbfgs' from the stack */
   lua_call(GL, 0, 1);                            /* call: fx = lbfgs.evaluate() */
   lbfgsfloatval_t fx = lua_tonumber(GL, -1);     /* return fx */
+
+  // incr eval counter
+  nEvaluation ++;
 
   // copy gradParameters -> g
   memcpy(g, THDoubleTensor_data(gradParameters), sizeof(double)*nParameter);
@@ -1397,10 +1416,14 @@ static int progress(void *instance,
                     int k,
                     int ls)
 {
-  //printf("Iteration %d:\n", k);
-  //printf("  fx = %f, x[0] = %f, x[1] = %f\n", fx, x[0], x[1]);
-  //printf("  xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
-  //printf("\n");
+  nIteration = k;
+  if (verbose == 2) {
+    printf("\n<LBFGSOptimization> iteration %d:\n", nIteration);
+    printf("  + fx = %f\n", fx);
+    printf("  + xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
+    printf("  + nb evaluations = %d\n", nEvaluation);
+    printf("\n");
+  }
   return 0;
 }
 
@@ -1412,21 +1435,37 @@ int lbfgs_run(lua_State *L) {
   nParameter = THDoubleTensor_nElement(parameters);
 
   // parameters for algorithm
+  nEvaluation = 0;
   lbfgsfloatval_t fx;
   lbfgsfloatval_t *x = lbfgs_malloc(nParameter);
-  lbfgs_parameter_t param;
+
+  // get verbose level
+  lua_getfield(GL, LUA_GLOBALSINDEX, "lbfgs");   // push lbfgs on top of stack
+  lua_getfield(GL, -1, "verbose");               // push lbfgs.verbose on top of stack
+  verbose = lua_tonumber(GL, -1);                // verbose = lbfgs.verbose
+  lua_pop(GL, 2);                                // pop last two entries
 
   // initialize vector x <- parameters
   memcpy(x, THDoubleTensor_data(parameters), sizeof(double)*nParameter);
 
   // initialize the parameters for the L-BFGS optimization
-  lbfgs_parameter_init(&param);
-  param.max_iterations = lua_tonumber(L, 3);
-  param.linesearch = LBFGS_LINESEARCH_BACKTRACKING;
+  lbfgs_parameter_init(&lbfgs_param);
+  lbfgs_param.max_iterations = lua_tonumber(L, 3);
+  lbfgs_param.max_linesearch = lua_tonumber(L, 4);
+  lbfgs_param.linesearch = LBFGS_LINESEARCH_BACKTRACKING;
+  lbfgs_param.orthantwise_c = lua_tonumber(L, 5);
 
   // Start the L-BFGS optimization; this will invoke the callback functions
   // evaluate() and progress() when necessary.
-  int ret = lbfgs(nParameter, x, &fx, evaluate, progress, NULL, &param);
+  int ret = lbfgs(nParameter, x, &fx, evaluate, progress, NULL, &lbfgs_param);
+
+  // verbose
+  if (verbose) {
+    printf("\n<LBFGSOptimization> batch optimized after %d iterations\n", nIteration);
+    printf("  + fx = %f\n", fx);
+    printf("  + nb evaluations = %d\n", nEvaluation);
+    printf("\n");
+  }
 
   // cleanup
   lbfgs_free(x);
@@ -1449,7 +1488,7 @@ DLL_EXPORT int luaopen_liblbfgs(lua_State *L)
   luaT_registeratname(L, lbfgs_methods__, "lbfgs");
   lua_pop(L,1);
 
-  luaL_register(L, "lbfgs", lbfgs_methods__); 
+  luaL_register(L, "lbfgs", lbfgs_methods__);
 
   return 1;
 }
