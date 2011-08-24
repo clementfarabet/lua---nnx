@@ -1357,29 +1357,36 @@ static void owlqn_project(
   }
 }
 
-static lbfgsfloatval_t evaluate(
-                                void *instance,
+static const void *torch_DoubleTensor_id = NULL;
+static THDoubleTensor *parameters = NULL;
+static THDoubleTensor *gradParameters = NULL;
+static int nParameter = 0;
+lua_State *GL = NULL;
+
+static lbfgsfloatval_t evaluate(void *instance,
                                 const lbfgsfloatval_t *x,
                                 lbfgsfloatval_t *g,
                                 const int n,
-                                const lbfgsfloatval_t step
-                                )
+                                const lbfgsfloatval_t step)
 {
-  int i;
-  lbfgsfloatval_t fx = 0.0;
+  // copy given x -> parameters
+  memcpy(THDoubleTensor_data(parameters), x, sizeof(double)*nParameter);
 
-  for (i = 0;i < n;i += 2) {
-    lbfgsfloatval_t t1 = 1.0 - x[i];
-    lbfgsfloatval_t t2 = 10.0 * (x[i+1] - x[i] * x[i]);
-    g[i+1] = 20.0 * t2;
-    g[i] = -2.0 * (x[i] * g[i+1] + t1);
-    fx += t1 * t1 + t2 * t2;
-  }
+  // evaluate f(x) and g(f(x))
+  lua_getfield(GL, LUA_GLOBALSINDEX, "lbfgs");   /* table to be indexed */
+  lua_getfield(GL, -1, "evaluate");              /* push result of t.x (2nd arg) */
+  lua_remove(GL, -2);                            /* remove 'lbfgs' from the stack */
+  lua_call(GL, 0, 1);                            /* call: fx = lbfgs.evaluate() */
+  lbfgsfloatval_t fx = lua_tonumber(GL, -1);     /* return fx */
+
+  // copy gradParameters -> g
+  memcpy(g, THDoubleTensor_data(gradParameters), sizeof(double)*nParameter);
+
+  // return f(x)
   return fx;
 }
 
-static int progress(
-                    void *instance,
+static int progress(void *instance,
                     const lbfgsfloatval_t *x,
                     const lbfgsfloatval_t *g,
                     const lbfgsfloatval_t fx,
@@ -1388,8 +1395,7 @@ static int progress(
                     const lbfgsfloatval_t step,
                     int n,
                     int k,
-                    int ls
-                    )
+                    int ls)
 {
   printf("Iteration %d:\n", k);
   printf("  fx = %f, x[0] = %f, x[1] = %f\n", fx, x[0], x[1]);
@@ -1401,37 +1407,31 @@ static int progress(
 #define N   100
 
 int lbfgs_run(lua_State *L) {
-  int i, ret = 0;
+  // get params from userspace
+  GL = L;
+  parameters = luaT_checkudata(L, 1, torch_DoubleTensor_id);
+  gradParameters = luaT_checkudata(L, 2, torch_DoubleTensor_id);
+  nParameter = THDoubleTensor_nElement(parameters);
+
+  // parameters for algorithm
   lbfgsfloatval_t fx;
   lbfgsfloatval_t *x = lbfgs_malloc(N);
   lbfgs_parameter_t param;
 
-  if (x == NULL) {
-    printf("ERROR: Failed to allocate a memory block for variables.\n");
-    return 1;
-  }
+  // initialize vector x <- parameters
+  memcpy(x, THDoubleTensor_data(parameters), sizeof(double)*nParameter);
 
-  /* Initialize the variables. */
-  for (i = 0;i < N;i += 2) {
-    x[i] = -1.2;
-    x[i+1] = 1.0;
-  }
-
-  /* Initialize the parameters for the L-BFGS optimization. */
+  // initialize the parameters for the L-BFGS optimization
   lbfgs_parameter_init(&param);
-  /*param.linesearch = LBFGS_LINESEARCH_BACKTRACKING;*/
+  //param.linesearch = LBFGS_LINESEARCH_BACKTRACKING;
 
-  /*
-    Start the L-BFGS optimization; this will invoke the callback functions
-    evaluate() and progress() when necessary.
-  */
-  ret = lbfgs(N, x, &fx, evaluate, progress, NULL, &param);
+  // Start the L-BFGS optimization; this will invoke the callback functions
+  // evaluate() and progress() when necessary.
+  int ret = lbfgs(N, x, &fx, evaluate, progress, NULL, &param);
 
   lbfgs_free(x);
   return 0;
 }
-
-static const void* torch_DoubleTensor_id = NULL;
 
 static const struct luaL_Reg lbfgs_methods__ [] = {
   {"run", lbfgs_run},

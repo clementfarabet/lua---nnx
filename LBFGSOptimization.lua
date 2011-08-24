@@ -6,9 +6,10 @@ function LBFGS:__init(...)
    xlua.unpack_class(self, {...},
       'LBFGSOptimization', nil,
       {arg='module', type='nn.Module', help='a module to train', req=true},
-      {arg='criterion', type='nn.Criterion', help='a criterion to estimate the error'},
-      {arg='preprocessor', type='nn.Module', help='a preprocessor to prime the data before the module'}
+      {arg='criterion', type='nn.Criterion', help='a criterion to estimate the error'}
    )
+   self.parametersT = nnx.getParameters(self.module)
+   self.gradParametersT = nnx.getGradParameters(self.module)
 end
 
 function LBFGS:forward(inputs, targets)
@@ -17,10 +18,10 @@ function LBFGS:forward(inputs, targets)
    --       + self.parameters contains the current X vector
    --       + self.gradParameters contains the estimated dF/dX vector
    --       + self.output contains the estimated (average) F(X)
-   local evaluate
+   lbfgs.evaluate
       = function()
            -- set parameters from current state
-           self:unflatten(parameters, gradParameters)
+           self:unflatten(self.parametersT, self.gradParametersT)
            -- reset gradients
            self.module:zeroGradParameters()
            -- f is the average of all criterions
@@ -36,18 +37,18 @@ function LBFGS:forward(inputs, targets)
               self.module:backward(inputs[i], df_do)
            end
            -- update state from computed parameters
-           self:flatten(parameters, gradParameters)
+           self:flatten(self.parametersT, self.gradParametersT)
            -- return f(X)
            return self.output
         end
 
    -- (2) store current parameters/gradParameters
-   self:flatten(parameters, gradParameters)
+   self:flatten(self.parametersT, self.gradParametersT)
 
    -- (3) the magic function: will update the parameter vector
    --     according to the l-BFGS method
-   lbfgs.run(self.parameters, self.gradParameters, evaluate)
+   lbfgs.run(self.parameters, self.gradParameters)
 
    -- (4) last: read parameters back into the model
-   self:unflatten(parameters, gradParameters)
+   self:unflatten(self.parametersT, self.gradParametersT)
 end
