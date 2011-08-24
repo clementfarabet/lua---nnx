@@ -64,14 +64,9 @@ function OnlineTrainer:train(dataset)
       shuffledIndices = lab.randperm(dataset:size())
    end
 
-   local parameters = nnx.getParameters(module)
-   local gradParameters = nnx.getGradParameters(module)
-
    while true do
       print('<trainer> on training set:')
       print("<trainer> stochastic gradient descent epoch # " .. self.epoch)
-
-      module:zeroGradParameters()
 
       self.time = sys.clock()
       self.currentError = 0
@@ -85,39 +80,15 @@ function OnlineTrainer:train(dataset)
          local sample = dataset[self.trainOffset + shuffledIndices[t]]
          local input = sample[1]
          local target = sample[2]
-         local sample_x = sample.x
-         local sample_y = sample.y
 
          -- optional preprocess (no learning is done for that guy)
          if self.preprocessor then input = self.preprocessor:forward(input) end
 
-         -- forward through model and criterion 
-         -- (if no criterion, it is assumed to be contained in the model)
-         local modelOut, error
-         if criterion then
-            modelOut = module:forward(input)
-            error = criterion:forward(modelOut, target)
-         else
-            modelOut, error = module:forward(input, target, sample_x, sample_y)
-         end
+         -- optimize the model given current input/target set
+         local error = self.optimizer:forward({input}, {target})
 
          -- accumulate error
          self.currentError = self.currentError + error
-
-         -- reset gradients
-         module:zeroGradParameters()
-
-         -- backward through model
-         -- (if no criterion, it is assumed that derror is internally generated)
-         if criterion then
-            local derror = criterion:backward(module.output, target)
-            module:backward(input, derror)
-         else
-            module:backward(input)
-         end
-
-         -- update parameters in the model
-         self.optimizer:forward(parameters, gradParameters)
 
          -- call user hook, if any
          if self.hookTrainSample then

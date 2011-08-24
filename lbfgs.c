@@ -1397,10 +1397,10 @@ static int progress(void *instance,
                     int k,
                     int ls)
 {
-  printf("Iteration %d:\n", k);
-  printf("  fx = %f, x[0] = %f, x[1] = %f\n", fx, x[0], x[1]);
-  printf("  xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
-  printf("\n");
+  //printf("Iteration %d:\n", k);
+  //printf("  fx = %f, x[0] = %f, x[1] = %f\n", fx, x[0], x[1]);
+  //printf("  xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
+  //printf("\n");
   return 0;
 }
 
@@ -1427,8 +1427,12 @@ int lbfgs_run(lua_State *L) {
   // evaluate() and progress() when necessary.
   int ret = lbfgs(nParameter, x, &fx, evaluate, progress, NULL, &param);
 
+  // cleanup
   lbfgs_free(x);
-  return 0;
+
+  // return current error
+  lua_pushnumber(L, fx);
+  return 1;
 }
 
 static const struct luaL_Reg lbfgs_methods__ [] = {
