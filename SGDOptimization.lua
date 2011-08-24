@@ -31,6 +31,11 @@ function SGD:forward(inputs, targets)
       -- estimate df/dW
       local df_do = self.criterion:backward(output, targets[i])
       self.module:backward(inputs[i], df_do)
+
+      -- user hook
+      if self.hook then
+         self.hook(self, {inputs[i], targets[i]})
+      end
    end
 
    -- renorm f
