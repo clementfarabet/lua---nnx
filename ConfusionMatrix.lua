@@ -72,7 +72,7 @@ function ConfusionMatrix:__tostring__()
          str = str .. ' ['
       end
       for p = 1,nclasses do
-         str = str .. '' .. string.format('%8d\t', self.mat[t][p])
+         str = str .. '' .. string.format('%5d ', self.mat[t][p])
       end
       if self.classes then
          if t == nclasses then
