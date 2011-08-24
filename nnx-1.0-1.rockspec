@@ -50,6 +50,11 @@ build = {
          set (CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
          include_directories (${TORCH_INCLUDE_DIR} ${PROJECT_SOURCE_DIR})
+         add_library (lbfgs SHARED lbfgs.c)
+         target_link_libraries (lbfgs ${TORCH_LIBRARIES})
+         install_targets (/lib lbfgs)
+
+         include_directories (${TORCH_INCLUDE_DIR} ${PROJECT_SOURCE_DIR})
          add_library (nnx SHARED init.c)
          link_directories (${TORCH_LIBRARY_DIR})
          target_link_libraries (nnx ${TORCH_LIBRARIES})
