@@ -1421,7 +1421,7 @@ int lbfgs_run(lua_State *L) {
 
   // initialize the parameters for the L-BFGS optimization
   lbfgs_parameter_init(&param);
-  //param.linesearch = LBFGS_LINESEARCH_BACKTRACKING;
+  param.max_iterations = lua_tonumber(L, 3);
 
   // Start the L-BFGS optimization; this will invoke the callback functions
   // evaluate() and progress() when necessary.

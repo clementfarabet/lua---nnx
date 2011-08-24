@@ -6,7 +6,8 @@ function LBFGS:__init(...)
    xlua.unpack_class(self, {...},
       'LBFGSOptimization', nil,
       {arg='module', type='nn.Module', help='a module to train', req=true},
-      {arg='criterion', type='nn.Criterion', help='a criterion to estimate the error', req=true}
+      {arg='criterion', type='nn.Criterion', help='a criterion to estimate the error', req=true},
+      {arg='maxIterations', type='number', help='maximum nb of iterations per pass (0 = no max)', default=0}
    )
    self.parametersT = nnx.getParameters(self.module)
    self.gradParametersT = nnx.getGradParameters(self.module)
@@ -47,7 +48,7 @@ function LBFGS:forward(inputs, targets)
 
    -- (3) the magic function: will update the parameter vector
    --     according to the l-BFGS method
-   self.output = lbfgs.run(self.parameters, self.gradParameters)
+   self.output = lbfgs.run(self.parameters, self.gradParameters, self.maxIterations)
 
    -- (4) last: read parameters back into the model
    self:unflatten(self.parametersT, self.gradParametersT)
