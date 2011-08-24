@@ -51,6 +51,9 @@ function SGD:forward(inputs, targets, options)
    -- update state from computed parameters
    self:flatten(self.parametersT, self.gradParametersT)
 
+   -- normalize gradients
+   self.gradParameters:div(#inputs)
+
    -- apply momentum
    if self.momentum ~= 0 then
       if not self.currentGradParameters then

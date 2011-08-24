@@ -52,6 +52,8 @@ function LBFGS:forward(inputs, targets, options)
            end
            -- update state from computed parameters
            self:flatten(self.parametersT, self.gradParametersT)
+           -- normalize gradients
+           self.gradParameters:div(#inputs)
            -- return average f(X)
            return self.output/#inputs
         end
