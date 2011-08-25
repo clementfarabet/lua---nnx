@@ -91,13 +91,8 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
    self.parametersPT = {}
    self.gradParametersPT = {}
    for m = 1,self.parallelize do
-      if m == 1 then
-         modules[m] = self.module
-         criterions[m] = self.criterion
-      else
-         modules[m] = self.module:clone()
-         criterions[m] = self.criterion:clone()
-      end
+      modules[m] = self.module:clone()
+      criterions[m] = self.criterion:clone()
       self.parametersPT[m] = nnx.getParameters(modules[m])
       self.gradParametersPT[m] = nnx.getGradParameters(modules[m])
    end
