@@ -88,8 +88,8 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
    local modules = {}
    local criterions = {}
    local outputs = {}
-   self.parametersT = {}
-   self.gradParametersT = {}
+   self.parametersPT = {}
+   self.gradParametersPT = {}
    for m = 1,self.parallelize do
       if m == 1 then
          modules[m] = self.module
@@ -98,8 +98,8 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
          modules[m] = self.module:clone()
          criterions[m] = self.criterion:clone()
       end
-      self.parametersT[m] = nnx.getParameters(modules[m])
-      self.gradParametersT[m] = nnx.getGradParameters(modules[m])
+      self.parametersPT[m] = nnx.getParameters(modules[m])
+      self.gradParametersPT[m] = nnx.getGradParameters(modules[m])
    end
 
    -- (1) construct a closure that compute f(inputs) + df/dW
@@ -119,14 +119,14 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
    --      in separate threads
    lbfgs.evaluate_map
       = function(thread)
-           -- set parameters from current state
-           self:unflatten(self.parametersT[thread], self.gradParametersT[thread])
+           -- set parameters of current state
+           self:unflatten(self.parametersPT[thread], self.gradParametersPT[thread])
            -- reset gradients
            modules[thread]:zeroGradParameters()
            -- f is the average of all criterions
            outputs[thread] = 0
-           -- given all inputs, evaluate gradients
-           for i = thread,#inputs,thread do
+           -- evaluate gradients on inputs for this thread
+	   for i = thread,#inputs,#modules do
               -- estimate f
               local output = modules[thread]:forward(inputs[i])
               local err = criterions[thread]:forward(output, targets[i])
@@ -146,8 +146,8 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
            self.gradParametersAcc:resizeAs(self.gradParameters):zero()
            -- update state from computed parameters
            for t = 1,self.parallelize do
-              self:flatten(self.parametersT[1], self.gradParametersT[t])
-              self.gradParametersAcc:copy(self.gradParameters)
+              self:flatten(self.parametersPT[t], self.gradParametersPT[t])
+              self.gradParametersAcc:add(self.gradParameters)
            end
            self.gradParameters:copy(self.gradParametersAcc)
            -- normalize gradients
@@ -161,7 +161,7 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
         end
 
    -- (2) store current parameters/gradParameters
-   self:flatten(self.parametersT[1], self.gradParametersT[1])
+   self:flatten(self.parametersT, self.gradParametersT)
 
    -- (3) the magic function: will update the parameter vector
    --     according to the l-BFGS method
@@ -169,8 +169,8 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
                            self.maxIterations, self.maxLineSearch,
                            self.sparsity)
 
-   -- (4) last: read parameters back into the model
-   self:unflatten(self.parametersT[1], self.gradParametersT[1])
+   -- (4) last: read parameters back into the main (not parrallel) model
+   self:unflatten(self.parametersT, self.gradParametersT)
 
    -- (5) return current output after optimization
    return self.output
