@@ -3,10 +3,11 @@ local Optimization = torch.class('nn.Optimization')
 function Optimization:__init()
 end
 
-function Optimization:forward(parameters, gradParameters)
+function Optimization:forward(inputs, targets)
    self:flatten(parameters, gradParameters)
-   -- do your thing
+   self.output = 0
    self:unflatten(parameters, gradParameters)
+   return self.output
 end
 
 function Optimization:flatten(parameters, gradParameters)

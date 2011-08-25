@@ -50,6 +50,11 @@ build = {
          set (CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
          include_directories (${TORCH_INCLUDE_DIR} ${PROJECT_SOURCE_DIR})
+         add_library (lbfgs SHARED lbfgs.c)
+         target_link_libraries (lbfgs ${TORCH_LIBRARIES})
+         install_targets (/lib lbfgs)
+
+         include_directories (${TORCH_INCLUDE_DIR} ${PROJECT_SOURCE_DIR})
          add_library (nnx SHARED init.c)
          link_directories (${TORCH_LIBRARY_DIR})
          target_link_libraries (nnx ${TORCH_LIBRARIES})
@@ -96,6 +101,7 @@ build = {
          install_files(/lua/nnx SpatialColorTransform.lua)
          install_files(/lua/nnx SpatialRecursiveFovea.lua)
          install_files(/lua/nnx Optimization.lua)
+         install_files(/lua/nnx LBFGSOptimization.lua)
          install_files(/lua/nnx SGDOptimization.lua)
          add_subdirectory (test)
          install_targets(/lib nnx)
