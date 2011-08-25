@@ -97,8 +97,13 @@ torch.include('nnx', 'SpatialMSECriterion.lua')
 torch.include('nnx', 'SpatialClassNLLCriterion.lua')
 torch.include('nnx', 'SpatialSparseCriterion.lua')
 
+-- optimizations:
+torch.include('nnx', 'Optimization.lua')
+torch.include('nnx', 'SGDOptimization.lua')
+
 -- trainers:
 torch.include('nnx', 'Trainer.lua')
+torch.include('nnx', 'OnlineTrainer.lua')
 torch.include('nnx', 'StochasticTrainer.lua')
 
 -- datasets:
@@ -158,7 +163,7 @@ end
 
 function nnx.getParameters(...)
    -- to hold all parameters found
-   holder = {}
+   local holder = {}
    -- call recursive call
    local modules = {...}
    for _,module in ipairs(modules) do
@@ -170,7 +175,7 @@ end
 
 function nnx.getGradParameters(...)
    -- to hold all parameters found
-   holder = {}
+   local holder = {}
    -- call recursive call
    local modules = {...}
    for _,module in ipairs(modules) do
