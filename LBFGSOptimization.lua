@@ -72,7 +72,7 @@ function LBFGS:forward_sequential(inputs, targets, options)
 
    -- (3) the magic function: will update the parameter vector
    --     according to the l-BFGS method
-   self.output = lbfgs.run(self.parameters, self.gradParameters, 
+   self.output = lbfgs.run(self.parameters, self.gradParameters,
                            self.maxIterations, self.maxLineSearch,
                            self.sparsity)
 
@@ -126,7 +126,7 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
            -- f is the average of all criterions
            outputs[thread] = 0
            -- evaluate gradients on inputs for this thread
-	   for i = thread,#inputs,#modules do
+           for i = thread,#inputs,#modules do
               -- estimate f
               local output = modules[thread]:forward(inputs[i])
               local err = criterions[thread]:forward(output, targets[i])
@@ -165,7 +165,7 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
 
    -- (3) the magic function: will update the parameter vector
    --     according to the l-BFGS method
-   self.output = lbfgs.run(self.parameters, self.gradParameters, 
+   self.output = lbfgs.run(self.parameters, self.gradParameters,
                            self.maxIterations, self.maxLineSearch,
                            self.sparsity)
 
