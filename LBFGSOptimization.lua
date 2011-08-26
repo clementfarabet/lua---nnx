@@ -16,6 +16,12 @@ function LBFGS:__init(...)
    self.parametersT = nnx.getParameters(self.module)
    self.gradParametersT = nnx.getGradParameters(self.module)
    lbfgs.verbose = self.verbose
+   if opt.parallelize then
+      if not xrequire 'thread' then
+         xerror('please install thread package (luarocks install thread)',
+                'LBFGSOptimization')
+      end
+   end
 end
 
 function LBFGS:forward(inputs, targets, options)
@@ -104,16 +110,23 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
    --       + self.output contains the estimated (average) F(X)
    lbfgs.evaluate
       = function()
+           local queue = thread.queue.newqueue()
+           -- dispatch all threads
            for t = 1,self.parallelize do
-              lbfgs.evaluate_map(t)
+              thread.newthread(lbfgs.evaluate_map, {t,queue})
            end
+           -- wait for all threads
+           for t = 1,self.parallelize do
+              queue:remove()
+           end
+           -- and conclude
            return lbfgs.evaluate_reduce()
         end
 
    -- (1a) the map part of the evaluation: compute partial gradients
    --      in separate threads
    lbfgs.evaluate_map
-      = function(thread)
+      = function(thread, queue)
            -- set parameters of current state
            self:unflatten(self.parametersPT[thread], self.gradParametersPT[thread])
            -- reset gradients
@@ -130,6 +143,8 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
               local df_do = criterions[thread]:backward(output, targets[i])
               modules[thread]:backward(inputs[i], df_do)
            end
+           -- sync master thread
+           queue:insert(1)
         end
 
    -- (1b) the reduce part of the evaluation: accumulate all
