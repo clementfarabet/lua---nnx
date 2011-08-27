@@ -16,6 +16,12 @@ function LBFGS:__init(...)
    self.parametersT = nnx.getParameters(self.module)
    self.gradParametersT = nnx.getGradParameters(self.module)
    lbfgs.verbose = self.verbose
+   if self.parallelize > 1 then
+      if not xrequire 'parallel' then
+         xerror('install parallel for Lua to enable parallel computing (luarocks install parallel)',
+                'nn.LBFGSOptimization')
+      end
+   end
 end
 
 function LBFGS:forward(inputs, targets, options)
@@ -97,6 +103,18 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
       self.gradParametersPT[m] = nnx.getGradParameters(modules[m])
    end
 
+   -- (0b) divide input/target batch into N batches
+   local inputss = {}
+   local targetss = {}
+   for t = 1,self.parallelize do
+      inputss[t] = {}
+      targetss[t] = {}
+      for i = t,#inputs,self.parallelize do
+         table.insert(inputss[t], inputs[i])
+         table.insert(targetss[t], targets[i])
+      end
+   end
+
    -- (1) construct a closure that compute f(inputs) + df/dW
    --     after each call to that function:
    --       + self.parameters contains the current X vector
@@ -104,33 +122,69 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
    --       + self.output contains the estimated (average) F(X)
    lbfgs.evaluate
       = function()
+           -- reset parallel state
+           parallel.reset()
+           -- dispatch N parallel jobs
            for t = 1,self.parallelize do
-              lbfgs.evaluate_map(t)
+              parallel.run(lbfgs.evaluate_map)
            end
+           -- transmit data to all jobs
+           for t = 1,self.parallelize do
+              -- update each module with latest parameters
+              self:unflatten(self.parametersPT[t], self.gradParametersPT[t])
+              -- transmit all necessary data
+              parallel.children[t]:send(modules[t])
+              parallel.children[t]:send(criterions[t])
+              parallel.children[t]:send(inputss[t])
+              parallel.children[t]:send(targetss[t])
+           end
+           -- then wait for all workers to return their trained modules
+           for t = 1,self.parallelize do
+              modules[t] = parallel.children[t]:receive()
+              outputs[t] = parallel.children[t]:receive()
+              self.parametersPT[t] = nnx.getParameters(modules[t])
+              self.gradParametersPT[t] = nnx.getGradParameters(modules[t])
+           end
+           -- and join
+           parallel.children:join()
+           -- reduce
            return lbfgs.evaluate_reduce()
         end
 
    -- (1a) the map part of the evaluation: compute partial gradients
    --      in separate threads
-   lbfgs.evaluate_map
-      = function(thread)
-           -- set parameters of current state
-           self:unflatten(self.parametersPT[thread], self.gradParametersPT[thread])
-           -- reset gradients
-           modules[thread]:zeroGradParameters()
-           -- f is the average of all criterions
-           outputs[thread] = 0
-           -- evaluate gradients on inputs for this thread
-           for i = thread,#inputs,#modules do
-              -- estimate f
-              local output = modules[thread]:forward(inputs[i])
-              local err = criterions[thread]:forward(output, targets[i])
-              outputs[thread] = outputs[thread] + err
-              -- estimate df/dW
-              local df_do = criterions[thread]:backward(output, targets[i])
-              modules[thread]:backward(inputs[i], df_do)
-           end
-        end
+   lbfgs.evaluate_map = [[
+         -- require packages
+         require 'nnx'
+
+         -- thread ID
+         thread = parallel.id
+
+         -- retrieve module + criterion + mini-batch
+         module = parallel.parent:receive()
+         criterion = parallel.parent:receive()
+         inputs = parallel.parent:receive()
+         targets = parallel.parent:receive()
+
+         -- reset gradients
+         module:zeroGradParameters()
+         -- f is the average of all criterions
+         local output = 0
+         -- evaluate gradients on inputs for this thread
+         for i = 1,#inputs do
+            -- estimate f
+            local output = module:forward(inputs[i])
+            local err = criterion:forward(output, targets[i])
+            output = output + err
+            -- estimate df/dW
+            local df_do = criterion:backward(output, targets[i])
+            module:backward(inputs[i], df_do)
+         end
+
+         -- return module + output
+         parallel.parent:send(module)
+         parallel.parent:send(output)
+   ]]
 
    -- (1b) the reduce part of the evaluation: accumulate all
    --      partial estimates of the gradients
