@@ -21,6 +21,7 @@ function LBFGS:__init(...)
          xerror('install parallel for Lua to enable parallel computing (luarocks install parallel)',
                 'nn.LBFGSOptimization')
       end
+      parallel.setSharedSize(4*1024*1024)
    end
 end
 
@@ -90,26 +91,20 @@ function LBFGS:forward_sequential(inputs, targets, options)
 end
 
 function LBFGS:forward_mapreduce(inputs, targets, options)
-   -- (0) clone module+criterion for parallel evaluations
-   local modules = {}
-   local criterions = {}
+   -- parameters
+   local P = self.parallelize
+
+   -- (0a) replicate output and gradParameters
    local outputs = {}
-   self.parametersPT = {}
-   self.gradParametersPT = {}
-   for m = 1,self.parallelize do
-      modules[m] = self.module:clone()
-      criterions[m] = self.criterion:clone()
-      self.parametersPT[m] = nnx.getParameters(modules[m])
-      self.gradParametersPT[m] = nnx.getGradParameters(modules[m])
-   end
+   local gradParameters = {}
 
    -- (0b) divide input/target batch into N batches
    local inputss = {}
    local targetss = {}
-   for t = 1,self.parallelize do
+   for t = 1,P do
       inputss[t] = {}
       targetss[t] = {}
-      for i = t,#inputs,self.parallelize do
+      for i = t,#inputs,P do
          table.insert(inputss[t], inputs[i])
          table.insert(targetss[t], targets[i])
       end
@@ -125,25 +120,23 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
            -- reset parallel state
            parallel.reset()
            -- dispatch N parallel jobs
-           for t = 1,self.parallelize do
+           for t = 1,P do
               parallel.run(lbfgs.evaluate_map)
            end
+           -- load parameters into current model
+           self:unflatten(self.parametersT, self.gradParametersT)
            -- transmit data to all jobs
-           for t = 1,self.parallelize do
-              -- update each module with latest parameters
-              self:unflatten(self.parametersPT[t], self.gradParametersPT[t])
+           for t = 1,P do
               -- transmit all necessary data
-              parallel.children[t]:send(modules[t])
-              parallel.children[t]:send(criterions[t])
+              parallel.children[t]:send(self.module)
+              parallel.children[t]:send(self.criterion)
               parallel.children[t]:send(inputss[t])
               parallel.children[t]:send(targetss[t])
            end
            -- then wait for all workers to return their trained modules
-           for t = 1,self.parallelize do
-              modules[t] = parallel.children[t]:receive()
+           for t = 1,P do
+              gradParameters = parallel.children[t]:receive()
               outputs[t] = parallel.children[t]:receive()
-              self.parametersPT[t] = nnx.getParameters(modules[t])
-              self.gradParametersPT[t] = nnx.getGradParameters(modules[t])
            end
            -- and join
            parallel.children:join()
@@ -156,9 +149,6 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
    lbfgs.evaluate_map = [[
          -- require packages
          require 'nnx'
-
-         -- thread ID
-         thread = parallel.id
 
          -- retrieve module + criterion + mini-batch
          module = parallel.parent:receive()
@@ -181,8 +171,8 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
             module:backward(inputs[i], df_do)
          end
 
-         -- return module + output
-         parallel.parent:send(module)
+         -- return partial gradParameters + output
+         parallel.parent:send( nnx.getGradParameters(module) )
          parallel.parent:send(output)
    ]]
 
@@ -194,8 +184,8 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
            self.gradParametersAcc = self.gradParametersAcc or torch.Tensor()
            self.gradParametersAcc:resizeAs(self.gradParameters):zero()
            -- update state from computed parameters
-           for t = 1,self.parallelize do
-              self:flatten(self.parametersPT[t], self.gradParametersPT[t])
+           for t = 1,P do
+              self:flatten(self.parametersT, gradParameters)
               self.gradParametersAcc:add(self.gradParameters)
            end
            self.gradParameters:copy(self.gradParametersAcc)
@@ -203,9 +193,10 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
            self.gradParameters:div(#inputs)
            -- return average f(X)
            self.output = 0
-           for t = 1,self.parallelize do
+           for t = 1,P do
               self.output = self.output + outputs[t]
            end
+           -- export parameters, again
            return self.output/#inputs
         end
 
