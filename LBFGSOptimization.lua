@@ -129,10 +129,8 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
       = function()
            -- load parameters into current model
            self:unflatten(self.parametersT, self.gradParametersT)
-           -- transmit new parameters to workers
-           for t = 1,P do
-              parallel.children[t]:send(self.parametersT)
-           end
+           -- transmit new parameters to all workers
+           parallel.children:send(self.parametersT)
            -- then wait for all workers to return their partial gradParameters + outputs
            for t = 1,P do
               gradParameters[t] = parallel.children[t]:receive()
@@ -177,9 +175,7 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
    self:unflatten(self.parametersT, self.gradParametersT)
 
    -- (6) reset workers so they're ready for next mini-batch
-   for t = 1,P do
-      parallel.children[t]:send('break')
-   end
+   parallel.children:send('break')
 
    -- (5) return current output after optimization
    return self.output
@@ -251,8 +247,6 @@ function LBFGS:setup_mapreduce ()
    end
 
    -- (3) and send them the module + criterion architecture
-   for t = 1,P do
-      parallel.children[t]:send(self.module)
-      parallel.children[t]:send(self.criterion)
-   end
+   parallel.children:send(self.module)
+   parallel.children:send(self.criterion)
 end
