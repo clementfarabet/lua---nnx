@@ -16,15 +16,22 @@ function OnlineTrainer:__init(...)
          .. '> ',
 
       {arg='module', type='nn.Module', help='a module to train', req=true},
-      {arg='criterion', type='nn.Criterion', help='a criterion to estimate the error'},
-      {arg='preprocessor', type='nn.Module', help='a preprocessor to prime the data before the module'},
-      {arg='optimizer', type='nn.Optimization', help='an optimization method'},
-
-      {arg='batchSize', type='number', help='[mini] batch size', default=1},
-      {arg='maxEpoch', type='number', help='maximum number of epochs', default=50},
-      {arg='dispProgress', type='boolean', help='display a progress bar during training/testing', default=true},
-      {arg='save', type='string', help='path to save networks and log training'},
-      {arg='timestamp', type='boolean', help='if true, appends a timestamp to each network saved', default=false}
+      {arg='criterion', type='nn.Criterion', 
+       help='a criterion to estimate the error'},
+      {arg='preprocessor', type='nn.Module', 
+       help='a preprocessor to prime the data before the module'},
+      {arg='optimizer', type='nn.Optimization', 
+       help='an optimization method'}, 
+      {arg='batchSize', type='number', 
+       help='[mini] batch size', default=1},
+      {arg='maxEpoch', type='number', 
+       help='maximum number of epochs', default=50},
+      {arg='dispProgress', type='boolean', 
+       help='display a progress bar during training/testing', default=true},
+      {arg='save', type='string', 
+       help='path to save networks and log training'},
+      {arg='timestamp', type='boolean', 
+       help='if true, appends a timestamp to each network saved', default=false}
    )
    -- private params
    self.trainOffset = 0
