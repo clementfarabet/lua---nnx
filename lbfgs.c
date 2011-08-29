@@ -484,7 +484,7 @@ int lbfgs(
       veccpy(g, gp, n);
       ret = ls;
       if (verbose > 1){
-	printf("Stopping b/c ls (%f) < 0\n", ls);
+	printf("Stopping b/c ls (%d) < 0\n", ls);
       }
       goto lbfgs_exit;
     }
