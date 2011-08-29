@@ -18,7 +18,7 @@ function SGD:forward(inputs, targets, options)
    options = options or {}
 
    -- reset gradients
-   self.module:zeroGradParameters()
+   self.gradParameters:zero()
    
    -- f is the average of all criterions
    self.output = 0
