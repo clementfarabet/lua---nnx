@@ -105,7 +105,6 @@ torch.include('nnx', 'LBFGSOptimization.lua')
 -- trainers:
 torch.include('nnx', 'Trainer.lua')
 torch.include('nnx', 'OnlineTrainer.lua')
-torch.include('nnx', 'StochasticTrainer.lua')
 
 -- datasets:
 torch.include('nnx', 'DataSet.lua')

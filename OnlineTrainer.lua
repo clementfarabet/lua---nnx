@@ -74,7 +74,7 @@ function OnlineTrainer:train(dataset)
 
    while true do
       print('<trainer> on training set:')
-      print("<trainer> online epoch # " .. self.epoch .. '[batchSize = ' .. self.batchSize .. ']')
+      print("<trainer> online epoch # " .. self.epoch .. ' [batchSize = ' .. self.batchSize .. ']')
 
       self.time = sys.clock()
       self.currentError = 0

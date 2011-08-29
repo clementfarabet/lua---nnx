@@ -83,7 +83,6 @@ build = {
          install_files(/lua/nnx SpatialCriterion.lua)
          install_files(/lua/nnx Trainer.lua)
          install_files(/lua/nnx OnlineTrainer.lua)
-         install_files(/lua/nnx StochasticTrainer.lua)
          install_files(/lua/nnx DataSet.lua)
          install_files(/lua/nnx DataList.lua)
          install_files(/lua/nnx DataSetLabelMe.lua)
