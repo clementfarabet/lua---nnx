@@ -10,8 +10,8 @@ function SGD:__init(...)
       {arg='weightDecay', type='number', help='amount of weight decay (W = W - decay*W)', default=0},
       {arg='momentum', type='number', help='amount of momentum on weights (dE/W = dE/dW*(1-momentum) + prev(dE/dW)*momentum)', default=0}
    )
-   self.parametersT = nnx.getParameters(self.module)
-   self.gradParametersT = nnx.getGradParameters(self.module)
+   self.parameters = nnx.flattenParameters(nnx.getParameters(self.module))
+   self.gradParameters = nnx.flattenParameters(nnx.getGradParameters(self.module))
 end
 
 function SGD:forward(inputs, targets, options)
@@ -48,9 +48,6 @@ function SGD:forward(inputs, targets, options)
    -- renorm f
    self.output = self.output / #inputs
    
-   -- update state from computed parameters
-   self:flatten(self.parametersT, self.gradParametersT)
-
    -- normalize gradients
    self.gradParameters:div(#inputs)
 
@@ -72,9 +69,6 @@ function SGD:forward(inputs, targets, options)
 
    -- update parameters
    self.parameters:add(-self.learningRate, self.currentGradParameters)
-
-   -- write compute parameters back in place
-   self:unflatten(self.parametersT, self.gradParametersT)
 
    -- return current output
    return self.output

@@ -19,8 +19,8 @@ function LBFGS:__init(...)
       {arg='verbose', type='number', 
        help='verbose level during training [0-2]', default=0}
    )
-   self.parametersT = nnx.getParameters(self.module)
-   self.gradParametersT = nnx.getGradParameters(self.module)
+   self.parameters = nnx.flattenParameters(nnx.getParameters(self.module))
+   self.gradParameters = nnx.flattenParameters(nnx.getGradParameters(self.module))
    if self.parallelize > 1 then
       self:setup_mapreduce()
    end
@@ -43,10 +43,8 @@ function LBFGS:forward_sequential(inputs, targets, options)
    --       + self.output contains the estimated (average) F(X)
    lbfgs.evaluate
       = function()
-           -- set parameters from current state
-           self:unflatten(self.parametersT, self.gradParametersT)
            -- reset gradients
-           self.module:zeroGradParameters()
+           self.gradParameters:zero()
            -- f is the average of all criterions
            self.output = 0
            -- given all inputs, evaluate gradients
@@ -67,27 +65,19 @@ function LBFGS:forward_sequential(inputs, targets, options)
                  self.posthook(self, {inputs[i], targets[i], options[i]})
               end
            end
-           -- update state from computed parameters
-           self:flatten(self.parametersT, self.gradParametersT)
            -- normalize gradients
            self.gradParameters:div(#inputs)
            -- return average f(X)
            return self.output/#inputs
         end
 
-   -- (2) store current parameters/gradParameters
-   self:flatten(self.parametersT, self.gradParametersT)
-
-   -- (3) the magic function: will update the parameter vector
+   -- (2) the magic function: will update the parameter vector
    --     according to the l-BFGS method
    self.output = lbfgs.run(self.parameters, self.gradParameters,
                            self.maxIterations, self.maxLineSearch,
                            self.sparsity, self.verbose)
 
-   -- (4) last: read parameters back into the model
-   self:unflatten(self.parametersT, self.gradParametersT)
-
-   -- (5) return current output after optimization
+   -- (3) return current output after optimization
    return self.output
 end
 
@@ -123,8 +113,8 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
    end
 
    -- (0a) replicate output and gradParameters
-   local outputs = {}
-   local gradParameters = {}
+   local outputsPartial = {}
+   local gradParametersPartial = {}
 
    -- (0b) divide input/target batch into N batches
    local inputss = {}
@@ -163,14 +153,12 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
    --      in separate threads
    lbfgs.evaluate_map
       = function()
-           -- load parameters into current model
-           self:unflatten(self.parametersT, self.gradParametersT)
            -- transmit new parameters to all workers
-           parallel.children:send(self.parametersT)
+           parallel.children:send(self.parameters)
            -- then wait for all workers to return their partial gradParameters + outputs
            for t = 1,P do
-              gradParameters[t] = parallel.children[t]:receive()
-              outputs[t] = parallel.children[t]:receive()
+              gradParametersPartial[t] = parallel.children[t]:receive()
+              outputsPartial[t] = parallel.children[t]:receive()
            end
         end
 
@@ -178,42 +166,30 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
    --      partial estimates of the gradients
    lbfgs.evaluate_reduce
       = function()
-           -- temp vectors for accumulation
-           self.gradParametersAcc = self.gradParametersAcc or torch.Tensor()
-           self.gradParametersAcc:resizeAs(self.gradParameters):zero()
-           -- update state from computed parameters
+           -- accumulate partial gradients, and average
+           self.gradParameters:zero()
            for t = 1,P do
-              self:flatten(self.parametersT, gradParameters[t])
-              self.gradParametersAcc:add(self.gradParameters)
+              self.gradParameters:add(gradParametersPartial[t])
            end
-           self.gradParameters:copy(self.gradParametersAcc)
-           -- normalize gradients
            self.gradParameters:div(#inputs)
            -- return average f(X)
            self.output = 0
            for t = 1,P do
-              self.output = self.output + outputs[t]
+              self.output = self.output + outputsPartial[t]
            end
-           -- export parameters, again
            return self.output/#inputs
         end
 
-   -- (2) store current parameters/gradParameters
-   self:flatten(self.parametersT, self.gradParametersT)
-
-   -- (3) the magic function: will update the parameter vector
+   -- (2) the magic function: will update the parameter vector
    --     according to the l-BFGS method
    self.output = lbfgs.run(self.parameters, self.gradParameters,
                            self.maxIterations, self.maxLineSearch,
                            self.sparsity, self.verbose)
 
-   -- (4) last: read parameters back into the main (not parrallel) model
-   self:unflatten(self.parametersT, self.gradParametersT)
-
-   -- (6) reset workers so they're ready for next mini-batch
+   -- (3) reset workers so they're ready for next mini-batch
    parallel.children:send('break')
 
-   -- (5) return current output after optimization
+   -- (4) return current output after optimization
    return self.output
 end
 
@@ -245,8 +221,8 @@ function LBFGS:setup_mapreduce ()
          if posthook ~= '' then loadstring(posthook)() else posthook = nil end
 
          -- get pointer to parameter and gradParameter vectors
-         parameters = nnx.getParameters(module)
-         gradParameters = nnx.getGradParameters(module)
+         parameters = nnx.flattenParameters(nnx.getParameters(module))
+         gradParameters = nnx.flattenParameters(nnx.getGradParameters(module))
 
          -- outter loop: mini-batches
          while true do
@@ -261,12 +237,10 @@ function LBFGS:setup_mapreduce ()
                -- receive new set of parameters
                newParameters = parallel.parent:receive()
                if type(newParameters) == 'string' and newParameters == 'break' then break end
-               for i = 1,#newParameters do
-                  parameters[i]:copy(newParameters[i])
-               end
+               parameters:copy(newParameters)
 
                -- reset gradients
-               module:zeroGradParameters()
+               gradParameters:zero()
                -- f is the average of all criterions
                local f_x = 0
                -- evaluate gradients on inputs for this thread
