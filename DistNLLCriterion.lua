@@ -59,3 +59,23 @@ function DistNLLCriterion:backward(input, target)
    self:denormalize(input)
    return self.gradInput
 end
+
+function DistNLLCriterion:write(file)
+   parent.write(self, file)
+   file:writeBool(self.inputIsProbability)
+   file:writeBool(self.inputIsLogProbability)
+   file:writeBool(self.targetIsProbability)
+   file:writeObject(self.targetSoftMax)
+   file:writeObject(self.inputLogSoftMax)
+   file:writeObject(self.gradLogInput)
+end
+
+function DistNLLCriterion:read(file)
+   parent.read(self, file)
+   self.inputIsProbability = file:readBool()
+   self.inputIsLogProbability = file:readBool()
+   self.targetIsProbability = file:readBool()
+   self.targetSoftMax = file:readObject()
+   self.inputLogSoftMax = file:readObject()
+   self.gradLogInput = file:readObject()
+end
