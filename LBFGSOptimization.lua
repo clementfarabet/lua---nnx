@@ -21,6 +21,9 @@ function LBFGS:__init(...)
    )
    self.parametersT = nnx.getParameters(self.module)
    self.gradParametersT = nnx.getGradParameters(self.module)
+   if self.parallelize > 1 then
+      self:setup_mapreduce()
+   end
 end
 
 function LBFGS:forward(inputs, targets, options)
@@ -89,17 +92,60 @@ function LBFGS:forward_sequential(inputs, targets, options)
 end
 
 function LBFGS:forward_mapreduce(inputs, targets, options)
-   -- (0) clone module+criterion for parallel evaluations
-   local modules = {}
-   local criterions = {}
+   -- parameters
+   local P = self.parallelize
+
+   -- transmit user hooks, if defined
+   if not self.hooksets then
+      if self.prehook then
+         if type(self.prehook) == 'string' then
+            parallel.children:send(self.prehook)
+         else
+            print('\r<LBFGSOptimization> WARNING: when using para||el mode, hooks should be')
+            print('\r<LBFGSOptimization> WARNING: defined as strings. User prehook ignored.')
+            parallel.children:send('')
+         end
+      else
+         parallel.children:send('')
+      end
+      if self.posthook then
+         if type(self.posthook) == 'string' then
+            parallel.children:send(self.posthook)
+         else
+            print('\r<LBFGSOptimization> WARNING: when using para||el mode, hooks should be')
+            print('<\rLBFGSOptimization> WARNING: defined as strings. User posthook ignored.')
+            parallel.children:send('')
+         end
+      else
+         parallel.children:send('')
+      end
+      self.hooksets = true
+   end
+
+   -- (0a) replicate output and gradParameters
    local outputs = {}
-   self.parametersPT = {}
-   self.gradParametersPT = {}
-   for m = 1,self.parallelize do
-      modules[m] = self.module:clone()
-      criterions[m] = self.criterion:clone()
-      self.parametersPT[m] = nnx.getParameters(modules[m])
-      self.gradParametersPT[m] = nnx.getGradParameters(modules[m])
+   local gradParameters = {}
+
+   -- (0b) divide input/target batch into N batches
+   local inputss = {}
+   local targetss = {}
+   local optionss = {}
+   for t = 1,P do
+      inputss[t] = {}
+      targetss[t] = {}
+      optionss[t] = {}
+      for i = t,#inputs,P do
+         table.insert(inputss[t], inputs[i])
+         table.insert(targetss[t], targets[i])
+         if options then table.insert(optionss[t], options[i]) end
+      end
+   end
+
+   -- (0c) send mini-batch to all workers
+   for t = 1,P do
+      parallel.children[t]:send(inputss[t])
+      parallel.children[t]:send(targetss[t])
+      parallel.children[t]:send(optionss[t])
    end
 
    -- (1) construct a closure that compute f(inputs) + df/dW
@@ -109,31 +155,22 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
    --       + self.output contains the estimated (average) F(X)
    lbfgs.evaluate
       = function()
-           for t = 1,self.parallelize do
-              lbfgs.evaluate_map(t)
-           end
+           lbfgs.evaluate_map()
            return lbfgs.evaluate_reduce()
         end
 
    -- (1a) the map part of the evaluation: compute partial gradients
    --      in separate threads
    lbfgs.evaluate_map
-      = function(thread)
-           -- set parameters of current state
-           self:unflatten(self.parametersPT[thread], self.gradParametersPT[thread])
-           -- reset gradients
-           modules[thread]:zeroGradParameters()
-           -- f is the average of all criterions
-           outputs[thread] = 0
-           -- evaluate gradients on inputs for this thread
-           for i = thread,#inputs,#modules do
-              -- estimate f
-              local output = modules[thread]:forward(inputs[i])
-              local err = criterions[thread]:forward(output, targets[i])
-              outputs[thread] = outputs[thread] + err
-              -- estimate df/dW
-              local df_do = criterions[thread]:backward(output, targets[i])
-              modules[thread]:backward(inputs[i], df_do)
+      = function()
+           -- load parameters into current model
+           self:unflatten(self.parametersT, self.gradParametersT)
+           -- transmit new parameters to all workers
+           parallel.children:send(self.parametersT)
+           -- then wait for all workers to return their partial gradParameters + outputs
+           for t = 1,P do
+              gradParameters[t] = parallel.children[t]:receive()
+              outputs[t] = parallel.children[t]:receive()
            end
         end
 
@@ -145,8 +182,8 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
            self.gradParametersAcc = self.gradParametersAcc or torch.Tensor()
            self.gradParametersAcc:resizeAs(self.gradParameters):zero()
            -- update state from computed parameters
-           for t = 1,self.parallelize do
-              self:flatten(self.parametersPT[t], self.gradParametersPT[t])
+           for t = 1,P do
+              self:flatten(self.parametersT, gradParameters[t])
               self.gradParametersAcc:add(self.gradParameters)
            end
            self.gradParameters:copy(self.gradParametersAcc)
@@ -154,9 +191,10 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
            self.gradParameters:div(#inputs)
            -- return average f(X)
            self.output = 0
-           for t = 1,self.parallelize do
+           for t = 1,P do
               self.output = self.output + outputs[t]
            end
+           -- export parameters, again
            return self.output/#inputs
         end
 
@@ -167,11 +205,102 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
    --     according to the l-BFGS method
    self.output = lbfgs.run(self.parameters, self.gradParameters,
                            self.maxIterations, self.maxLineSearch,
-                           self.sparsity,self.verbose)
+                           self.sparsity, self.verbose)
 
    -- (4) last: read parameters back into the main (not parrallel) model
    self:unflatten(self.parametersT, self.gradParametersT)
 
+   -- (6) reset workers so they're ready for next mini-batch
+   parallel.children:send('break')
+
    -- (5) return current output after optimization
    return self.output
+end
+
+function LBFGS:setup_mapreduce ()
+   -- (0) startup parallel package
+   if not xrequire 'parallel' then
+      xerror('install parallel for Lua to enable parallel computing (luarocks install parallel)',
+             'nn.LBFGSOptimization')
+   end
+   parallel.setSharedSize(4*1024*1024)
+   local P = self.parallelize
+
+   -- (1) define code for workers
+   local worker_code = [[
+         -- require packages
+         require 'nnx'
+
+         -- retrieve module + criterion at startup
+         module = parallel.parent:receive()
+         criterion = parallel.parent:receive()
+
+         -- create fake optimizer, for hooks
+         optimizer = {module=module, criterion=criterion}
+
+         -- retrieve optional prehook/posthook
+         prehook = parallel.parent:receive()
+         posthook = parallel.parent:receive()
+         if prehook ~= '' then loadstring(prehook)() else prehook = nil end
+         if posthook ~= '' then loadstring(posthook)() else posthook = nil end
+
+         -- get pointer to parameter and gradParameter vectors
+         parameters = nnx.getParameters(module)
+         gradParameters = nnx.getGradParameters(module)
+
+         -- outter loop: mini-batches
+         while true do
+            -- receive new mini-batch
+            inputs = parallel.parent:receive()
+            if type(inputs) == 'string' and inputs == 'break' then break end
+            targets = parallel.parent:receive()
+            options = parallel.parent:receive()
+
+            -- inner loop: evaluations
+            while true do
+               -- receive new set of parameters
+               newParameters = parallel.parent:receive()
+               if type(newParameters) == 'string' and newParameters == 'break' then break end
+               for i = 1,#newParameters do
+                  parameters[i]:copy(newParameters[i])
+               end
+
+               -- reset gradients
+               module:zeroGradParameters()
+               -- f is the average of all criterions
+               local f_x = 0
+               -- evaluate gradients on inputs for this thread
+               for i = 1,#inputs do
+                  -- user hook
+                  if prehook then
+                     prehook(optimizer, {inputs[i], targets[i], options[i]})
+                  end
+                  -- estimate f
+                  local output = module:forward(inputs[i])
+                  local err = criterion:forward(output, targets[i])
+                  f_x = f_x + err
+                  -- estimate df/dW
+                  local df_do = criterion:backward(output, targets[i])
+                  module:backward(inputs[i], df_do)
+                  -- user hook
+                  if posthook then
+                     posthook(optimizer, {inputs[i], targets[i], options[i]})
+                  end
+               end
+
+               -- now send back gradParameters + partial output
+               parallel.parent:send(gradParameters)
+               parallel.parent:send(f_x)
+            end
+         end
+   ]]
+
+   -- (2) startup all workers
+   for t = 1,P do
+      parallel.run(worker_code)
+   end
+
+   -- (3) and send them the module + criterion architecture
+   parallel.children:send(self.module)
+   parallel.children:send(self.criterion)
 end
