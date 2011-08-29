@@ -13,6 +13,7 @@ function DataList:__init()
    self.nbClass = 0
    self.ClassName = {}
    self.nbSamples = 0
+   self.targetIsProbability = false
    self.spatialTarget = false
 end
 
@@ -32,10 +33,18 @@ function DataList:__index__(key)
 
       -- create target vector on the fly
       if self.spatialTarget then
-         self.datasets[class][elmt][2] = torch.Tensor(self.nbClass,1,1):fill(-1)
+         if self.targetIsProbability then
+            self.datasets[class][elmt][2] = torch.Tensor(self.nbClass,1,1):zero()
+         else
+            self.datasets[class][elmt][2] = torch.Tensor(self.nbClass,1,1):fill(-1)
+         end
          self.datasets[class][elmt][2][class][1][1] = 1
       else
-         self.datasets[class][elmt][2] = torch.Tensor(self.nbClass):fill(-1)
+         if self.targetIsProbability then
+            self.datasets[class][elmt][2] = torch.Tensor(self.nbClass):zero()
+         else
+            self.datasets[class][elmt][2] = torch.Tensor(self.nbClass):fill(-1)
+         end
          self.datasets[class][elmt][2][class] = 1
       end
 

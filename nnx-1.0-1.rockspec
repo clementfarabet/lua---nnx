@@ -62,6 +62,7 @@ build = {
          install_files(/lua/nnx init.lua)
          install_files(/lua/nnx Abs.lua)
          install_files(/lua/nnx ConfusionMatrix.lua)
+         install_files(/lua/nnx DistNLLCriterion.lua)
          install_files(/lua/nnx Logger.lua)
          install_files(/lua/nnx Probe.lua)
          install_files(/lua/nnx HardShrink.lua)
