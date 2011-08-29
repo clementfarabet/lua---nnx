@@ -6,16 +6,21 @@ function LBFGS:__init(...)
    xlua.unpack_class(self, {...},
       'LBFGSOptimization', nil,
       {arg='module', type='nn.Module', help='a module to train', req=true},
-      {arg='criterion', type='nn.Criterion', help='a criterion to estimate the error', req=true},
-      {arg='maxIterations', type='number', help='maximum nb of iterations per pass (0 = no max)', default=0},
-      {arg='maxLineSearch', type='number', help='maximum nb of steps in line search', default=20},
-      {arg='sparsity', type='number', help='sparsity coef (Orthantwise C)', default=0},
-      {arg='parallelize', type='number', help='parallelize onto N cores (experimental!)', default=1},
-      {arg='verbose', type='number', help='verbose level during training [0-2]', default=0}
+      {arg='criterion', type='nn.Criterion', 
+       help='a criterion to estimate the error', req=true},
+      {arg='maxIterations', type='number', 
+       help='maximum nb of iterations per pass (0 = no max)', default=0},
+      {arg='maxLineSearch', type='number', 
+       help='maximum nb of steps in line search', default=20},
+      {arg='sparsity', type='number', 
+       help='sparsity coef (Orthantwise C)', default=0},
+      {arg='parallelize', type='number', 
+       help='parallelize onto N cores (experimental!)', default=1},
+      {arg='verbose', type='number', 
+       help='verbose level during training [0-2]', default=0}
    )
    self.parametersT = nnx.getParameters(self.module)
    self.gradParametersT = nnx.getGradParameters(self.module)
-   lbfgs.verbose = self.verbose
 end
 
 function LBFGS:forward(inputs, targets, options)
@@ -74,7 +79,7 @@ function LBFGS:forward_sequential(inputs, targets, options)
    --     according to the l-BFGS method
    self.output = lbfgs.run(self.parameters, self.gradParameters,
                            self.maxIterations, self.maxLineSearch,
-                           self.sparsity)
+                           self.sparsity, self.verbose)
 
    -- (4) last: read parameters back into the model
    self:unflatten(self.parametersT, self.gradParametersT)
@@ -162,7 +167,7 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
    --     according to the l-BFGS method
    self.output = lbfgs.run(self.parameters, self.gradParameters,
                            self.maxIterations, self.maxLineSearch,
-                           self.sparsity)
+                           self.sparsity,self.verbose)
 
    -- (4) last: read parameters back into the main (not parrallel) model
    self:unflatten(self.parametersT, self.gradParametersT)
