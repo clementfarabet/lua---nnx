@@ -89,7 +89,7 @@ function OnlineTrainer:train(dataset)
          local targets = {}
          for i = t,math.min(t+self.batchSize-1,dataset:size()) do
             -- load new sample
-            local sample = dataset[self.trainOffset + shuffledIndices[i]]
+            local sample = dataset[shuffledIndices[self.trainOffset + i]]
             local input = sample[1]
             local target = sample[2]
 
@@ -166,7 +166,7 @@ function OnlineTrainer:test(dataset)
       end
 
       -- get new sample
-      local sample = dataset[self.testOffset + shuffledIndices[t]]
+      local sample = dataset[shuffledIndices[self.testOffset + t]]
       local input = sample[1]
       local target = sample[2]
       
