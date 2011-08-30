@@ -7,11 +7,13 @@ function SGD:__init(...)
       {arg='module', type='nn.Module', help='a module to train', req=true},
       {arg='criterion', type='nn.Criterion', help='a criterion to estimate the error', req=true},
       {arg='learningRate', type='number', help='learning rate (W = W - rate*dE/dW)', default=1e-2},
+      {arg='learningRateDecay', type='number', help='learning rate decay (lr_t = lr_0 / (1 + samplesSeen*lrDecay))', default=0},
       {arg='weightDecay', type='number', help='amount of weight decay (W = W - decay*W)', default=0},
       {arg='momentum', type='number', help='amount of momentum on weights (dE/W = dE/dW*(1-momentum) + prev(dE/dW)*momentum)', default=0}
    )
    self.parameters = nnx.flattenParameters(nnx.getParameters(self.module))
    self.gradParameters = nnx.flattenParameters(nnx.getGradParameters(self.module))
+   self.samplesSeen = 0
 end
 
 function SGD:forward(inputs, targets, options)
@@ -45,6 +47,9 @@ function SGD:forward(inputs, targets, options)
       end
    end
 
+   -- update counter of samples seen
+   self.samplesSeen = self.samplesSeen + #inputs
+
    -- renorm f
    self.output = self.output / #inputs
    
@@ -68,7 +73,8 @@ function SGD:forward(inputs, targets, options)
    end
 
    -- update parameters
-   self.parameters:add(-self.learningRate, self.currentGradParameters)
+   local learningRate = self.learningRate / (1 + self.samplesSeen*self.learningRateDecay)
+   self.parameters:add(-learningRate, self.currentGradParameters)
 
    -- return current output
    return self.output
