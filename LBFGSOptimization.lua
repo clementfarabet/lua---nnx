@@ -160,6 +160,8 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
               gradParametersPartial[t] = parallel.children[t]:receive()
               outputsPartial[t] = parallel.children[t]:receive()
            end
+           -- force cleanup
+           collectgarbage()
         end
 
    -- (1b) the reduce part of the evaluation: accumulate all
@@ -265,6 +267,9 @@ function LBFGS:setup_mapreduce ()
                -- now send back gradParameters + partial output
                parallel.parent:send(gradParameters)
                parallel.parent:send(f_x)
+
+               -- force cleanup
+               collectgarbage()
             end
          end
    ]]
