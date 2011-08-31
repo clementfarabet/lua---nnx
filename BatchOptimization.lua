@@ -28,6 +28,7 @@ function Batch:__init(...)
    if self.parallelize > 1 then
       self:setup_mapreduce()
    end
+   batch = {}
 end
 
 function Batch:forward(inputs, targets, options)

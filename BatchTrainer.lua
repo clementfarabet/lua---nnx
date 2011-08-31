@@ -8,22 +8,17 @@ local BatchTrainer, parent = torch.class('nn.BatchTrainer', 'nn.OnlineTrainer')
 -- closure with the current batch as input.
 
 function BatchTrainer:__init(...)
-   -- parent.__init(self)
+   local args = {...}
+   parent.__init(self, args)
    -- unpack args
-   xlua.unpack_class(self, {...},
+   xlua.unpack_class(
+      self, args,
       'BatchTrainer', 
-
-      'A general-purpose online trainer class.\n'
-         .. 'Provides 4 user hooks to perform extra work after each sample, or each epoch:\n'
-         .. '> trainer = nn.BatchTrainer(...) \n'
-         .. '> trainer.hookTrainSample = function(trainer, sample) ... end \n'
-         .. '> trainer.hookTrainEpoch = function(trainer) ... end \n'
-         .. '> trainer.hookTestSample = function(trainer, sample) ... end \n'
-         .. '> trainer.hookTestEpoch = function(trainer) ... end \n'
-         .. '> ',
-
-      {arg='trainset', type='nn.DataList',
-       help='dataset to split into batches for closures',req=true},
+      'A modified version of the general-purpose online trainer class.\n'
+	 .. ' which only preps the input batch and calls optimizer to\n'
+	 .. ' create a closure\n',
+      {arg='trainset', type='nn.DataList', 
+       help='dataset from which to draw batches', req=true},
       {arg='module', type='nn.Module', help='a module to train', req=true},
       {arg='criterion', type='nn.Criterion', 
        help='a criterion to estimate the error'},
@@ -42,27 +37,37 @@ function BatchTrainer:__init(...)
       {arg='timestamp', type='boolean', 
        help='if true, appends a timestamp to each network saved', default=false}
    )
-   -- private params
-   self.trainOffset = -self.batchSize
-   self.testOffset = 0
-
-   -- counters
    self.epoch = 1
-   self.batch = 0
+   self.batch = nil
+   self.trainOffset = nil
 end
 
 -- update the counters
 function BatchTrainer:next()
-   self.batch = self.batch + 1
-   self.trainOffset = self.trainOffset + self.batchSize
-   if self.trainOffset > self.trainset:size()-1 then
-      self.trainOffset = 1
-      self.epoch = self.epoch + 1
+   if not self.batch then
       self.batch = 1
+   else 
+      self.batch = self.batch + 1
+   end
+   if not self.trainOffset then
+      self.trainOffset = 1
+   else
+      self.trainOffset = self.trainOffset + self.batchSize
+      if self.trainOffset > self.trainset:size() then
+	 self.trainOffset = 1
+	 self.epoch = self.epoch + 1
+	 self.batch = 1
+	 if self.hookTrainEpoch then
+	    self.hookTrainEpoch(self)
+	 end
+
+	 if self.save then self:log() end
+
+      end
    end
    -- disp progress
    if self.dispProgress then
-      xlua.progress(self.trainOffset, trainset:size())
+      xlua.progress(self.trainOffset, self.trainset:size())
    end
 
 end
@@ -71,8 +76,8 @@ end
 -- make more sense to call it next_batch() here as the training is
 -- done outside of this code.
 
-function BatchTrainer:next_batch()
-   self.next()
+function BatchTrainer:nextBatch()
+   self:next()
    local module = self.module
    local criterion = self.criterion
    local t = self.trainOffset
@@ -80,7 +85,9 @@ function BatchTrainer:next_batch()
    local bs = self.batchSize
    
    print('<trainer> on training set:')
-   print("<trainer> online epoch # " .. self.epoch .. ' batch # '..self.batch.. '[batchSize = ' .. self.batchSize .. ']')
+   print("<trainer> online epoch # " .. self.epoch 
+	 .. ' batch # '..self.batch
+	 .. ' [batchSize = ' .. self.batchSize .. ']')
 
    -- create mini batch
    self.inputs = self.inputs or {}
@@ -96,7 +103,7 @@ function BatchTrainer:next_batch()
 
       for i = t,math.min(t+bs-1,ds) do
 	 -- load new sample
-	 local sample = trainset[t + i]
+	 local sample = self.trainset[t]
 	 local input = sample[1]
 	 local target = sample[2]
       
