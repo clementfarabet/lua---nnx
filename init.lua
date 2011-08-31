@@ -102,10 +102,12 @@ torch.include('nnx', 'SpatialSparseCriterion.lua')
 torch.include('nnx', 'Optimization.lua')
 torch.include('nnx', 'SGDOptimization.lua')
 torch.include('nnx', 'LBFGSOptimization.lua')
+torch.include('nnx', 'BatchOptimization.lua')
 
 -- trainers:
 torch.include('nnx', 'Trainer.lua')
 torch.include('nnx', 'OnlineTrainer.lua')
+torch.include('nnx', 'BatchTrainer.lua')
 
 -- datasets:
 torch.include('nnx', 'DataSet.lua')
