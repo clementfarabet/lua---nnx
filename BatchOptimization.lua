@@ -12,12 +12,6 @@ function Batch:__init(...)
       {arg='module', type='nn.Module', help='a module to train', req=true},
       {arg='criterion', type='nn.Criterion', 
        help='a criterion to estimate the error', req=true},
-      {arg='maxIterations', type='number', 
-       help='maximum nb of iterations per pass (0 = no max)', default=0},
-      {arg='maxLineSearch', type='number', 
-       help='maximum nb of steps in line search', default=20},
-      {arg='sparsity', type='number', 
-       help='sparsity coef (Orthantwise C)', default=0},
       {arg='parallelize', type='number', 
        help='parallelize onto N cores (experimental!)', default=1},
       {arg='verbose', type='number', 
@@ -25,10 +19,11 @@ function Batch:__init(...)
    )
    self.parameters = nnx.flattenParameters(nnx.getParameters(self.module))
    self.gradParameters = nnx.flattenParameters(nnx.getGradParameters(self.module))
+   self.evalCounter = 0
+   self.sampleCounter = 0
    if self.parallelize > 1 then
       self:setup_mapreduce()
    end
-   batch = {}
 end
 
 function Batch:forward(inputs, targets, options)
@@ -46,8 +41,13 @@ function Batch:forward_sequential(inputs, targets, options)
    --       + self.parameters contains the current X vector
    --       + self.gradParameters contains the estimated dF/dX vector
    --       + self.output contains the estimated (average) F(X)
-   batch.evaluate
+   self.evaluate
       = function()
+           -- verbose
+           if self.verbose >= 2 then
+              print('<BatchOptimization> evaluating f(X) + df/dX') 
+           end
+           local _t_ = sys.clock()
            -- reset gradients
            self.gradParameters:zero()
            -- f is the average of all criterions
@@ -70,13 +70,28 @@ function Batch:forward_sequential(inputs, targets, options)
                  self.posthook(self, {inputs[i], targets[i], options[i]})
               end
            end
+           -- update evaluation counter
+           self.evalCounter = self.evalCounter + 1
            -- normalize gradients
            self.gradParameters:div(#inputs)
+           -- verbose
+           if self.verbose >= 2 then 
+              print('<BatchOptimization> ' .. self.evalCounter .. 'th evaluation took ' .. (sys.clock() - _t_) .. ' sec')
+           end
            -- return average f(X)
-           return self.output/#inputs
+           self.output = self.output/#inputs
+           return self.output
         end
 
-   -- (3) return current output after optimization
+   -- (2) optimization callback
+   if self.optimize then
+      self:optimize()
+   end
+
+   -- (3) update sample counter
+   self.sampleCounter = self.sampleCounter + #inputs
+
+   -- (4) return current output after optimization
    return self.output
 end
 
@@ -90,8 +105,8 @@ function Batch:forward_mapreduce(inputs, targets, options)
          if type(self.prehook) == 'string' then
             parallel.children:send(self.prehook)
          else
-            print('\r<BatchOptimization> WARNING: when using para||el mode, hooks should be')
-            print('\r<BatchOptimization> WARNING: defined as strings. User prehook ignored.')
+            print('\r<BatchOptimization> WARNING: when using para||el mode,'..
+                  ' hooks should be defined as strings. User prehook ignored.')
             parallel.children:send('')
          end
       else
@@ -101,8 +116,8 @@ function Batch:forward_mapreduce(inputs, targets, options)
          if type(self.posthook) == 'string' then
             parallel.children:send(self.posthook)
          else
-            print('\r<BatchOptimization> WARNING: when using para||el mode, hooks should be')
-            print('<\rBatchOptimization> WARNING: defined as strings. User posthook ignored.')
+            print('\r<BatchOptimization> WARNING: when using para||el mode,'..
+                  ' hooks should be defined as strings. User posthook ignored.')
             parallel.children:send('')
          end
       else
@@ -142,30 +157,41 @@ function Batch:forward_mapreduce(inputs, targets, options)
    --       + self.parameters contains the current X vector
    --       + self.gradParameters contains the estimated dF/dX vector
    --       + self.output contains the estimated (average) F(X)
-   batch.evaluate
+   self.evaluate
       = function()
-           batch.evaluate_map()
-           return batch.evaluate_reduce()
+           -- verbose
+           if self.verbose >= 2 then 
+              print('<BatchOptimization> evaluating f(X) + df/dX') 
+           end
+           local _t_ = sys.clock()
+           -- do map/reduce
+           self.evaluate_map()
+           self.evaluate_reduce()
+           -- update evaluation counter
+           self.evalCounter = self.evalCounter + 1
+           -- verbose
+           if self.verbose >= 2 then 
+              print('<BatchOptimization> ' .. self.evalCounter .. 'th evaluation took ' .. (sys.clock() - _t_) .. ' sec')
+           end
+           return self.output
         end
 
    -- (1a) the map part of the evaluation: compute partial gradients
    --      in separate threads
-   batch.evaluate_map
+   self.evaluate_map
       = function()
            -- transmit new parameters to all workers
            parallel.children:send(self.parameters)
            -- then wait for all workers to return their partial gradParameters + outputs
-           for t = 1,P do
-              gradParametersPartial[t] = parallel.children[t]:receive()
-              outputsPartial[t] = parallel.children[t]:receive()
-           end
+           gradParametersPartial = parallel.children:receive()
+           outputsPartial = parallel.children:receive()
            -- force cleanup
            collectgarbage()
         end
 
    -- (1b) the reduce part of the evaluation: accumulate all
    --      partial estimates of the gradients
-   batch.evaluate_reduce
+   self.evaluate_reduce
       = function()
            -- accumulate partial gradients, and average
            self.gradParameters:zero()
@@ -178,14 +204,22 @@ function Batch:forward_mapreduce(inputs, targets, options)
            for t = 1,P do
               self.output = self.output + outputsPartial[t]
            end
-           return self.output/#inputs
+           self.output = self.output/#inputs
         end
+
+   -- (2) optimization callback
+   if self.optimize then
+      self:optimize()
+   end
 
    -- (3) reset workers so they're ready for next mini-batch
    parallel.children:send('break')
 
-   -- (4) return current output after optimization
-   return self.output/#inputs
+   -- (4) update sample counter
+   self.sampleCounter = self.sampleCounter + #inputs
+
+   -- (5) return current output after optimization
+   return self.output
 end
 
 function Batch:setup_mapreduce ()
@@ -194,7 +228,6 @@ function Batch:setup_mapreduce ()
       xerror('install parallel for Lua to enable parallel computing (luarocks install parallel)',
              'nn.BatchOptimization')
    end
-   parallel.setSharedSize(4*1024*1024)
    local P = self.parallelize
 
    -- (1) define code for workers
