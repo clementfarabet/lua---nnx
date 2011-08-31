@@ -33,9 +33,6 @@ function OnlineTrainer:__init(...)
       {arg='timestamp', type='boolean', 
        help='if true, appends a timestamp to each network saved', default=false}
    )
-   -- private params
-   self.trainOffset = 0
-   self.testOffset = 0
 end
 
 function OnlineTrainer:log()
@@ -63,15 +60,6 @@ function OnlineTrainer:train(dataset)
    local criterion = self.criterion
    self.trainset = dataset
 
-   local shuffledIndices = {}
-   if not self.shuffleIndices then
-      for t = 1,dataset:size() do
-         shuffledIndices[t] = t
-      end
-   else
-      shuffledIndices = lab.randperm(dataset:size())
-   end
-
    while true do
       print('<trainer> on training set:')
       print("<trainer> online epoch # " .. self.epoch .. ' [batchSize = ' .. self.batchSize .. ']')
@@ -89,7 +77,7 @@ function OnlineTrainer:train(dataset)
          local targets = {}
          for i = t,math.min(t+self.batchSize-1,dataset:size()) do
             -- load new sample
-            local sample = dataset[shuffledIndices[self.trainOffset + i]]
+            local sample = dataset[i]
             local input = sample[1]
             local target = sample[2]
 
@@ -128,10 +116,6 @@ function OnlineTrainer:train(dataset)
 
       self.epoch = self.epoch + 1
 
-      if dataset.infiniteSet then
-         self.trainOffset = self.trainOffset + dataset:size()
-      end
-
       if self.maxEpoch > 0 and self.epoch > self.maxEpoch then
          print("<trainer> you have reached the maximum number of epochs")
          break
@@ -144,20 +128,10 @@ function OnlineTrainer:test(dataset)
    print('<trainer> on testing Set:')
 
    local module = self.module
-   local shuffledIndices = {}
    local criterion = self.criterion
    self.currentError = 0
    self.testset = dataset
 
-   local shuffledIndices = {}
-   if not self.shuffleIndices then
-      for t = 1,dataset:size() do
-         shuffledIndices[t] = t
-      end
-   else
-      shuffledIndices = lab.randperm(dataset:size())
-   end
-   
    self.time = sys.clock()
    for t = 1,dataset:size() do
       -- disp progress
@@ -166,7 +140,7 @@ function OnlineTrainer:test(dataset)
       end
 
       -- get new sample
-      local sample = dataset[shuffledIndices[self.testOffset + t]]
+      local sample = dataset[t]
       local input = sample[1]
       local target = sample[2]
       
@@ -195,10 +169,6 @@ function OnlineTrainer:test(dataset)
 
    if self.hookTestEpoch then
       self.hookTestEpoch(self)
-   end
-
-   if dataset.infiniteSet then
-      self.testOffset = self.testOffset + dataset:size()
    end
 
    return self.currentError
