@@ -43,6 +43,9 @@ function LBFGS:forward_sequential(inputs, targets, options)
    --       + self.output contains the estimated (average) F(X)
    lbfgs.evaluate
       = function()
+           -- verbose
+           if self.verbose >= 2 then print('<LBFGSOptimization> evaluating f(X) + df/dX') end
+           local _t_ = sys.clock()
            -- reset gradients
            self.gradParameters:zero()
            -- f is the average of all criterions
@@ -67,6 +70,8 @@ function LBFGS:forward_sequential(inputs, targets, options)
            end
            -- normalize gradients
            self.gradParameters:div(#inputs)
+           -- verbose
+           if self.verbose >= 2 then print('<LBFGSOptimization> f(X) + df/dX computed in ' .. (sys.clock() - _t_) .. ' sec') end
            -- return average f(X)
            return self.output/#inputs
         end
@@ -91,8 +96,7 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
          if type(self.prehook) == 'string' then
             parallel.children:send(self.prehook)
          else
-            print('\r<LBFGSOptimization> WARNING: when using para||el mode, hooks should be')
-            print('\r<LBFGSOptimization> WARNING: defined as strings. User prehook ignored.')
+            print('\r<LBFGSOptimization> WARNING: when using para||el mode, hooks should be defined as strings. User prehook ignored.')
             parallel.children:send('')
          end
       else
@@ -102,8 +106,7 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
          if type(self.posthook) == 'string' then
             parallel.children:send(self.posthook)
          else
-            print('\r<LBFGSOptimization> WARNING: when using para||el mode, hooks should be')
-            print('<\rLBFGSOptimization> WARNING: defined as strings. User posthook ignored.')
+            print('\r<LBFGSOptimization> WARNING: when using para||el mode, hooks should be defined as strings. User posthook ignored.')
             parallel.children:send('')
          end
       else
@@ -153,15 +156,18 @@ function LBFGS:forward_mapreduce(inputs, targets, options)
    --      in separate threads
    lbfgs.evaluate_map
       = function()
+           -- verbose
+           if self.verbose >= 2 then print('<LBFGSOptimization> evaluating f(X) + df/dX') end
+           local _t_ = sys.clock()
            -- transmit new parameters to all workers
            parallel.children:send(self.parameters)
            -- then wait for all workers to return their partial gradParameters + outputs
-           for t = 1,P do
-              gradParametersPartial[t] = parallel.children[t]:receive()
-              outputsPartial[t] = parallel.children[t]:receive()
-           end
+           gradParametersPartial = parallel.children:receive()
+           outputsPartial = parallel.children:receive()
            -- force cleanup
            collectgarbage()
+           -- verbose
+           if self.verbose >= 2 then print('<LBFGSOptimization> f(X) + df/dX computed in ' .. (sys.clock() - _t_) .. ' sec') end
         end
 
    -- (1b) the reduce part of the evaluation: accumulate all

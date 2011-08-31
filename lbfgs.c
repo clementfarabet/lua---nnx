@@ -1440,11 +1440,10 @@ static int progress(void *instance,
 {
   nIteration = k;
   if (verbose > 1) {
-    printf("\n<LBFGSOptimization> iteration %d:\n", nIteration);
-    printf("  + fx = %f\n", fx);
+    printf("<LBFGSOptimization> iteration %d:\n", nIteration);
+    printf("  + f(X) = %f\n", fx);
     printf("  + xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
     printf("  + nb evaluations = %d\n", nEvaluation);
-    printf("\n");
   }
   return 0;
 }
@@ -1477,11 +1476,10 @@ int lbfgs_run(lua_State *L) {
 
   // verbose
   if (verbose) {
-    printf("\n<LBFGSOptimization> batch optimized after %d iterations\n", nIteration);
-    printf("  + fx = %f\n", fx);
-    printf("  +  x = [ %f , ... %f]\n",x[0],x[nParameter-1]);
+    printf("<LBFGSOptimization> batch optimized after %d iterations\n", nIteration);
+    printf("  + f(X) = %f\n", fx);
+    printf("  + X = [%f , ... %f]\n",x[0],x[nParameter-1]);
     printf("  + nb evaluations = %d\n", nEvaluation);
-    printf("\n");
   }
 
   // cleanup
