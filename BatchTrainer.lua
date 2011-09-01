@@ -44,24 +44,36 @@ end
 
 -- update the counters
 function BatchTrainer:next()
-   if not self.batch then
+   if not self.batch or not self.trainOffset then
+      -- initialize
       self.batch = 1
-   else 
-      self.batch = self.batch + 1
-   end
-   if not self.trainOffset then
       self.trainOffset = 1
    else
+      -- hook to run something on the current batch
+      -- (for eg. if you want to run a test on this batch before
+      -- switching to the next)
+      if self.hookTrainBatch then
+	 self.hookTrainBatch(self)
+      end
+
+      -- simple batch increment
+      self.batch = self.batch + 1
       self.trainOffset = self.trainOffset + self.batchSize
+	 
+      -- test for new epoch
       if self.trainOffset > self.trainset:size() then
-	 self.trainOffset = 1
-	 self.epoch = self.epoch + 1
-	 self.batch = 1
+
+	 -- hook to run on current epoch before switching to next
 	 if self.hookTrainEpoch then
 	    self.hookTrainEpoch(self)
 	 end
 
 	 if self.save then self:log() end
+
+	 self.trainOffset = 1
+	 self.epoch = self.epoch + 1
+	 self.batch = 1
+
 
       end
    end
@@ -124,4 +136,31 @@ function BatchTrainer:nextBatch()
    local error = self.optimizer:forward(inputs, targets)
 end
 
+-- special test to just get results of current batch
+function BatchTrainer:testBatch()
+   local criterion = self.criterion
+   local module = self.module
+   
+   local inputs = self.inputs[self.batch]
+   local targets = self.targets[self.batch]
+   
+   self.currentError = 0
+   
+   for i = 1,#inputs do 
+      local input = inputs[i]
+      local target = targets[i]
+      if criterion then
+         self.currentError = self.currentError + 
+	    criterion:forward(module:forward(input), target)
+      else
+         local _,error = module:forward(input, target)
+         self.currentError = self.currentError + error
+      end
+      -- user hook
+      if self.hookTestSample then
+         self.hookTestSample(self, {input, target})
+      end
+   end
+end
 
+      
