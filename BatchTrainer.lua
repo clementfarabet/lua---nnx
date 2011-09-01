@@ -115,7 +115,7 @@ function BatchTrainer:nextBatch()
 
       for i = t,math.min(t+bs-1,ds) do
 	 -- load new sample
-	 local sample = self.trainset[t]
+	 local sample = self.trainset[i]
 	 local input = sample[1]
 	 local target = sample[2]
       
