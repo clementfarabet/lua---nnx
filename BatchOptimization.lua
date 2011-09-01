@@ -8,15 +8,15 @@ local Batch,parent = torch.class('nn.BatchOptimization', 'nn.Optimization')
 function Batch:__init(...)
    parent.__init(self)
    xlua.unpack_class(self, {...},
-      'BatchOptimization', nil,
-      {arg='module', type='nn.Module', help='a module to train', req=true},
-      {arg='criterion', type='nn.Criterion', 
-       help='a criterion to estimate the error', req=true},
-      {arg='parallelize', type='number', 
-       help='parallelize onto N cores (experimental!)', default=1},
-      {arg='verbose', type='number', 
-       help='verbose level during training [0-2]', default=0}
-   )
+		     'BatchOptimization', nil,
+		     {arg='module', type='nn.Module', help='a module to train', req=true},
+		     {arg='criterion', type='nn.Criterion', 
+		      help='a criterion to estimate the error', req=true},
+		     {arg='parallelize', type='number', 
+		      help='parallelize onto N cores (experimental!)', default=1},
+		     {arg='verbose', type='number', 
+		      help='verbose level during training [0-2]', default=0}
+		  )
    self.parameters = nnx.flattenParameters(nnx.getParameters(self.module))
    self.gradParameters = nnx.flattenParameters(nnx.getGradParameters(self.module))
    self.evalCounter = 0
@@ -165,9 +165,9 @@ function Batch:forward_mapreduce(inputs, targets, options)
            end
            local _t_ = sys.clock()
            -- do map/reduce
-           self.evaluate_map()
-           self.evaluate_reduce()
-           -- update evaluation counter
+	   self.evaluate_map()
+	   self.evaluate_reduce()
+	   -- update evaluation counter
            self.evalCounter = self.evalCounter + 1
            -- verbose
            if self.verbose >= 2 then 
@@ -180,12 +180,12 @@ function Batch:forward_mapreduce(inputs, targets, options)
    --      in separate threads
    self.evaluate_map
       = function()
-           -- transmit new parameters to all workers
+	   -- transmit new parameters to all workers
            parallel.children:send(self.parameters)
-           -- then wait for all workers to return their partial gradParameters + outputs
+	   -- then wait for all workers to return their partial gradParameters + outputs
            gradParametersPartial = parallel.children:receive()
-           outputsPartial = parallel.children:receive()
-           -- force cleanup
+	   outputsPartial = parallel.children:receive()
+	   -- force cleanup
            collectgarbage()
         end
 
@@ -210,10 +210,11 @@ function Batch:forward_mapreduce(inputs, targets, options)
    -- (2) optimization callback
    if self.optimize then
       self:optimize()
+      -- (3) reset workers so they're ready for next mini-batch
+      -- only do this when we have an optimization hook
+      parallel.children:send('break')
    end
 
-   -- (3) reset workers so they're ready for next mini-batch
-   parallel.children:send('break')
 
    -- (4) update sample counter
    self.sampleCounter = self.sampleCounter + #inputs
@@ -232,7 +233,7 @@ function Batch:setup_mapreduce ()
 
    -- (1) define code for workers
    local worker_code = [[
-         -- require packages
+	 -- require packages
          require 'nnx'
 
          -- retrieve module + criterion at startup
@@ -259,11 +260,11 @@ function Batch:setup_mapreduce ()
             if type(inputs) == 'string' and inputs == 'break' then break end
             targets = parallel.parent:receive()
             options = parallel.parent:receive()
-
-            -- inner loop: evaluations
+	    -- inner loop: evaluations
             while true do
-               -- receive new set of parameters
+	       -- receive new set of parameters
                newParameters = parallel.parent:receive()
+	       
                if type(newParameters) == 'string' and newParameters == 'break' then break end
                parameters:copy(newParameters)
 
@@ -273,7 +274,7 @@ function Batch:setup_mapreduce ()
                local f_x = 0
                -- evaluate gradients on inputs for this thread
                for i = 1,#inputs do
-                  -- user hook
+		  -- user hook
                   if prehook then
                      prehook(optimizer, {inputs[i], targets[i], options[i]})
                   end
@@ -289,11 +290,9 @@ function Batch:setup_mapreduce ()
                      posthook(optimizer, {inputs[i], targets[i], options[i]})
                   end
                end
-
                -- now send back gradParameters + partial output
                parallel.parent:send(gradParameters)
                parallel.parent:send(f_x)
-
                -- force cleanup
                collectgarbage()
             end

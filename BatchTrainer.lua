@@ -59,7 +59,7 @@ function BatchTrainer:next()
       -- simple batch increment
       self.batch = self.batch + 1
       self.trainOffset = self.trainOffset + self.batchSize
-	 
+      
       -- test for new epoch
       if self.trainOffset > self.trainset:size() then
 
@@ -73,9 +73,13 @@ function BatchTrainer:next()
 	 self.trainOffset = 1
 	 self.epoch = self.epoch + 1
 	 self.batch = 1
-
-
       end
+      
+      -- on all but the first batch we need to reset the children
+      if optimizer.parallelize > 1 then 
+	 parallel.children:send('break')
+      end
+
    end
    -- disp progress
    if self.dispProgress then
@@ -118,11 +122,11 @@ function BatchTrainer:nextBatch()
 	 local sample = self.trainset[i]
 	 local input = sample[1]
 	 local target = sample[2]
-      
+	 
 	 -- optional preprocess (no learning is done for that guy)
 	 if self.preprocessor then input = self.preprocessor:forward(input) end
 	 
-      -- store input/target
+	 -- store input/target
 	 table.insert(inputs, input)
 	 table.insert(targets, target)
       end
@@ -134,6 +138,7 @@ function BatchTrainer:nextBatch()
 
    -- set up closure batch.evaluate() for optimizer
    local error = self.optimizer:forward(inputs, targets)
+   
 end
 
 -- special test to just get results of current batch
@@ -163,4 +168,3 @@ function BatchTrainer:testBatch()
    end
 end
 
-      
