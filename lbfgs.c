@@ -83,8 +83,9 @@
 
 // extra globals 
 static int nEvaluation = 0;
-static int nIteration = 0;
-static int verbose = 0;
+static int maxEval     = 0; // maximum number of function evaluations
+static int nIteration  = 0;
+static int verbose     = 0;
 
 struct tag_callback_data {
   int n;
@@ -507,6 +508,13 @@ int lbfgs(
       }
     }
 
+    /* Count number of function evaluations */
+    if ((maxEval != 0)&&(nEvaluation > maxEval)) {
+      if (verbose > 1){
+	printf("Stopping b/c exceeded max number of function evaluations\n");
+      }
+      goto lbfgs_exit;
+    }
     /*
       Convergence test.
       The criterion is given by the following formula:
@@ -1463,12 +1471,13 @@ int lbfgs_run(lua_State *L) {
 
   // initialize the parameters for the L-BFGS optimization
   lbfgs_parameter_init(&lbfgs_param);
-  lbfgs_param.max_iterations = lua_tonumber(L, 3);
-  lbfgs_param.max_linesearch = lua_tonumber(L, 4);
+  maxEval = lua_tonumber(L,3);
+  lbfgs_param.max_iterations = lua_tonumber(L, 4);
+  lbfgs_param.max_linesearch = lua_tonumber(L, 5);
   lbfgs_param.linesearch = LBFGS_LINESEARCH_BACKTRACKING;
-  lbfgs_param.orthantwise_c = lua_tonumber(L, 5);
+  lbfgs_param.orthantwise_c = lua_tonumber(L, 6);
   // get verbose level
-  verbose = lua_tonumber(L,6);
+  verbose = lua_tonumber(L,7);
 
   // Start the L-BFGS optimization; this will invoke the callback functions
   // evaluate() and progress() when necessary.

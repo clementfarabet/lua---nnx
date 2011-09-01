@@ -5,6 +5,8 @@ function LBFGS:__init(...)
    parent.__init(self, ...)
    xlua.unpack_class(self, {...},
       'LBFGSOptimization', nil,
+      {arg='maxEvaluation', type='number', 
+       help='maximum nb of function evaluations per pass (0 = no max)', default=0},
       {arg='maxIterations', type='number', 
        help='maximum nb of iterations per pass (0 = no max)', default=0},
       {arg='maxLineSearch', type='number', 
@@ -23,6 +25,6 @@ function LBFGS:optimize()
    -- the magic function: will update the parameter vector
    -- according to the l-BFGS method
    self.output = lbfgs.run(self.parameters, self.gradParameters,
-                           self.maxIterations, self.maxLineSearch,
+                           self.maxEvaluation, self.maxIterations, self.maxLineSearch,
                            self.sparsity, self.verbose)
 end
