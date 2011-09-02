@@ -207,14 +207,14 @@ function Batch:forward_mapreduce(inputs, targets, options)
            self.output = self.output/#inputs
         end
 
-   -- (2) optimization callback
    if self.optimize then
+      -- (2) optimization callback
       self:optimize()
+
       -- (3) reset workers so they're ready for next mini-batch
       -- only do this when we have an optimization hook
       parallel.children:send('break')
    end
-
 
    -- (4) update sample counter
    self.sampleCounter = self.sampleCounter + #inputs
