@@ -301,8 +301,9 @@ function Batch:setup_mapreduce ()
 
    -- (2) startup all workers
    for t = 1,P do
-      parallel.run(worker_code)
+      parallel.fork()
    end
+   parallel.children:exec(worker_code)
 
    -- (3) and send them the module + criterion architecture
    parallel.children:send(self.module)
