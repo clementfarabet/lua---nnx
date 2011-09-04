@@ -14,8 +14,6 @@ function Batch:__init(...)
                       help='a criterion to estimate the error', req=true},
                      {arg='parallelize', type='number',
                       help='parallelize onto N cores (experimental!)', default=1},
-                     {arg='servers', type='number',
-                      help='server list, to parallelize over the network (experimental!)'},
                      {arg='verbose', type='number',
                       help='verbose level during training [0-2]', default=0}
                   )
@@ -23,7 +21,7 @@ function Batch:__init(...)
    self.gradParameters = nnx.flattenParameters(nnx.getGradParameters(self.module))
    self.evalCounter = 0
    self.sampleCounter = 0
-   if self.parallelize > 1 or self.servers then
+   if self.parallelize > 1 then
       self:setup_mapreduce()
    end
    self.P = self.parallelize
@@ -308,15 +306,7 @@ function Batch:setup_mapreduce ()
    ]]
 
    -- (2) startup all workers
-   if self.servers then
-      self.parallelize = 0
-      for _,server in ipairs(self.servers) do
-         self.parallelize = self.parallelize + server[1]
-      end
-      parallel.nfork(self.servers)
-   else
-      parallel.nfork(self.parallelize)
-   end
+   parallel.sfork(self.parallelize)
    parallel.children:exec(worker_code)
 
    -- (3) and send them the module + criterion architecture
