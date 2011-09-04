@@ -11,7 +11,7 @@ function ConfusionMatrix:__init(nclasses, classes)
    self.nclasses = nclasses
    self.totalValid = 0
    self.averageValid = 0
-   self.classes = classes
+   self.classes = classes or {}
 end
 
 function ConfusionMatrix:add(prediction, target)
@@ -74,7 +74,7 @@ function ConfusionMatrix:__tostring__()
       for p = 1,nclasses do
          str = str .. '' .. string.format('%8d', self.mat[t][p])
       end
-      if self.classes then
+      if self.classes and self.classes[1] then
          if t == nclasses then
             str = str .. ']]  ' .. pclass .. '% \t[class: ' .. (self.classes[t] or '') .. ']\n'
          else
@@ -91,4 +91,22 @@ function ConfusionMatrix:__tostring__()
    str = str .. ' + average row correct: ' .. (self.averageValid*100) .. '% \n'
    str = str .. ' + global correct: ' .. (self.totalValid*100) .. '%'
    return str
+end
+
+function ConfusionMatrix:write(file)
+   file:writeObject(self.mat)
+   file:writeObject(self.valids)
+   file:writeInt(self.nclasses)
+   file:writeInt(self.totalValid)
+   file:writeInt(self.averageValid)
+   file:writeObject(self.classes)
+end
+
+function ConfusionMatrix:read(file)
+   self.mat = file:readObject()
+   self.valids = file:readObject()
+   self.nclasses = file:readInt()
+   self.totalValid = file:readInt()
+   self.averageValid = file:readInt()
+   self.classes = file:readObject()
 end
