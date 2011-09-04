@@ -25,8 +25,8 @@ function Batch:__init(...)
    self.sampleCounter = 0
    if self.parallelize > 1 or self.servers then
       self:setup_mapreduce()
-      self.P = self.parallelize
    end
+   self.P = self.parallelize
 end
 
 function Batch:forward(inputs, targets, options)
