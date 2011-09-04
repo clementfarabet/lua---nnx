@@ -303,7 +303,7 @@ function Batch:setup_mapreduce ()
    -- (2) startup all workers
    if self.servers then
       self.parallelize = 0
-      for _,server in ipairs(servers) do
+      for _,server in ipairs(self.servers) do
          self.parallelize = self.parallelize + server[1]
       end
       parallel.nfork(self.servers)
