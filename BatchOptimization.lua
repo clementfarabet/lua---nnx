@@ -14,6 +14,8 @@ function Batch:__init(...)
                       help='a criterion to estimate the error', req=true},
                      {arg='parallelize', type='number',
                       help='parallelize onto N cores (experimental!)', default=1},
+                     {arg='servers', type='number',
+                      help='server list, to parallelize over the network (experimental!)'},
                      {arg='verbose', type='number',
                       help='verbose level during training [0-2]', default=0}
                   )
@@ -21,7 +23,7 @@ function Batch:__init(...)
    self.gradParameters = nnx.flattenParameters(nnx.getGradParameters(self.module))
    self.evalCounter = 0
    self.sampleCounter = 0
-   if self.parallelize > 1 then
+   if self.parallelize > 1 or self.servers then
       self:setup_mapreduce()
    end
 end
@@ -229,7 +231,6 @@ function Batch:setup_mapreduce ()
       xerror('install parallel for Lua to enable parallel computing (luarocks install parallel)',
              'nn.BatchOptimization')
    end
-   local P = self.parallelize
 
    -- (1) define code for workers
    local worker_code = [[
@@ -300,8 +301,14 @@ function Batch:setup_mapreduce ()
    ]]
 
    -- (2) startup all workers
-   for t = 1,P do
-      parallel.fork()
+   if self.servers then
+      self.parallelize = 0
+      for _,server in ipairs(servers) do
+         self.parallelize = self.parallelize + server[1]
+      end
+      parallel.nfork(self.servers)
+   else
+      parallel.nfork(self.parallelize)
    end
    parallel.children:exec(worker_code)
 
