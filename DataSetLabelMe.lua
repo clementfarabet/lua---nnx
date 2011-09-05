@@ -275,15 +275,9 @@ end
 function DataSetLabelMe:loadSample(index)
    if self.preloadedDone then
       if index ~= self.currentIndex then
-         -- clean up
-         self.currentSample = nil
-         self.currentMask = nil
-         collectgarbage()
          -- load new sample
-         self.currentSample = torch.Tensor(self.preloaded.samples[index]:size())
-         self.currentSample:copy(self.preloaded.samples[index]):mul(1/255)
-         self.currentMask = torch.Tensor(self.preloaded.masks[index]:size())
-         self.currentMask:copy(self.preloaded.masks[index])
+         self.currentSample = self.preloaded.samples[index]
+         self.currentMask = self.preloaded.masks[index]
          -- remember index
          self.currentIndex = index
       end
@@ -385,7 +379,7 @@ function DataSetLabelMe:preload(saveFile)
       xlua.progress(i,self.nbRawSamples)
       -- load samples, and store them in raw byte tensors (min memory footprint)
       self:loadSample(i)
-      local rawTensor = torch.Tensor(self.currentSample:size()):copy(self.currentSample:mul(255))
+      local rawTensor = torch.Tensor(self.currentSample:size()):copy(self.currentSample)
       local rawMask = torch.Tensor(self.currentMask:size()):copy(self.currentMask)
       -- insert them in our list
       table.insert(self.preloaded.samples, rawTensor)

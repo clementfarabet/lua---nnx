@@ -81,6 +81,12 @@
 #define max2(a, b)      ((a) >= (b) ? (a) : (b))
 #define max3(a, b, c)   max2(max2((a), (b)), (c));
 
+// extra globals 
+static int nEvaluation = 0;
+static int maxEval     = 0; // maximum number of function evaluations
+static int nIteration  = 0;
+static int verbose     = 0;
+
 struct tag_callback_data {
   int n;
   void *instance;
@@ -415,7 +421,8 @@ int lbfgs(
     fx += xnorm * param.orthantwise_c;
     owlqn_pseudo_gradient(
                           pg, x, g, n,
-                          param.orthantwise_c, param.orthantwise_start, param.orthantwise_end
+                          param.orthantwise_c, 
+			  param.orthantwise_start, param.orthantwise_end
                           );
   }
 
@@ -468,7 +475,8 @@ int lbfgs(
       ls = linesearch(n, x, &fx, g, d, &step, xp, pg, w, &cd, &param);
       owlqn_pseudo_gradient(
                             pg, x, g, n,
-                            param.orthantwise_c, param.orthantwise_start, param.orthantwise_end
+                            param.orthantwise_c, 
+			    param.orthantwise_start, param.orthantwise_end
                             );
     }
     if (ls < 0) {
@@ -476,6 +484,9 @@ int lbfgs(
       veccpy(x, xp, n);
       veccpy(g, gp, n);
       ret = ls;
+      if (verbose > 1){
+	printf("Stopping b/c ls (%d) < 0\n", ls);
+      }
       goto lbfgs_exit;
     }
 
@@ -490,10 +501,20 @@ int lbfgs(
     /* Report the progress. */
     if (cd.proc_progress) {
       if ((ret = cd.proc_progress(cd.instance, x, g, fx, xnorm, gnorm, step, cd.n, k, ls))) {
-        goto lbfgs_exit;
+	if (verbose > 1){
+	  printf("Stopping b/c cd.proc_progress (%d)\n", ret);
+	}
+	goto lbfgs_exit;
       }
     }
 
+    /* Count number of function evaluations */
+    if ((maxEval != 0)&&(nEvaluation > maxEval)) {
+      if (verbose > 1){
+	printf("Stopping b/c exceeded max number of function evaluations\n");
+      }
+      goto lbfgs_exit;
+    }
     /*
       Convergence test.
       The criterion is given by the following formula:
@@ -501,6 +522,10 @@ int lbfgs(
     */
     if (xnorm < 1.0) xnorm = 1.0;
     if (gnorm / xnorm <= param.epsilon) {
+      if (verbose > 1){
+	printf("Stopping b/c gnorm(%f)/xnorm(%f) <= param.epsilon (%f)\n",
+	       gnorm, xnorm, param.epsilon);
+	  }
       /* Convergence. */
       ret = LBFGS_SUCCESS;
       break;
@@ -519,6 +544,10 @@ int lbfgs(
 
         /* The stopping criterion. */
         if (rate < param.delta) {
+	  if (verbose > 1){
+	    printf("Stopping b/c rate (%f) < param.delta (%f)\n",
+		   rate, param.delta);
+	  }
           ret = LBFGS_STOP;
           break;
         }
@@ -529,6 +558,10 @@ int lbfgs(
     }
 
     if (param.max_iterations != 0 && param.max_iterations < k+1) {
+      if (verbose > 1){
+	printf("Stopping b/c param.max_iterations (%d) < k+1 (%d)\n",
+	       param.max_iterations, k+1);
+	  }
       /* Maximum number of iterations. */
       ret = LBFGSERR_MAXIMUMITERATION;
       break;
@@ -1375,9 +1408,6 @@ static THDoubleTensor *gradParameters = NULL;
 static int nParameter = 0;
 static lua_State *GL = NULL;
 static lbfgs_parameter_t lbfgs_param;
-static int nEvaluation = 0;
-static int nIteration = 0;
-static int verbose = 0;
 
 static lbfgsfloatval_t evaluate(void *instance,
                                 const lbfgsfloatval_t *x,
@@ -1417,12 +1447,11 @@ static int progress(void *instance,
                     int ls)
 {
   nIteration = k;
-  if (verbose == 2) {
-    printf("\n<LBFGSOptimization> iteration %d:\n", nIteration);
-    printf("  + fx = %f\n", fx);
+  if (verbose > 1) {
+    printf("<LBFGSOptimization> iteration %d:\n", nIteration);
+    printf("  + f(X) = %f\n", fx);
     printf("  + xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
     printf("  + nb evaluations = %d\n", nEvaluation);
-    printf("\n");
   }
   return 0;
 }
@@ -1433,27 +1462,22 @@ int lbfgs_run(lua_State *L) {
   parameters = luaT_checkudata(L, 1, torch_DoubleTensor_id);
   gradParameters = luaT_checkudata(L, 2, torch_DoubleTensor_id);
   nParameter = THDoubleTensor_nElement(parameters);
-
   // parameters for algorithm
   nEvaluation = 0;
   lbfgsfloatval_t fx;
   lbfgsfloatval_t *x = lbfgs_malloc(nParameter);
 
-  // get verbose level
-  lua_getfield(GL, LUA_GLOBALSINDEX, "lbfgs");   // push lbfgs on top of stack
-  lua_getfield(GL, -1, "verbose");               // push lbfgs.verbose on top of stack
-  verbose = lua_tonumber(GL, -1);                // verbose = lbfgs.verbose
-  lua_pop(GL, 2);                                // pop last two entries
-
-  // initialize vector x <- parameters
   memcpy(x, THDoubleTensor_data(parameters), sizeof(double)*nParameter);
 
   // initialize the parameters for the L-BFGS optimization
   lbfgs_parameter_init(&lbfgs_param);
-  lbfgs_param.max_iterations = lua_tonumber(L, 3);
-  lbfgs_param.max_linesearch = lua_tonumber(L, 4);
+  maxEval = lua_tonumber(L,3);
+  lbfgs_param.max_iterations = lua_tonumber(L, 4);
+  lbfgs_param.max_linesearch = lua_tonumber(L, 5);
   lbfgs_param.linesearch = LBFGS_LINESEARCH_BACKTRACKING;
-  lbfgs_param.orthantwise_c = lua_tonumber(L, 5);
+  lbfgs_param.orthantwise_c = lua_tonumber(L, 6);
+  // get verbose level
+  verbose = lua_tonumber(L,7);
 
   // Start the L-BFGS optimization; this will invoke the callback functions
   // evaluate() and progress() when necessary.
@@ -1461,10 +1485,10 @@ int lbfgs_run(lua_State *L) {
 
   // verbose
   if (verbose) {
-    printf("\n<LBFGSOptimization> batch optimized after %d iterations\n", nIteration);
-    printf("  + fx = %f\n", fx);
+    printf("<LBFGSOptimization> batch optimized after %d iterations\n", nIteration);
+    printf("  + f(X) = %f\n", fx);
+    printf("  + X = [%f , ... %f]\n",x[0],x[nParameter-1]);
     printf("  + nb evaluations = %d\n", nEvaluation);
-    printf("\n");
   }
 
   // cleanup
