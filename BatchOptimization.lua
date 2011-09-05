@@ -131,27 +131,34 @@ function Batch:forward_mapreduce(inputs, targets, options)
    local outputsPartial = {}
    local gradParametersPartial = {}
 
-   -- (0b) divide input/target batch into N batches
+   -- (0b) divide input/target batch into N batches, based on speed of each worker
    local inputss = {}
    local targetss = {}
    local optionss = {}
+   local speed = 0
+   for t = 1,P do
+      speed = speed + self.children[t].speed
+   end
+   local n = 1
    for t = 1,P do
       inputss[t] = {}
       targetss[t] = {}
       optionss[t] = {}
-      for i = t,#inputs,P do
-         table.insert(inputss[t], inputs[i])
-         table.insert(targetss[t], targets[i])
-         if options then table.insert(optionss[t], options[i]) end
+      for i = 1,math.ceil(self.children[t].speed*(#inputs)/speed) do
+         table.insert(inputss[t], inputs[n])
+         table.insert(targetss[t], targets[n])
+         if options then table.insert(optionss[t], options[n]) end
+         n = n + 1
+         if n > #inputs then break end
       end
    end
 
    -- (0c) send mini-batch to all workers
    for t = 1,P do
-      parallel.children[t]:join()
-      parallel.children[t]:send(inputss[t])
-      parallel.children[t]:send(targetss[t])
-      parallel.children[t]:send(optionss[t])
+      self.children[t]:join()
+      self.children[t]:send(inputss[t])
+      self.children[t]:send(targetss[t])
+      self.children[t]:send(optionss[t])
    end
 
    -- (1) construct a closure that compute f(inputs) + df/dW
@@ -183,11 +190,11 @@ function Batch:forward_mapreduce(inputs, targets, options)
    self.evaluate_map
       = function()
            -- transmit new parameters to all workers
-           parallel.children:join()
-           parallel.children:send(self.parameters)
+           self.children:join()
+           self.children:send(self.parameters)
            -- then wait for all workers to return their partial gradParameters + outputs
-           gradParametersPartial = parallel.children:receive()
-           outputsPartial = parallel.children:receive()
+           gradParametersPartial = self.children:receive()
+           outputsPartial = self.children:receive()
            -- force cleanup
            collectgarbage()
         end
@@ -216,7 +223,7 @@ function Batch:forward_mapreduce(inputs, targets, options)
 
       -- (3) reset workers so they're ready for next mini-batch
       -- only do this when we have an optimization hook
-      parallel.children:join('break')
+      self.children:join('break')
    end
 
    -- (4) update sample counter
@@ -305,15 +312,21 @@ function Batch:setup_mapreduce ()
          end
    ]]
 
+   -- (2) dispatch workers
    local setup = function()
+                    -- (1) optional calibration
+                    if parallel.remotes then
+                       parallel.calibrate()
+                    end
+
                     -- (2) startup all workers
-                    parallel.sfork(self.parallelize)
-                    parallel.children:exec(worker_code)
+                    self.children = parallel.sfork(self.parallelize)
+                    self.children:exec(worker_code)
 
                     -- (3) and send them the module + criterion architecture
-                    parallel.children:join()
-                    parallel.children:send(self.module)
-                    parallel.children:send(self.criterion)
+                    self.children:join()
+                    self.children:send(self.module)
+                    self.children:send(self.criterion)
                  end
    local ok,err = pcall(setup)
    if not ok then parallel.close() error(err) end
