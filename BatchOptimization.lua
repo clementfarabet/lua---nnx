@@ -316,5 +316,5 @@ function Batch:setup_mapreduce ()
                     parallel.children:send(self.criterion)
                  end
    local ok,err = pcall(setup)
-   if not ok then error(err) parallel.close() end
+   if not ok then parallel.close() error(err) end
 end
