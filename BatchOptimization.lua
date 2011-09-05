@@ -305,12 +305,16 @@ function Batch:setup_mapreduce ()
          end
    ]]
 
-   -- (2) startup all workers
-   parallel.sfork(self.parallelize)
-   parallel.children:exec(worker_code)
+   local setup = function()
+                    -- (2) startup all workers
+                    parallel.sfork(self.parallelize)
+                    parallel.children:exec(worker_code)
 
-   -- (3) and send them the module + criterion architecture
-   parallel.children:join()
-   parallel.children:send(self.module)
-   parallel.children:send(self.criterion)
+                    -- (3) and send them the module + criterion architecture
+                    parallel.children:join()
+                    parallel.children:send(self.module)
+                    parallel.children:send(self.criterion)
+                 end
+   local ok,err = pcall(setup)
+   if not ok then print(err) parallel.close() end
 end
