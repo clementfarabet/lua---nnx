@@ -65,13 +65,14 @@ function Logger:style(symbols)
 end
 
 function Logger:plot(...)
-   if not lab.plot then
+   if not xlua.require('plot') then
       if not self.warned then 
          print('<Logger> warning: cannot plot with this version of Torch') 
+         self.warned = true
       end
       return
    end
-   local plot = false
+   local plotit = false
    local plots = {}
    local plotsymbol = 
       function(name,list)
@@ -84,7 +85,7 @@ function Logger:plot(...)
             for _,style in ipairs(self.styles[name]) do
                table.insert(plots, {name, plot_y, style})
             end
-            plot = true
+            plotit = true
          end
       end
    local args = {...}
@@ -97,16 +98,16 @@ function Logger:plot(...)
          plotsymbol(name,self.symbols[name])
       end
    end
-   if plot then
-      self.figure = lab.figure(self.figure)
-      lab.plot(plots)
-      lab.title('<Logger::' .. self.name .. '>')
+   if plotit then
+      self.figure = plot.figure(self.figure)
+      plot.plot(plots)
+      plot.title('<Logger::' .. self.name .. '>')
       if self.epsfile then
          os.execute('rm -f ' .. self.epsfile)
-         lab.epsfigure(self.epsfile)
-         lab.plot(plots)
-         lab.title('<Logger::' .. self.name .. '>')
-         lab.plotflush()
+         plot.epsfigure(self.epsfile)
+         plot.plot(plots)
+         plot.title('<Logger::' .. self.name .. '>')
+         plot.plotflush()
       end
    end
 end
