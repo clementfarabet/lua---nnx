@@ -66,6 +66,7 @@ function Batch:forward_sequential(inputs, targets, options)
               -- estimate df/dW
               local df_do = self.criterion:backward(output, targets[i])
               self.module:backward(inputs[i], df_do)
+              self.module:accGradParameters(inputs[i], df_do)
               -- user hook
               if self.posthook then
                  self.posthook(self, {inputs[i], targets[i], options[i]})
@@ -298,6 +299,7 @@ function Batch:setup_mapreduce ()
                   -- estimate df/dW
                   local df_do = criterion:backward(output, targets[i])
                   module:backward(inputs[i], df_do)
+                  module:accGradParameters(inputs[i], df_do)
                   -- user hook
                   if posthook then
                      posthook(optimizer, {inputs[i], targets[i], options[i]})

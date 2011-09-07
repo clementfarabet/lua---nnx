@@ -103,7 +103,7 @@ static int nn_(SpatialLinear_backward)(lua_State *L)
       }
 
       // compute dE/dI
-      THTensor_(addmv)(gradInput_xy, 1, weight_t, gradOutput_xy);
+      THTensor_(addmv)(gradInput_xy, 1, 1, weight_t, gradOutput_xy);
     }
   }
 
