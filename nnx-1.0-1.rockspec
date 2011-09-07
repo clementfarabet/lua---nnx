@@ -79,6 +79,7 @@ build = {
          install_files(/lua/nnx SpatialNormalization.lua)
          install_files(/lua/nnx SpatialUpSampling.lua)
          install_files(/lua/nnx SpatialReSampling.lua)
+         install_files(/lua/nnx SpatialConvolutionSparse.lua)
          install_files(/lua/nnx SuperCriterion.lua)
          install_files(/lua/nnx SpatialCriterion.lua)
          install_files(/lua/nnx Trainer.lua)

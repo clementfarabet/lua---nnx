@@ -88,6 +88,7 @@ torch.include('nnx', 'SpatialRecursiveFovea.lua')
 torch.include('nnx', 'SpatialFovea.lua')
 torch.include('nnx', 'SpatialGraph.lua')
 torch.include('nnx', 'SpatialColorTransform.lua')
+torch.include('nnx', 'SpatialConvolutionSparse.lua')
 
 -- criterions:
 torch.include('nnx', 'SuperCriterion.lua')
