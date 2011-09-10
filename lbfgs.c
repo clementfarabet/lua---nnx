@@ -1456,7 +1456,10 @@ static int progress(void *instance,
   return 0;
 }
 
-int lbfgs_run(lua_State *L) {
+
+static lbfgsfloatval_t *x = NULL;
+
+int lbfgs_init(lua_State *L) {
   // get params from userspace
   GL = L;
   parameters = luaT_checkudata(L, 1, torch_DoubleTensor_id);
@@ -1464,8 +1467,7 @@ int lbfgs_run(lua_State *L) {
   nParameter = THDoubleTensor_nElement(parameters);
   // parameters for algorithm
   nEvaluation = 0;
-  lbfgsfloatval_t fx;
-  lbfgsfloatval_t *x = lbfgs_malloc(nParameter);
+  x = lbfgs_malloc(nParameter);
 
   memcpy(x, THDoubleTensor_data(parameters), sizeof(double)*nParameter);
 
@@ -1479,8 +1481,25 @@ int lbfgs_run(lua_State *L) {
   // get verbose level
   verbose = lua_tonumber(L,7);
 
+  // done
+  return 0;
+}
+
+int lbfgs_clear(lua_State *L) {
+  // cleanup
+  lbfgs_free(x);
+  return 0;
+}
+
+int lbfgs_run(lua_State *L) {
+  // check existence of x
+  if (!x) {
+    THError("lbfgs.init() should be called once before calling lbfgs.run()");
+  }
+
   // Start the L-BFGS optimization; this will invoke the callback functions
   // evaluate() and progress() when necessary.
+  static lbfgsfloatval_t fx;
   int ret = lbfgs(nParameter, x, &fx, evaluate, progress, NULL, &lbfgs_param);
 
   // verbose
@@ -1491,15 +1510,14 @@ int lbfgs_run(lua_State *L) {
     printf("  + nb evaluations = %d\n", nEvaluation);
   }
 
-  // cleanup
-  lbfgs_free(x);
-
   // return current error
   lua_pushnumber(L, fx);
   return 1;
 }
 
 static const struct luaL_Reg lbfgs_methods__ [] = {
+  {"init", lbfgs_init},
+  {"clear", lbfgs_clear},
   {"run", lbfgs_run},
   {NULL, NULL}
 };
