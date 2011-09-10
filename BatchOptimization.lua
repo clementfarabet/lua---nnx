@@ -242,7 +242,8 @@ function Batch:setup_mapreduce ()
    end
 
    -- (1) define code for workers
-   local worker_code = [[
+   local worker_code =
+      function()
          -- require packages
          require 'nnx'
 
@@ -312,7 +313,7 @@ function Batch:setup_mapreduce ()
                collectgarbage()
             end
          end
-   ]]
+      end
 
    -- (2) dispatch workers
    local setup = function()
