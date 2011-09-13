@@ -78,7 +78,7 @@ end
 
 -- spatial (images) operators:
 torch.include('nnx', 'SpatialLinear.lua')
-torch.include('nnx', 'SpatialLogSoftMax.lua')
+torch.include('nnx', 'SpatialClassifier.lua')
 torch.include('nnx', 'SpatialMaxPooling.lua')
 torch.include('nnx', 'SpatialPadding.lua')
 torch.include('nnx', 'SpatialNormalization.lua')
