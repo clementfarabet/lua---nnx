@@ -54,6 +54,11 @@ function DataList:__index__(key)
          sample = self.hookOnSample(self,sample)
       end
 
+      -- auto conversion to CUDA
+      if torch.getdefaulttensortype() == 'torch.CudaTensor' then
+         sample[1] = torch.Tensor(sample[1]:size()):copy(sample[1])
+      end
+
       return sample,true
    end
    -- if key is not a number this should return nil

@@ -6,8 +6,8 @@ function ConfusionMatrix:__init(nclasses, classes)
       classes = nclasses
       nclasses = #classes
    end
-   self.mat = lab.zeros(nclasses,nclasses)
-   self.valids = lab.zeros(nclasses)
+   self.mat = torch.FloatTensor(nclasses,nclasses):zero()
+   self.valids = torch.FloatTensor(nclasses):zero()
    self.nclasses = nclasses
    self.totalValid = 0
    self.averageValid = 0
@@ -20,13 +20,13 @@ function ConfusionMatrix:add(prediction, target)
       self.mat[target][prediction] = self.mat[target][prediction] + 1
    elseif type(target) == 'number' then
       -- prediction is a vector, then target assumed to be an index
-      local prediction_1d = torch.Tensor(prediction):resize(self.nclasses)
+      local prediction_1d = torch.FloatTensor(self.nclasses):copy(prediction)
       local _,prediction = lab.max(prediction_1d)
       self.mat[target][prediction[1]] = self.mat[target][prediction[1]] + 1
    else
       -- both prediction and target are vectors
-      local prediction_1d = torch.Tensor(prediction):resize(self.nclasses)
-      local target_1d = torch.Tensor(target):resize(self.nclasses)
+      local prediction_1d = torch.FloatTensor(self.nclasses):copy(prediction)
+      local target_1d = torch.FloatTensor(self.nclasses):copy(target)
       local _,prediction = lab.max(prediction_1d)
       local _,target = lab.max(target_1d)
       self.mat[target[1]][prediction[1]] = self.mat[target[1]][prediction[1]] + 1
