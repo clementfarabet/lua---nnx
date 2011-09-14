@@ -18,9 +18,6 @@ static const void* torch_DoubleTensor_id = NULL;
 #include "generic/SpatialLinear.c"
 #include "THGenerateFloatTypes.h"
 
-#include "generic/SpatialMaxPooling.c"
-#include "THGenerateFloatTypes.h"
-
 #include "generic/SpatialUpSampling.c"
 #include "THGenerateFloatTypes.h"
 
