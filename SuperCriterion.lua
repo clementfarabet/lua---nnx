@@ -15,17 +15,31 @@ end
 
 function SuperCriterion:forward(input, target)
    self.output = 0
-   for i,criterion in ipairs(self.criterions) do
-      self.output = self.output + self.weights[i]*criterion:forward(input[i],target)
+   if type(target) == 'table' then
+      for i,criterion in ipairs(self.criterions) do
+         self.output = self.output + self.weights[i]*criterion:forward(input[i],target[i])
+      end
+   else
+      for i,criterion in ipairs(self.criterions) do
+         self.output = self.output + self.weights[i]*criterion:forward(input[i],target)
+      end
    end
    return self.output
 end
 
 function SuperCriterion:backward(input, target)
-   for i,criterion in ipairs(self.criterions) do
-      self.gradInput[i] = torch.Tensor() or self.gradInput[i]
-      self.gradInput[i]:resizeAs(input[i]):zero()
-      self.gradInput[i]:add(self.weights[i], criterion:backward(input[i],target) )
+   if type(target) == 'table' then
+      for i,criterion in ipairs(self.criterions) do
+         self.gradInput[i] = torch.Tensor() or self.gradInput[i]
+         self.gradInput[i]:resizeAs(input[i]):zero()
+         self.gradInput[i]:add(self.weights[i], criterion:backward(input[i],target[i]))
+      end
+   else
+      for i,criterion in ipairs(self.criterions) do
+         self.gradInput[i] = torch.Tensor() or self.gradInput[i]
+         self.gradInput[i]:resizeAs(input[i]):zero()
+         self.gradInput[i]:add(self.weights[i], criterion:backward(input[i],target))
+      end
    end
    return self.gradInput
 end
