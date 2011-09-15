@@ -30,7 +30,8 @@ end
 
 function lDataSet:load(...)
    -- parse args
-   local args, dataSetFolder, nbSamplesRequired, cacheFile, channels, sampleSize
+   local args, dataSetFolder, nbSamplesRequired, cacheFile, channels, 
+   sampleSize,padding
       = xlua.unpack(
       {...},
       'DataSet.load', nil,
@@ -38,7 +39,8 @@ function lDataSet:load(...)
       {arg='nbSamplesRequired', type='number', help='number of patches to load', default='all'},
       {arg='cacheFile', type='string', help='path to file to cache files'},
       {arg='channels', type='number', help='nb of channels', default=1},
-      {arg='sampleSize', type='table', help='resize all sample: {w,h}'}
+      {arg='sampleSize', type='table', help='resize all sample: {c,w,h}'},
+      {arg='padding', type='boolean', help='center sample in w,h dont rescale'}
    )
    self.cacheFileName = cacheFile or self.cacheFileName
 
@@ -115,7 +117,7 @@ end
 function lDataSet:append(...)
    -- parse args
    local args, dataSetFolder, channels, nbSamplesRequired, useLabelPiped,
-   useDirAsLabel, nbLabels, sampleSize
+   useDirAsLabel, nbLabels, sampleSize, padding
       = xlua.unpack(
       {...},
       'DataSet:append', 'append a folder to the dataset object',
@@ -125,7 +127,8 @@ function lDataSet:append(...)
       {arg='useLabelPiped', type='boolean', help='flag to use the filename as output value',default=false},
       {arg='useDirAsLabel', type='boolean', help='flag to use the directory as label',default=false},
       {arg='nbLabels', type='number', help='how many classes (goes with useDirAsLabel)', default=1},
-      {arg='sampleSize', type='table', help='resize all sample: {w,h}'}
+      {arg='sampleSize', type='table', help='resize all sample: {c,w,h}'},
+      {arg='padding',type='boolean',help='do we padd all the inputs in w,h'}
    )
    -- parse args
    local files = sys.dir(dataSetFolder)
@@ -180,6 +183,15 @@ function lDataSet:append(...)
          -- rescale ?
          if sampleSize then
             inputs = torch.Tensor(channels, sampleSize[2], sampleSize[3])
+            if padding then
+               offw = math.floor((sampleSize[2] - input[2])*0.5)
+               offh = math.floor((sampleSize[3] - input[3])*0.5)
+               if offw >= 0 and offh >= 0 then
+                  inputs:narrow(2,offw,input[2]):narrow(3,offh,input[3]):copy(input)
+               else
+                  print('reverse crop not implemented w,h must be larger than all data points')
+               end
+            end
             image.scale(input, inputs, 'bilinear')
          else
             inputs = input

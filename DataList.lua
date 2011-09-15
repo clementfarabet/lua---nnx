@@ -12,6 +12,7 @@ function DataList:__init()
    self.datasets = {}
    self.nbClass = 0
    self.ClassName = {}
+   self.ClassRev = {}
    self.nbSamples = 0
    self.targetIsProbability = false
    self.spatialTarget = false
@@ -67,12 +68,17 @@ end
 
 function DataList:appendDataSet(dataSet,className)
    table.insert(self.datasets,dataSet)
-   if self.nbSamples == 0 then
-      self.nbSamples = dataSet:size()
-   else
-      self.nbSamples = math.floor(math.max(self.nbSamples/self.nbClass,dataSet:size()))
+   -- if self.nbSamples == 0 then
+   --    self.nbSamples = dataSet:size()
+   -- else
+   --    print(self.nbSamples/self.nbClass,dataSet:size())
+   --    self.nbSamples = math.floor(math.max(self.nbSamples/self.nbClass,
+   --                                         dataSet:size()))
+   -- end
+   if not self.ClassRev[className] then
+      self.ClassRev[className] = true
+      self.nbClass = self.nbClass + 1
+      table.insert(self.ClassName,self.nbClass,className)
    end
-   self.nbClass = self.nbClass + 1
-   self.nbSamples = self.nbSamples * self.nbClass
-   table.insert(self.ClassName,self.nbClass,className)
+   self.nbSamples = self.nbSamples + dataSet:size()
 end
