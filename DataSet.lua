@@ -191,8 +191,9 @@ function lDataSet:append(...)
                else
                   print('reverse crop not implemented w,h must be larger than all data points')
                end
+            else
+               image.scale(input, inputs, 'bilinear')
             end
-            image.scale(input, inputs, 'bilinear')
          else
             inputs = input
          end
