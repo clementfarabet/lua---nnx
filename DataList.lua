@@ -1,6 +1,6 @@
 --------------------------------------------------------------------------------
 -- DataList: a container for plain DataSets.
--- Each sub dataset represents one class.
+-- Each sub dataset represents elements from only one class.
 --
 -- Authors: Corda, Farabet
 --------------------------------------------------------------------------------
@@ -12,6 +12,7 @@ function DataList:__init()
    self.datasets = {}
    self.nbClass = 0
    self.ClassName = {}
+   self.ClassMax = 0
    self.nbSamples = 0
    self.targetIsProbability = false
    self.spatialTarget = false
@@ -67,12 +68,15 @@ end
 
 function DataList:appendDataSet(dataSet,className)
    table.insert(self.datasets,dataSet)
-   if self.nbSamples == 0 then
-      self.nbSamples = dataSet:size()
+   -- you can append the same class several times with this mechanism
+   if self.ClassName[className] then
+      self.ClassName[className] = self.ClassName[className] + dataSet:size()
    else
-      self.nbSamples = math.floor(math.max(self.nbSamples/self.nbClass,dataSet:size()))
+      self.ClassName[className] = dataSet:size()
+      self.nbClass = self.nbClass + 1
+      table.insert(self.ClassName,self.nbClass,className)
    end
-   self.nbClass = self.nbClass + 1
-   self.nbSamples = self.nbSamples * self.nbClass
-   table.insert(self.ClassName,self.nbClass,className)
+   self.ClassMax = 
+      math.floor(math.max(self.ClassMax,self.ClassName[className]))
+   self.nbSamples = self.ClassMax * self.nbClass
 end
