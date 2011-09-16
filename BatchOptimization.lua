@@ -313,11 +313,7 @@ function Batch:setup_mapreduce ()
                     self.children:exec(worker_code)
 
                     -- (3) send them optional config code
-                    if self.precode then
-                       self.children:send(self.precode)
-                    else
-                       self.children:send('')
-                    end
+                    self.children:send(self.precode or '')
 
                     -- (4) and send them the module + criterion architecture
                     self.children:join()
