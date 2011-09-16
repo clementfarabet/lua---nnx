@@ -17,16 +17,16 @@ static int nn_(SpatialUpSampling_forward)(lua_State *L)
   int owidth = iwidth * dW;
   int oheight = iheight * dH;
 
-  // select planes
-  THTensor *outputPlane = THTensor_(new)();
-  THTensor *inputPlane = THTensor_(new)();
+  // get raw pointers
+  real *input_data = THTensor_(data)(input);
+  real *output_data = THTensor_(data)(output);
 
   // resample each plane
   int k;
   for (k=0; k<ochannels; k++) {
     // get planes
-    THTensor_(select)(inputPlane, input, 0, k);
-    THTensor_(select)(outputPlane, output, 0, k);
+    real *input_p = input_data + k*iwidth*iheight;
+    real *output_p = output_data + k*owidth*oheight;
 
     // for each plane, resample
     int x,y;
@@ -37,13 +37,10 @@ static int nn_(SpatialUpSampling_forward)(lua_State *L)
         int iy = y/dH;
 
         // set output
-        THTensor_(set2d)(outputPlane, y, x, THTensor_(get2d)(inputPlane, iy, ix));
+        output_p[y*owidth + x] = input_p[iy*iwidth + ix];
       }
     }
   }
-  // cleanup
-  THTensor_(free)(inputPlane);
-  THTensor_(free)(outputPlane);
   return 1;
 }
 
@@ -67,16 +64,16 @@ static int nn_(SpatialUpSampling_backward)(lua_State *L)
   // resize gradInput
   THTensor_(zero)(gradInput);
 
-  // select planes
-  THTensor *gradOutputPlane = THTensor_(new)();
-  THTensor *gradInputPlane = THTensor_(new)();
+  // get raw pointers
+  real *gradInput_data = THTensor_(data)(gradInput);
+  real *gradOutput_data = THTensor_(data)(gradOutput);
 
   // compute gradients for each plane
   int k;
   for (k=0; k<ochannels; k++) {
     // get planes
-    THTensor_(select)(gradInputPlane, gradInput, 0, k);
-    THTensor_(select)(gradOutputPlane, gradOutput, 0, k);
+    real *gradInput_p = gradInput_data + k*iwidth*iheight;
+    real *gradOutput_p = gradOutput_data + k*owidth*oheight;
 
     // for each plane, resample
     int x,y;
@@ -86,18 +83,11 @@ static int nn_(SpatialUpSampling_backward)(lua_State *L)
         int ix = x/dW;
         int iy = y/dH;
 
-        // output gradient
-        double ograd = THTensor_(get2d)(gradOutputPlane, y, x);
-
         // accumulate gradient
-        THTensor_(set2d)(gradInputPlane, iy, ix, THTensor_(get2d)(gradInputPlane, iy, ix) + ograd);
+        gradInput_p[iy*iwidth + ix] += gradOutput_p[y*owidth + x];
       }
     }
   }
-
-  // cleanup
-  THTensor_(free)(gradInputPlane);
-  THTensor_(free)(gradOutputPlane);
   return 1;
 }
 
