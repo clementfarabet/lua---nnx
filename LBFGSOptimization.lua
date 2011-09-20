@@ -16,9 +16,6 @@ function LBFGS:__init(...)
       {arg='parallelize', type='number', 
        help='parallelize onto N cores (experimental!)', default=1}
    )
-   -- get module parameters/
-   self.parameters = nnx.flattenParameters(nnx.getParameters(self.module))
-   self.gradParameters = nnx.flattenParameters(nnx.getGradParameters(self.module))
    -- init LBFGS state
    lbfgs.init(self.parameters, self.gradParameters,
               self.maxEvaluation, self.maxIterations, self.maxLineSearch,

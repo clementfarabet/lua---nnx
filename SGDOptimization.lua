@@ -15,8 +15,6 @@ function SGD:__init(...)
       {arg='momentum', type='number', 
        help='amount of momentum on weights (dE/W = dE/dW*(1-momentum) + prev(dE/dW)*momentum)', default=0}
    )
-   self.parameters = nnx.flattenParameters(nnx.getParameters(self.module))
-   self.gradParameters = nnx.flattenParameters(nnx.getGradParameters(self.module))
 end
 
 function SGD:optimize()
