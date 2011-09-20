@@ -314,6 +314,13 @@ function SpatialFovea:zeroGradParameters()
    end
 end
 
+function SpatialFovea:accGradParameters(input, gradOutput, scale)
+   -- accumulate gradients for all processors
+   for idx = 1,#self.processors do
+      self.gradNarrowed[idx] = self.processors[idx]:accGradParameters(self.narrowed[idx], self.gradProcessed[idx], scale)
+   end
+end
+
 function SpatialFovea:updateParameters(learningRate)
    for idx = 1,#self.processors do
       self.processors[idx]:updateParameters(learningRate)
