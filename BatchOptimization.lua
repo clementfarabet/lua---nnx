@@ -248,8 +248,22 @@ function Batch:setup_mapreduce ()
          if type(posthook) ~= 'function' then posthook = nil end
 
          -- get pointer to parameter and gradParameter vectors
-         parameters = nnx.flattenParameters(nnx.getParameters(module))
-         gradParameters = nnx.flattenParameters(nnx.getGradParameters(module))
+         -- (this assumes that parameters+gradParameters are already flat parameters:
+         --  it should be the case, as the parent process flattens them at __init)
+         function check(tocheck)
+            for i = 2,#tocheck do
+               if tocheck[i]:storage() ~= tocheck[i-1]:storage() then
+                  print('<BatchOptimization> error: inconsistent parameter vector (not flat)')
+                  return
+               end
+            end
+         end
+         tableParameters = nnx.getParameters(module)
+         tableGradParameters = nnx.getGradParameters(module)
+         check(tableParameters)
+         check(tableGradParameters)
+         parameters = torch.Tensor():set(tableParameters[1]:storage())
+         gradParameters = torch.Tensor():set(tableGradParameters[1]:storage())
 
          -- outter loop: mini-batches
          while true do
