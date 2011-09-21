@@ -1496,6 +1496,8 @@ int lbfgs_run(lua_State *L) {
   if (!x) {
     THError("lbfgs.init() should be called once before calling lbfgs.run()");
   }
+  // reset our counter
+  nEvaluation = 0;
 
   // Start the L-BFGS optimization; this will invoke the callback functions
   // evaluate() and progress() when necessary.

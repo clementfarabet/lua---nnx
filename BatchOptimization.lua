@@ -38,6 +38,7 @@ function Batch:__init(...)
       self.gradParameters = nnx.flattenParameters(nnx.getGradParameters(self.module))
    end
    self.evalCounter = 0
+   self.batchCounter = 0
    self.sampleCounter = 0
    if self.parallelize > 1 then
       self:setup_mapreduce()
@@ -94,9 +95,12 @@ function Batch:forward_sequential(inputs, targets, options)
               if self.posthook then
                  self.posthook(self, {inputs[i], targets[i], options[i]})
               end
-           end
            -- update evaluation counter
            self.evalCounter = self.evalCounter + 1
+           end
+
+           -- update evaluation counter
+           self.batchCounter = self.batchCounter + 1
 
            -- normalize gradients
            if torch.getdefaulttensortype() == 'torch.CudaTensor' then 
@@ -109,7 +113,7 @@ function Batch:forward_sequential(inputs, targets, options)
 
            -- verbose
            if self.verbose >= 2 then
-              print('<BatchOptimization> ' .. self.evalCounter .. 'th evaluation took ' .. (sys.clock() - _t_) .. ' sec')
+              print('<BatchOptimization> ' .. self.batchCounter .. 'th batch took ' .. (sys.clock() - _t_) .. ' sec')
            end
            -- return average f(X)
            self.output = self.output/#inputs
