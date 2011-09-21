@@ -19,24 +19,9 @@ function Batch:__init(...)
                      {arg='verbose', type='number',
                       help='verbose level during training [0-2]', default=0}
                   )
-   -- *auto conversion from CUDA* This is a bit ugly 
-   -- For now we assume that if we use the GPU this is for function
-   -- evaluations and that the batch optimisation will be on the CPU
-   -- thus we need to copy the flattened parameters to the CPU. 
-   -- It is a question whether it makes sense to flatten (allocate a
-   -- single contiguous memory space) all the parameters on the
-   -- GPU but not doing this tweaking flattenParameters would need more work
-   if torch.getdefaulttensortype() == 'torch.CudaTensor' then 
-      self.cuda_parameters = 
-	 nnx.flattenParameters(nnx.getParameters(self.module))
-      self.parameters = torch.DoubleTensor():resize(self.cuda_parameters:size()):copy(self.cuda_parameters)
-      self.cuda_gradParameters = 
-	 nnx.flattenParameters(nnx.getGradParameters(self.module))
-      self.gradParameters = torch.DoubleTensor():resize(self.cuda_gradParameters:size()):copy(self.cuda_gradParameters)
-   else
-      self.parameters = nnx.flattenParameters(nnx.getParameters(self.module))
-      self.gradParameters = nnx.flattenParameters(nnx.getGradParameters(self.module))
-   end
+   self.parameters = nnx.flattenParameters(nnx.getParameters(self.module))
+   self.gradParameters = nnx.flattenParameters(nnx.getGradParameters(self.module))
+
    self.evalCounter = 0
    self.batchCounter = 0
    self.sampleCounter = 0
@@ -70,11 +55,6 @@ function Batch:forward_sequential(inputs, targets, options)
            local _t_ = sys.clock()
            -- reset gradients
 	   self.gradParameters:zero()
-	   if torch.getdefaulttensortype() == 'torch.CudaTensor' then 
-	      -- when using cuda we need to copy params to GPU
-	      self.cuda_parameters:resize(self.parameters:size()):copy(self.parameters)
-	      self.cuda_gradParameters:zero()
-	   end
            -- f is the average of all criterions
            self.output = 0
            -- given all inputs, evaluate gradients
@@ -103,14 +83,8 @@ function Batch:forward_sequential(inputs, targets, options)
            self.batchCounter = self.batchCounter + 1
 
            -- normalize gradients
-           if torch.getdefaulttensortype() == 'torch.CudaTensor' then 
-	      self.cuda_gradParameters:div(#inputs)
-	      -- copy gradients back from GPU to CPU
-	      self.gradParameters:resize(self.cuda_gradParameters:size()):copy(self.cuda_gradParameters)
-	   else
-	      self.gradParameters:div(#inputs)
-	   end
-
+	   self.gradParameters:div(#inputs)
+	   
            -- verbose
            if self.verbose >= 2 then
               print('<BatchOptimization> ' .. self.batchCounter .. 'th batch took ' .. (sys.clock() - _t_) .. ' sec')
