@@ -68,10 +68,11 @@ function Batch:forward_sequential(inputs, targets, options)
            end
            local _t_ = sys.clock()
            -- reset gradients
+	   self.gradParameters:zero()
 	   if torch.getdefaulttensortype() == 'torch.CudaTensor' then 
+	      -- when using cuda we need to copy params to GPU
+	      self.cuda_parameters:resize(self.parameters:size()):copy(self.parameters)
 	      self.cuda_gradParameters:zero()
-	   else
-	      self.gradParameters:zero()
 	   end
            -- f is the average of all criterions
            self.output = 0
@@ -100,7 +101,7 @@ function Batch:forward_sequential(inputs, targets, options)
            -- normalize gradients
            if torch.getdefaulttensortype() == 'torch.CudaTensor' then 
 	      self.cuda_gradParameters:div(#inputs)
-	      -- copy back to CPU version
+	      -- copy gradients back from GPU to CPU
 	      self.gradParameters:resize(self.cuda_gradParameters:size()):copy(self.cuda_gradParameters)
 	   else
 	      self.gradParameters:div(#inputs)
