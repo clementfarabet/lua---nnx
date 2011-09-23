@@ -65,6 +65,10 @@
 #include <config.h>
 #endif
 
+#ifdef WITH_CUDA
+#include "THC.h"
+#endif
+
 #include "TH.h"
 #include "luaT.h"
 
@@ -1406,7 +1410,7 @@ static void owlqn_project(
 /* make the lua/torch side generic Tensors (including cuda tensors)
    while this lbfgs code always works on doubles */
 
-static const void *current_torch_type = NULL;
+static const void *current_torch_type    = NULL;
 static const void *torch_DoubleTensor_id = NULL;
 static const void *torch_FloatTensor_id  = NULL;
 static const void *torch_CudaTensor_id   = NULL;
@@ -1416,6 +1420,20 @@ static void *gradParameters = NULL;
 
 #include "generic/lbfgs.c"
 #include "THGenerateFloatTypes.h" 
+
+#ifdef WITH_CUDA
+/* generate cuda code */
+#include "generic/lbfgs.c"
+#define real float
+#define Real Cuda
+#define TH_REAL_IS_CUDA
+#line 1 TH_GENERIC_FILE
+#include TH_GENERIC_FILE
+#undef real
+#undef Real
+#undef TH_REAL_IS_CUDA
+#undef TH_GENERIC_FILE
+#endif
 
 static int nParameter = 0;
 static lua_State *GL = NULL;
@@ -1433,7 +1451,10 @@ static lbfgsfloatval_t evaluate(void *instance,
     THDoubleTensor_copy_evaluate_start(parameters, x, nParameter);
   else if ( current_torch_type == torch_FloatTensor_id ) 
     THFloatTensor_copy_evaluate_start(parameters, x, nParameter);
-
+#ifdef WITH_CUDA
+  else if ( current_torch_type == torch_CudaTensor_id ) 
+    THCudaTensor_copy_evaluate_start(parameters, x, nParameter);
+#endif
   /* evaluate f(x) and g(f(x)) */
   lua_getfield(GL, LUA_GLOBALSINDEX, "lbfgs");   /* table to be indexed */
   lua_getfield(GL, -1, "evaluate");              /* push result of t.x (2nd arg) */
@@ -1448,7 +1469,10 @@ static lbfgsfloatval_t evaluate(void *instance,
     THDoubleTensor_copy_evaluate_end(g, gradParameters, nParameter);
   else if ( current_torch_type == torch_FloatTensor_id ) 
     THFloatTensor_copy_evaluate_end(g, gradParameters, nParameter);
-  
+#ifdef WITH_CUDA
+  else if ( current_torch_type == torch_CudaTensor_id ) 
+    THCudaTensor_copy_evaluate_end(g, gradParameters, nParameter);
+#endif
 
   /* return f(x) */
   return fx;
@@ -1483,7 +1507,9 @@ int lbfgs_init(lua_State *L) {
 
   torch_FloatTensor_id = luaT_checktypename2id(L, "torch.FloatTensor");
   torch_DoubleTensor_id = luaT_checktypename2id(L, "torch.DoubleTensor");
-
+#ifdef WITH_CUDA
+  torch_CudaTensor_id = luaT_checktypename2id(L, "torch.CudaTensor");
+#endif
   /* copy lua function parameters of different types into this namespace */
   void *src;
   if (src = luaT_toudata(L,1,torch_DoubleTensor_id))
@@ -1500,7 +1526,7 @@ int lbfgs_init(lua_State *L) {
       nParameter = THFloatTensor_nElement((THFloatTensor *) parameters);
       current_torch_type = torch_FloatTensor_id;
     }
-  /*
+#ifdef WITH_CUDA
   else if (src = luaT_toudata(L,1,torch_CudaTensor_id))
     {
       parameters     = luaT_checkudata(L, 1, torch_CudaTensor_id);
@@ -1508,7 +1534,7 @@ int lbfgs_init(lua_State *L) {
       nParameter = THCudaTensor_nElement((THCudaTensor *) parameters);
       current_torch_type = torch_CudaTensor_id;
     }
-  */
+#endif
   else 
     luaL_typerror(L,1,"torch.*Tensor");
 
@@ -1521,9 +1547,10 @@ int lbfgs_init(lua_State *L) {
     THDoubleTensor_copy_init(x,(THDoubleTensor *)parameters,nParameter);
   else if ( current_torch_type == torch_FloatTensor_id ) 
     THFloatTensor_copy_init(x,(THFloatTensor *)parameters,nParameter);
-  /*  else if ( current_torch_type = torch_CudaTensor_id ) 
+#ifdef WITH_CUDA
+  else if ( current_torch_type = torch_CudaTensor_id ) 
     THCudaTensor_copy_init(x,(THDoubleTensor *)parameters,nParameter);
-  */
+#endif  
 
   /* initialize the parameters for the L-BFGS optimization */
   lbfgs_parameter_init(&lbfgs_param);

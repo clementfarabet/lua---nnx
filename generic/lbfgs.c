@@ -38,7 +38,11 @@ int THTensor_(copy_evaluate_end)(lbfgsfloatval_t *g,
 #ifdef TH_REAL_IS_FLOAT
   THDoubleStorage_copyFloat(gs,gps);
 #else
+#ifdef TH_REAL_IS_CUDA
+  THDoubleStorage_copyCuda(gs,gps);
+#else
   THDoubleStorage_copy(gs,gps);
+#endif
 #endif
   /* only want to free the struct part of the storage not the data */
   gs->data = NULL;
@@ -61,8 +65,12 @@ int THTensor_(copy_init)(lbfgsfloatval_t *x,
   /* copy given parameters (ps) -> x (xs) */
 #ifdef TH_REAL_IS_FLOAT
   THDoubleStorage_copyFloat(xs,ps);
+#else
+#ifdef TH_REAL_IS_CUDA
+  THDoubleStorage_copyCuda(xs,ps);
 #else 
   THDoubleStorage_copy(xs,ps);
+#endif
 #endif 
   /* only want to free the struct part of the storage not the data */
   xs->data = NULL;
