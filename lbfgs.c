@@ -81,9 +81,9 @@
 #define max2(a, b)      ((a) >= (b) ? (a) : (b))
 #define max3(a, b, c)   max2(max2((a), (b)), (c));
 
-// extra globals 
+/* extra globals */ 
 static int nEvaluation = 0;
-static int maxEval     = 0; // maximum number of function evaluations
+static int maxEval     = 0; /* maximum number of function evaluations */
 static int nIteration  = 0;
 static int verbose     = 0;
 
@@ -104,22 +104,22 @@ struct tag_iteration_data {
 typedef struct tag_iteration_data iteration_data_t;
 
 static const lbfgs_parameter_t _defparam = {
-  6,                          // max nb or corrections stored, to estimate hessian
-  1e-5,                       // espilon = stop condition on f(x)
-  0,                          // -
-  1e-5,                       // -
-  0,                          // number of complete bfgs iterations (0 = inf)
-  LBFGS_LINESEARCH_DEFAULT,   // line search method
-  40,                         // max number of trials for line search
-  1e-20,                      // min step for line search
-  1e20,                       // max step for line search
-  1e-4,                       // ftol = granularity for f(x) estimation
-  0.9,                        // wolfe
-  0.9,                        // gtol = granularity for df/dx estimation
-  1.0e-16,                    // floating-point precision
-  0.0,                        // sparsity constraint
-  0,                          // sparsity offset
-  -1                          // sparsity end
+  6,                          /* max nb or corrections stored, to estimate hessian */
+  1e-5,                       /* espilon = stop condition on f(x) */
+  0,                          /* - */
+  1e-5,                       /* - */
+  0,                          /* number of complete bfgs iterations (0 = inf) */
+  LBFGS_LINESEARCH_DEFAULT,   /* line search method */
+  40,                         /* max number of trials for line search */
+  1e-20,                      /* min step for line search */
+  1e20,                       /* max step for line search */
+  1e-4,                       /* ftol = granularity for f(x) estimation */
+  0.9,                        /* wolfe */
+  0.9,                        /* gtol = granularity for df/dx estimation */
+  1.0e-16,                    /* floating-point precision */
+  0.0,                        /* sparsity constraint */
+  0,                          /* sparsity offset */
+  -1                          /* sparsity end */
 };
 
 /* Forward function declarations. */
@@ -1402,12 +1402,25 @@ static void owlqn_project(
   }
 }
 
+
+/* make the lua/torch side generic Tensors (including cuda tensors)
+   while this lbfgs code always works on doubles */
+
+static const void *current_torch_type = NULL;
 static const void *torch_DoubleTensor_id = NULL;
-static THDoubleTensor *parameters = NULL;
-static THDoubleTensor *gradParameters = NULL;
+static const void *torch_FloatTensor_id  = NULL;
+static const void *torch_CudaTensor_id   = NULL;
+
+static void *parameters     = NULL;
+static void *gradParameters = NULL;
+
+#include "generic/lbfgs.c"
+#include "THGenerateFloatTypes.h" 
+
 static int nParameter = 0;
 static lua_State *GL = NULL;
 static lbfgs_parameter_t lbfgs_param;
+static lbfgsfloatval_t *x = NULL;
 
 static lbfgsfloatval_t evaluate(void *instance,
                                 const lbfgsfloatval_t *x,
@@ -1415,23 +1428,29 @@ static lbfgsfloatval_t evaluate(void *instance,
                                 const int n,
                                 const lbfgsfloatval_t step)
 {
-  // copy given x -> parameters
-  memcpy(THDoubleTensor_data(parameters), x, sizeof(double)*nParameter);
 
-  // evaluate f(x) and g(f(x))
+  if ( current_torch_type == torch_DoubleTensor_id ) 
+    THDoubleTensor_copy_evaluate_start(parameters, x, nParameter);
+  else if ( current_torch_type == torch_FloatTensor_id ) 
+    THFloatTensor_copy_evaluate_start(parameters, x, nParameter);
+
+  /* evaluate f(x) and g(f(x)) */
   lua_getfield(GL, LUA_GLOBALSINDEX, "lbfgs");   /* table to be indexed */
   lua_getfield(GL, -1, "evaluate");              /* push result of t.x (2nd arg) */
   lua_remove(GL, -2);                            /* remove 'lbfgs' from the stack */
   lua_call(GL, 0, 1);                            /* call: fx = lbfgs.evaluate() */
   lbfgsfloatval_t fx = lua_tonumber(GL, -1);     /* return fx */
 
-  // incr eval counter
+  /* incr eval counter */
   nEvaluation ++;
 
-  // copy gradParameters -> g
-  memcpy(g, THDoubleTensor_data(gradParameters), sizeof(double)*nParameter);
+  if ( current_torch_type == torch_DoubleTensor_id ) 
+    THDoubleTensor_copy_evaluate_end(g, gradParameters, nParameter);
+  else if ( current_torch_type == torch_FloatTensor_id ) 
+    THFloatTensor_copy_evaluate_end(g, gradParameters, nParameter);
+  
 
-  // return f(x)
+  /* return f(x) */
   return fx;
 }
 
@@ -1457,54 +1476,90 @@ static int progress(void *instance,
 }
 
 
-static lbfgsfloatval_t *x = NULL;
 
 int lbfgs_init(lua_State *L) {
-  // get params from userspace
+  /* get params from userspace */
   GL = L;
-  parameters = luaT_checkudata(L, 1, torch_DoubleTensor_id);
-  gradParameters = luaT_checkudata(L, 2, torch_DoubleTensor_id);
-  nParameter = THDoubleTensor_nElement(parameters);
-  // parameters for algorithm
+
+  torch_FloatTensor_id = luaT_checktypename2id(L, "torch.FloatTensor");
+  torch_DoubleTensor_id = luaT_checktypename2id(L, "torch.DoubleTensor");
+
+  /* copy lua function parameters of different types into this namespace */
+  void *src;
+  if (src = luaT_toudata(L,1,torch_DoubleTensor_id))
+    {
+      parameters     = luaT_checkudata(L, 1, torch_DoubleTensor_id);
+      gradParameters = luaT_checkudata(L, 2, torch_DoubleTensor_id);
+      nParameter = THDoubleTensor_nElement((THDoubleTensor *) parameters);
+      current_torch_type = torch_DoubleTensor_id;
+    }
+  else if (src = luaT_toudata(L,1,torch_FloatTensor_id))
+    {
+      parameters     = luaT_checkudata(L, 1, torch_FloatTensor_id);
+      gradParameters = luaT_checkudata(L, 2, torch_FloatTensor_id);
+      nParameter = THFloatTensor_nElement((THFloatTensor *) parameters);
+      current_torch_type = torch_FloatTensor_id;
+    }
+  /*
+  else if (src = luaT_toudata(L,1,torch_CudaTensor_id))
+    {
+      parameters     = luaT_checkudata(L, 1, torch_CudaTensor_id);
+      gradParameters = luaT_checkudata(L, 2, torch_CudaTensor_id);
+      nParameter = THCudaTensor_nElement((THCudaTensor *) parameters);
+      current_torch_type = torch_CudaTensor_id;
+    }
+  */
+  else 
+    luaL_typerror(L,1,"torch.*Tensor");
+
+  /* parameters for algorithm */
   nEvaluation = 0;
   x = lbfgs_malloc(nParameter);
 
-  memcpy(x, THDoubleTensor_data(parameters), sizeof(double)*nParameter);
+  /* dispatch the copies */
+  if ( current_torch_type == torch_DoubleTensor_id ) 
+    THDoubleTensor_copy_init(x,(THDoubleTensor *)parameters,nParameter);
+  else if ( current_torch_type == torch_FloatTensor_id ) 
+    THFloatTensor_copy_init(x,(THFloatTensor *)parameters,nParameter);
+  /*  else if ( current_torch_type = torch_CudaTensor_id ) 
+    THCudaTensor_copy_init(x,(THDoubleTensor *)parameters,nParameter);
+  */
 
-  // initialize the parameters for the L-BFGS optimization
+  /* initialize the parameters for the L-BFGS optimization */
   lbfgs_parameter_init(&lbfgs_param);
   maxEval = lua_tonumber(L,3);
   lbfgs_param.max_iterations = lua_tonumber(L, 4);
   lbfgs_param.max_linesearch = lua_tonumber(L, 5);
   lbfgs_param.linesearch = LBFGS_LINESEARCH_BACKTRACKING;
   lbfgs_param.orthantwise_c = lua_tonumber(L, 6);
-  // get verbose level
+  /* get verbose level */
   verbose = lua_tonumber(L,7);
 
-  // done
+
+  /* done */
   return 0;
 }
 
 int lbfgs_clear(lua_State *L) {
-  // cleanup
+  /* cleanup */
   lbfgs_free(x);
   return 0;
 }
 
 int lbfgs_run(lua_State *L) {
-  // check existence of x
+  /* check existence of x */
   if (!x) {
     THError("lbfgs.init() should be called once before calling lbfgs.run()");
   }
-  // reset our counter
+  /* reset our counter */
   nEvaluation = 0;
-
-  // Start the L-BFGS optimization; this will invoke the callback functions
-  // evaluate() and progress() when necessary.
+  
+  /*  Start the L-BFGS optimization; this will invoke the callback functions */
+  /*  evaluate() and progress() when necessary. */
   static lbfgsfloatval_t fx;
   int ret = lbfgs(nParameter, x, &fx, evaluate, progress, NULL, &lbfgs_param);
 
-  // verbose
+  /*  verbose */
   if (verbose) {
     printf("<LBFGSOptimization> batch optimized after %d iterations\n", nIteration);
     printf("  + f(X) = %f\n", fx);
@@ -1512,7 +1567,7 @@ int lbfgs_run(lua_State *L) {
     printf("  + nb evaluations = %d\n", nEvaluation);
   }
 
-  // return current error
+  /*  return current error */
   lua_pushnumber(L, fx);
   return 1;
 }
