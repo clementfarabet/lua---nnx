@@ -71,6 +71,7 @@ build = {
          cuda_add_library (lbfgs SHARED lbfgs.c)
          target_link_libraries (lbfgs ${TORCH_LIBRARIES})
 	 CUDA_ADD_CUBLAS_TO_TARGET(lbfgs)
+         install_targets (/lib lbfgs)
 
 	ELSE (CUDA_FOUND)
 
@@ -81,11 +82,11 @@ build = {
 
          add_library (lbfgs SHARED lbfgs.c)
          target_link_libraries (lbfgs ${TORCH_LIBRARIES})
+         install_targets (/lib lbfgs)
 
 	ENDIF (CUDA_FOUND)
 	ENDIF(EXISTS "${TORCH_BIN_DIR}/../include/THC/THC.h")
 
-         install_targets (/lib lbfgs)
  
 	
 
