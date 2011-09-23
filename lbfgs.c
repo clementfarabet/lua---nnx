@@ -66,7 +66,7 @@
 #endif
 
 #ifdef WITH_CUDA
-#include "THC.h"
+#include <THC/THC.h>
 #endif
 
 #include "TH.h"
@@ -1549,7 +1549,7 @@ int lbfgs_init(lua_State *L) {
     THFloatTensor_copy_init(x,(THFloatTensor *)parameters,nParameter);
 #ifdef WITH_CUDA
   else if ( current_torch_type = torch_CudaTensor_id ) 
-    THCudaTensor_copy_init(x,(THDoubleTensor *)parameters,nParameter);
+    THCudaTensor_copy_init(x,(THCudaTensor *)parameters,nParameter);
 #endif  
 
   /* initialize the parameters for the L-BFGS optimization */

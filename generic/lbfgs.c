@@ -11,8 +11,7 @@ int THTensor_(copy_evaluate_start)(THTensor *parameters,
                                    const int nParameter)
 {
   THDoubleStorage *xs = THDoubleStorage_newWithData((double *)x,nParameter);
-  THStorage *ps = 
-    THStorage_(newWithData)(THTensor_(data)(parameters),nParameter);
+  THStorage *ps = THTensor_(storage)(parameters);
 
  
   /* copy given x (xs) -> parameters (ps) */
@@ -21,8 +20,6 @@ int THTensor_(copy_evaluate_start)(THTensor *parameters,
   /* only want to free the struct part of the storage not the data */
   xs->data = NULL;
   THDoubleStorage_free(xs);
-  ps->data = NULL;
-  THStorage_(free)(ps);
   return 0;
 }
 
@@ -31,8 +28,7 @@ int THTensor_(copy_evaluate_end)(lbfgsfloatval_t *g,
                                  const int nParameter)
 {
   THDoubleStorage *gs = THDoubleStorage_newWithData((double *)g,nParameter);
-  THStorage *gps = 
-    THStorage_(newWithData)(THTensor_(data)(gradParameters), nParameter);
+  THStorage *gps = THTensor_(storage)(gradParameters);
   
   /* copy gradParameters (gps) -> g (gs) */
 #ifdef TH_REAL_IS_FLOAT
@@ -47,8 +43,6 @@ int THTensor_(copy_evaluate_end)(lbfgsfloatval_t *g,
   /* only want to free the struct part of the storage not the data */
   gs->data = NULL;
   THDoubleStorage_free(gs);
-  gps->data = NULL;
-  THStorage_(free)(gps);
 
   return 0;
 }
@@ -59,8 +53,7 @@ int THTensor_(copy_init)(lbfgsfloatval_t *x,
                          const int nParameter) 
 {
   THDoubleStorage *xs = THDoubleStorage_newWithData((double *)x,nParameter);
-  THStorage *ps = 
-    THStorage_(newWithData)(THTensor_(data)(parameters),nParameter);
+  THStorage *ps = THTensor_(storage)(parameters);
 
   /* copy given parameters (ps) -> x (xs) */
 #ifdef TH_REAL_IS_FLOAT
@@ -75,9 +68,6 @@ int THTensor_(copy_init)(lbfgsfloatval_t *x,
   /* only want to free the struct part of the storage not the data */
   xs->data = NULL;
   THDoubleStorage_free(xs);
-  ps->data = NULL;
-  THStorage_(free)(ps);
-  printf("in copy_init : freed storage\n");
 
   /* done */
   return 0;

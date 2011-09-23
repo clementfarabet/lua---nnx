@@ -49,10 +49,45 @@ build = {
 
          set (CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
-         include_directories (${TORCH_INCLUDE_DIR} ${PROJECT_SOURCE_DIR})
+	include_directories (${TORCH_INCLUDE_DIR} ${PROJECT_SOURCE_DIR})
+
+	 SET(WITH_CUDA OFF CACHE BOOL "Compile qlua and associated packages")
+
+	IF(EXISTS "${TORCH_BIN_DIR}/../include/THC/THC.h")
+	FIND_PACKAGE(CUDA 4.0)
+	
+	IF (CUDA_FOUND)
+	   # bug on Apple
+	   IF(APPLE)
+	     LINK_DIRECTORIES("/usr/local/cuda/lib/")
+	   ENDIF(APPLE)
+
+	find_library (TORCH_THC THC ${TORCH_BIN_DIR}/../lib NO_DEFAULT_PATH)
+
+	
+	set (TORCH_LIBRARIES  ${TORCH_TH} ${TORCH_THC} ${TORCH_luaT} ${TORCH_lua})
+	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DWITH_CUDA")
+
+         cuda_add_library (lbfgs SHARED lbfgs.c)
+         target_link_libraries (lbfgs ${TORCH_LIBRARIES})
+	 CUDA_ADD_CUBLAS_TO_TARGET(lbfgs)
+
+	ELSE (CUDA_FOUND)
+
+	    MESSAGE(STATUS "Disabling CUDA (CUDA 4.0 required, and not found)")
+	    MESSAGE(STATUS "If CUDA 4.0 is installed, then specify CUDA_TOOLKIT_ROOT_DIR")
+
+	    set (TORCH_LIBRARIES ${TORCH_TH} ${TORCH_luaT} ${TORCH_lua})
+
          add_library (lbfgs SHARED lbfgs.c)
          target_link_libraries (lbfgs ${TORCH_LIBRARIES})
+
+	ENDIF (CUDA_FOUND)
+	ENDIF(EXISTS "${TORCH_BIN_DIR}/../include/THC/THC.h")
+
          install_targets (/lib lbfgs)
+ 
+	
 
          include_directories (${TORCH_INCLUDE_DIR} ${PROJECT_SOURCE_DIR})
          add_library (nnx SHARED init.c)
