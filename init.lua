@@ -108,6 +108,9 @@ torch.include('nnx', 'Trainer.lua')
 torch.include('nnx', 'OnlineTrainer.lua')
 torch.include('nnx', 'BatchTrainer.lua')
 
+-- conversion helper:
+torch.include('nnx', 'Type.lua')
+
 -- datasets:
 torch.include('nnx', 'DataSet.lua')
 torch.include('nnx', 'DataList.lua')

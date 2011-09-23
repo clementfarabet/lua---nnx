@@ -186,14 +186,14 @@ function SpatialNormalization:forward(input)
    -- auto switch to 3-channel
    self.input = input
    if (input:nDimension() == 2) then
-      self.input = torch.Tensor(1,input:size(1),input:size(2)):copy(input)
+      self.input = input:clone():resize(1,input:size(1),input:size(2))
    end
 
    -- recompute coef only if necessary
    if (self.input:size(3) ~= self.coef:size(2)) or (self.input:size(2) ~= self.coef:size(1)) then
-      local intVals = torch.Tensor(self.nfeatures,self.input:size(2),self.input:size(3)):fill(1)
+      local intVals = self.input.new(self.nfeatures,self.input:size(2),self.input:size(3)):fill(1)
       self.coef = self.convo:forward(intVals)
-      self.coef = torch.Tensor():resizeAs(self.coef):copy(self.coef)
+      self.coef = self.coef:clone()
    end
 
    -- compute mean
@@ -221,7 +221,7 @@ function SpatialNormalization:backward(input, gradOutput)
    -- auto switch to 3-channel
    self.input = input
    if (input:nDimension() == 2) then
-      self.input = torch.Tensor(1,input:size(1),input:size(2)):copy(input)
+      self.input = input:clone():resize(1,input:size(1),input:size(2))
    end
    self.gradInput:resizeAs(self.input):zero()
 
@@ -244,6 +244,20 @@ function SpatialNormalization:backward(input, gradOutput)
    -- second part of the gradInput
    self.gradInput:add(self.convo:backward(self.input,gradinConvo))
    return self.gradInput
+end
+
+function SpatialNormalization:type(type)
+   parent.type(self,type)
+   self.convo:type(type)
+   self.meanDiviseMod:type(type)
+   self.subtractMod:type(type)
+   self.squareMod:type(type)
+   self.convostd:type(type)
+   self.sqrtMod:type(type)
+   self.stdDiviseMod:type(type)
+   self.thresMod:type(type)
+   self.diviseMod:type(type)
+   return self
 end
 
 function SpatialNormalization:write(file)

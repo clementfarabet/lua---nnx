@@ -103,6 +103,7 @@ build = {
          install_files(/lua/nnx Probe.lua)
          install_files(/lua/nnx HardShrink.lua)
          install_files(/lua/nnx Narrow.lua)
+         install_files(/lua/nnx Type.lua)
          install_files(/lua/nnx Power.lua)
          install_files(/lua/nnx Square.lua)
          install_files(/lua/nnx Sqrt.lua)
