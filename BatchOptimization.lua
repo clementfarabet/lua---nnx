@@ -131,7 +131,8 @@ function Batch:forward_mapreduce(inputs, targets, options)
 	 self.children[t]:send(options)
       end
    else  
-      -- (0b) divide input/target batch into N batches, based on speed of each worker
+      -- (0b) divide input/target batch into N batches, based on speed
+      -- of each worker
       local inputss = {}
       local targetss = {}
       local optionss = {}
@@ -357,6 +358,7 @@ function Batch:setup_mapreduce ()
    end
    -- (2) dispatch workers
    local setup = function() end
+
    if self.setup then
       setup = self.setup
    else
@@ -379,6 +381,6 @@ function Batch:setup_mapreduce ()
 		 self.children:send(self.criterion)
 	      end
    end
-   local ok,err = pcall(setup)
+   local ok,err = pcall(setup(self))
    if not ok then parallel.close() error(err) end
 end

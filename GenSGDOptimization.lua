@@ -1,5 +1,5 @@
 local GenSGD,parent = torch.class('nn.GenSGDOptimization',
-'nn.BatchOptimization') 
+                                  'nn.BatchOptimization') 
 
 -- this module parallelizes SGD in a particular way.  It sends out the
 -- same batch to each of several worker each with a different learning
@@ -9,22 +9,22 @@ local GenSGD,parent = torch.class('nn.GenSGDOptimization',
 function GenSGD:__init(...)
    parent.__init(self,...)
    xlua.unpack_class(self, {...},
-      'GenSGDOptimization', nil,
-      {arg='maxIterations', type='number', 
-       help='maximum nb of iterations per pass', default=1},
-      {arg='learningRate', type='number', 
-       help='learning rate (W = W - rate*dE/dW)', default=1e-2},
-      {arg='learningRateDecay', type='number', 
-       help='learning rate decay (lr_t = lr_0 / (1 + samplesSeen*lrDecay))', 
-       default=0},
-      {arg='weightDecay', type='number', 
-       help='amount of weight decay (W = W - decay*W)', default=0},
-      {arg='momentum', type='number', 
-       help='amount of momentum on weights (dE/W = dE/dW*(1-momentum) + prev(dE/dW)*momentum)', default=0},
-      {arg='sigma', type='number',
-       help='sigma of gaussian used to randomize learningRate',
-       default = 1e3}
-   )
+                     'GenSGDOptimization', nil,
+                     {arg='maxIterations', type='number', 
+                      help='maximum nb of iterations per pass', default=1},
+                     {arg='learningRate', type='number', 
+                      help='learning rate (W = W - rate*dE/dW)', default=1e-2},
+                     {arg='learningRateDecay', type='number', 
+                      help='learning rate decay (lr_t = lr_0 / (1 + samplesSeen*lrDecay))', 
+                      default=0},
+                     {arg='weightDecay', type='number', 
+                      help='amount of weight decay (W = W - decay*W)', default=0},
+                     {arg='momentum', type='number', 
+                      help='amount of momentum on weights (dE/W = dE/dW*(1-momentum) + prev(dE/dW)*momentum)', default=0},
+                     {arg='sigma', type='number',
+                      help='sigma of gaussian used to randomize learningRate',
+                      default = 1e3}
+                  )
    require 'lab' 
    if self.parallelize < 2 then
       print('ERROR: GenSGD needs to work on several processors')
@@ -54,9 +54,8 @@ function GenSGD:map_hook()
       self.children[t]:join()
       self.children[t]:send(self.baseParameters) 
    end
-      
-   end
-   -- then wait for all workers to return their partial gradParameters + outputs
+   -- then wait for all workers to return their Parameters + outputs
+   -- should rename this to parametersParallel and optionsParallel
    gradParametersPartial = self.children:receive()
    outputsPartial = self.children:receive()
    -- force cleanup
@@ -91,34 +90,34 @@ end
 -- optimization (could do others in this mode)
 function GenSGD:optimizer(module,params)
    -- apply momentum (store in the module)
-      if params.momentum ~= 0 then
-         if not module.currentGradParameters then
-            module.currentGradParameters = 
-               torch.Tensor():resizeAs(module.gradParameters):copy(module.gradParameters)
-         else
-            module.currentGradParameters:mul(params.momentum):add(1-params.momentum, module.gradParameters)
-         end
+   if params.momentum ~= 0 then
+      if not module.currentGradParameters then
+         module.currentGradParameters = 
+            torch.Tensor():resizeAs(module.gradParameters):copy(module.gradParameters)
       else
-         module.currentGradParameters = module.gradParameters
+         module.currentGradParameters:mul(params.momentum):add(1-params.momentum, module.gradParameters)
       end
+   else
+      module.currentGradParameters = module.gradParameters
+   end
 
-      -- weight decay
-      if params.weightDecay ~= 0 then
-         module.parameters:add(-params.weightDecay, module.parameters)
-      end
+   -- weight decay
+   if params.weightDecay ~= 0 then
+      module.parameters:add(-params.weightDecay, module.parameters)
+   end
 
-      -- update parameters
-      local learningRate = 
-         params.learningRate / (1 + params.sampleCounter*params.learningRateDecay)
-      module.parameters:add(-learningRate, module.currentGradParameters)
-      -- make keep track of final rate
-      params.learningRate = learningRate
+   -- update parameters
+   local learningRate = 
+      params.learningRate / (1 + params.sampleCounter*params.learningRateDecay)
+   module.parameters:add(-learningRate, module.currentGradParameters)
+   -- make keep track of final rate
+   params.learningRate = learningRate
 end
 
 function GenSGD:worker_code()
    -- require packages
    require 'nnx'
-       
+   
    -- retrieve module + criterion at startup
    parallel.yield()
 
@@ -128,7 +127,7 @@ function GenSGD:worker_code()
 
    module.parameters     = nnx.flattenParameters(nnx.getParameters(module))
    module.gradParameters = nnx.flattenParameters(nnx.getGradParameters(module))
-	    
+   
    -- outer loop: mini-batches
    while true do
       -- sync
@@ -189,19 +188,18 @@ function GenSGD:worker_code()
 end
 
 function GenSGD:setup()
-   -- (1) optional calibration
-   if parallel.remotes then
-      parallel.calibrate()
-   end
-
-   -- (2) startup all workers
-   self.children = parallel.sfork(self.parallelize)
-   self.children:exec(worker_code)
+      -- (1) optional calibration
+      if parallel.remotes then
+         parallel.calibrate()
+      end
       
-   -- (4) and send them the module + criterion architecture
-   self.children:join()
-   self.children:send(self.module)
-   self.children:send(self.criterion)
-   self.children:send(self.optimizer)
-end
-
+      -- (2) startup all workers
+      self.children = parallel.sfork(self.parallelize)
+      self.children:exec(worker_code)
+      
+      -- (4) and send them the module + criterion architecture
+      self.children:join()
+      self.children:send(self.module)
+      self.children:send(self.criterion)
+      self.children:send(self.optimizer)
+   end
