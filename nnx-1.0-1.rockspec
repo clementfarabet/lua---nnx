@@ -54,23 +54,24 @@ build = {
 	 SET(WITH_CUDA OFF CACHE BOOL "Compile qlua and associated packages")
 
 	IF(EXISTS "${TORCH_BIN_DIR}/../include/THC/THC.h")
-	FIND_PACKAGE(CUDA 4.0)
+          FIND_PACKAGE(CUDA 4.0)
+	ENDIF(EXISTS "${TORCH_BIN_DIR}/../include/THC/THC.h")
 	
-	IF (CUDA_FOUND)
-	   # bug on Apple
+        IF (CUDA_FOUND)
+          	   # bug on Apple
 	   IF(APPLE)
 	     LINK_DIRECTORIES("/usr/local/cuda/lib/")
 	   ENDIF(APPLE)
 
-	find_library (TORCH_THC THC ${TORCH_BIN_DIR}/../lib NO_DEFAULT_PATH)
+ 	   find_library (TORCH_THC THC ${TORCH_BIN_DIR}/../lib NO_DEFAULT_PATH)
 
-	
-	set (TORCH_LIBRARIES  ${TORCH_TH} ${TORCH_THC} ${TORCH_luaT} ${TORCH_lua})
-	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DWITH_CUDA")
+           set (TORCH_LIBRARIES  ${TORCH_TH} ${TORCH_THC} ${TORCH_luaT} ${TORCH_lua})
+           set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DWITH_CUDA")
 
-         cuda_add_library (lbfgs SHARED lbfgs.c)
-         target_link_libraries (lbfgs ${TORCH_LIBRARIES})
-	 CUDA_ADD_CUBLAS_TO_TARGET(lbfgs)
+           cuda_add_library (lbfgs SHARED lbfgs.c)
+           target_link_libraries (lbfgs ${TORCH_LIBRARIES})
+           CUDA_ADD_CUBLAS_TO_TARGET(lbfgs)
+           install_targets (/lib lbfgs)
 
 	ELSE (CUDA_FOUND)
 
@@ -79,15 +80,11 @@ build = {
 
 	    set (TORCH_LIBRARIES ${TORCH_TH} ${TORCH_luaT} ${TORCH_lua})
 
-         add_library (lbfgs SHARED lbfgs.c)
-         target_link_libraries (lbfgs ${TORCH_LIBRARIES})
+            add_library (lbfgs SHARED lbfgs.c)
+            target_link_libraries (lbfgs ${TORCH_LIBRARIES})
+            install_targets (/lib lbfgs)
 
 	ENDIF (CUDA_FOUND)
-	ENDIF(EXISTS "${TORCH_BIN_DIR}/../include/THC/THC.h")
-
-         install_targets (/lib lbfgs)
- 
-	
 
          include_directories (${TORCH_INCLUDE_DIR} ${PROJECT_SOURCE_DIR})
          add_library (nnx SHARED init.c)
@@ -102,6 +99,7 @@ build = {
          install_files(/lua/nnx Probe.lua)
          install_files(/lua/nnx HardShrink.lua)
          install_files(/lua/nnx Narrow.lua)
+         install_files(/lua/nnx Type.lua)
          install_files(/lua/nnx Power.lua)
          install_files(/lua/nnx Square.lua)
          install_files(/lua/nnx Sqrt.lua)
