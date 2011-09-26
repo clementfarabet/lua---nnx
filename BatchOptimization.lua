@@ -55,7 +55,7 @@ function Batch:forward_sequential(inputs, targets, options)
            end
            local _t_ = sys.clock()
            -- reset gradients
-	   self.gradParameters:zero()
+           self.gradParameters:zero()
            -- f is the average of all criterions
            self.output = 0
            -- given all inputs, evaluate gradients
@@ -76,16 +76,16 @@ function Batch:forward_sequential(inputs, targets, options)
               if self.posthook then
                  self.posthook(self, {inputs[i], targets[i], options[i]})
               end
-           -- update evaluation counter
-           self.evalCounter = self.evalCounter + 1
+              -- update evaluation counter
+              self.evalCounter = self.evalCounter + 1
            end
 
            -- update evaluation counter
            self.batchCounter = self.batchCounter + 1
 
            -- normalize gradients
-	   self.gradParameters:div(#inputs)
-	   
+           self.gradParameters:div(#inputs)
+
            -- verbose
            if self.verbose >= 2 then
               print('<BatchOptimization> ' .. self.batchCounter .. 'th batch took ' .. (sys.clock() - _t_) .. ' sec')
@@ -125,12 +125,12 @@ function Batch:forward_mapreduce(inputs, targets, options)
    if self.copyBatch then
       -- (0) send same mini-batch to all workers
       for t = 1,P do
-	 self.children[t]:join()
-	 self.children[t]:send(inputs)
-	 self.children[t]:send(targets)
-	 self.children[t]:send(options)
+         self.children[t]:join()
+         self.children[t]:send(inputs)
+         self.children[t]:send(targets)
+         self.children[t]:send(options)
       end
-   else  
+   else
       -- (0b) divide input/target batch into N batches, based on speed
       -- of each worker
       local inputss = {}
@@ -138,28 +138,28 @@ function Batch:forward_mapreduce(inputs, targets, options)
       local optionss = {}
       local speed = 0
       for t = 1,P do
-	 speed = speed + self.children[t].speed
+         speed = speed + self.children[t].speed
       end
       local n = 1
       for t = 1,P do
-	 inputss[t] = {}
-	 targetss[t] = {}
-	 optionss[t] = {}
-	 for i = 1,math.ceil(self.children[t].speed*(#inputs)/speed) do
-	    table.insert(inputss[t], inputs[n])
-	    table.insert(targetss[t], targets[n])
-	    if options then table.insert(optionss[t], options[n]) end
-	    n = n + 1
-	    if n > #inputs then break end
-	 end
+         inputss[t] = {}
+         targetss[t] = {}
+         optionss[t] = {}
+         for i = 1,math.ceil(self.children[t].speed*(#inputs)/speed) do
+            table.insert(inputss[t], inputs[n])
+            table.insert(targetss[t], targets[n])
+            if options then table.insert(optionss[t], options[n]) end
+            n = n + 1
+            if n > #inputs then break end
+         end
       end
-      
+
       -- (0c) send parts of mini-batch to each worker
       for t = 1,P do
-	 self.children[t]:join()
-	 self.children[t]:send(inputss[t])
-	 self.children[t]:send(targetss[t])
-	 self.children[t]:send(optionss[t])
+         self.children[t]:join()
+         self.children[t]:send(inputss[t])
+         self.children[t]:send(targetss[t])
+         self.children[t]:send(optionss[t])
       end
    end
 
@@ -191,40 +191,40 @@ function Batch:forward_mapreduce(inputs, targets, options)
    --      in separate threads
    self.evaluate_map
       = function()
-	   if self.map_hook then
-	      self:map_hook()
-	   else
-	      -- transmit new parameters to all workers
-	      self.children:join()
-	      self.children:send(self.parameters)
-	      -- then wait for all workers to return their partial gradParameters + outputs
-	      gradParametersPartial = self.children:receive()
-	      outputsPartial = self.children:receive()
-	      -- force cleanup
-	      collectgarbage()
-	   end
-	end
+           if self.map_hook then
+              self:map_hook()
+           else
+              -- transmit new parameters to all workers
+              self.children:join()
+              self.children:send(self.parameters)
+              -- then wait for all workers to return their partial gradParameters + outputs
+              gradParametersPartial = self.children:receive()
+              outputsPartial = self.children:receive()
+              -- force cleanup
+              collectgarbage()
+           end
+        end
    -- (1b) the reduce part of the evaluation: accumulate all
    --      partial estimates of the gradients
    self.evaluate_reduce
       = function()
            if self.reduce_hook then
-	      self:reduce_hook()
-	   else
-	      -- standard reduce is to sum the gradients
-	      -- accumulate partial gradients, and average
-	      self.gradParameters:zero()
-	      for t = 1,P do
-		 self.gradParameters:add(gradParametersPartial[t])
-	      end
-	      self.gradParameters:div(#inputs)
-	      -- return average f(X)
-	      self.output = 0
-	      for t = 1,P do
-		 self.output = self.output + outputsPartial[t]
-	      end
-	      self.output = self.output/#inputs
-	   end
+              self:reduce_hook()
+           else
+              -- standard reduce is to sum the gradients
+              -- accumulate partial gradients, and average
+              self.gradParameters:zero()
+              for t = 1,P do
+                 self.gradParameters:add(gradParametersPartial[t])
+              end
+              self.gradParameters:div(#inputs)
+              -- return average f(X)
+              self.output = 0
+              for t = 1,P do
+                 self.output = self.output + outputsPartial[t]
+              end
+              self.output = self.output/#inputs
+           end
         end
 
    if self.optimize then
@@ -253,30 +253,31 @@ function Batch:setup_mapreduce ()
       xerror('install parallel for Lua to enable parallel computing (luarocks install parallel)',
              'nn.BatchOptimization')
    end
-   
-   local worker_code = 
+
+   -- (1) define code for workers
+   local worker_code =
       function()
          -- require packages
          require 'nnx'
-         
+
          -- retrieve optional code to setup worker
          precode = parallel.parent:receive()
          if type(precode) == 'function' then precode() end
-         
+
          -- retrieve module + criterion at startup
          parallel.yield()
          module = parallel.parent:receive()
          criterion = parallel.parent:receive()
-         
+
          -- create fake optimizer, for hooks
          optimizer = {module=module, criterion=criterion}
-         
+
          -- retrieve optional prehook/posthook
          prehook = parallel.parent:receive()
          posthook = parallel.parent:receive()
          if type(prehook) ~= 'function' then prehook = nil end
          if type(posthook) ~= 'function' then posthook = nil end
-         
+
          -- get pointer to parameter and gradParameter vectors
          -- (this assumes that parameters+gradParameters are already flat parameters:
          --  it should be the case, as the parent process flattens them at __init)
@@ -294,25 +295,25 @@ function Batch:setup_mapreduce ()
          check(tableGradParameters)
          parameters = torch.Tensor():set(tableParameters[1]:storage())
          gradParameters = torch.Tensor():set(tableGradParameters[1]:storage())
-         
+
          -- outer loop: mini-batches
          while true do
             -- sync
             if parallel.yield() == 'break' then break end
-            
+
             -- receive new mini-batch
             inputs  = parallel.parent:receive()
             targets = parallel.parent:receive()
             options = parallel.parent:receive()
-            
+
             -- inner loop: evaluations
             while true do
                -- sync
                if parallel.yield() == 'break' then break end
-               
+
                -- receive new set of parameters
                parameters:copy(parallel.parent:receive())
-               
+
                -- reset gradients
                gradParameters:zero()
                -- f is the average of all criterions
@@ -333,11 +334,7 @@ function Batch:setup_mapreduce ()
                   module:accGradParameters(inputs[i], df_do)
                   -- user hook
                   if posthook then
-                     if #inputs == #options then
-                        posthook(optimizer, {inputs[i], targets[i], options[i]})
-                     else
-                        posthook(module,options)
-                     end
+                     posthook(optimizer, {inputs[i], targets[i], options[i]})
                   end
                end
                -- now send back gradParameters + partial output
@@ -350,24 +347,24 @@ function Batch:setup_mapreduce ()
       end
    -- (2) dispatch workers
    local setup = function()
-                      -- (1) optional calibration
-                      if parallel.remotes then
-                         parallel.calibrate()
-                      end
-                      
-                      -- (2) startup all workers
-                      self.children = parallel.sfork(self.parallelize)
-                      self.children:exec(worker_code)
-                      
-                      -- (3) send them optional config code
-                      self.children:send(self.precode or '')
-                      
-                      -- (4) and send them the module + criterion architecture
-                      self.children:join()
-                      self.children:send(self.module)
-                      self.children:send(self.criterion)
-                   end
-   
+                    -- (1) optional calibration
+                    if parallel.remotes then
+                       parallel.calibrate()
+                    end
+
+                    -- (2) startup all workers
+                    self.children = parallel.sfork(self.parallelize)
+                    self.children:exec(worker_code)
+
+                    -- (3) send them optional config code
+                    self.children:send(self.precode or '')
+
+                    -- (4) and send them the module + criterion architecture
+                    self.children:join()
+                    self.children:send(self.module)
+                    self.children:send(self.criterion)
+                 end
+
    local ok,err = pcall(setup)
    if not ok then parallel.close() error(err) end
 end
