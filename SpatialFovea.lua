@@ -116,6 +116,11 @@ function SpatialFovea:configure(width,height)
       else
          self.upsamplers[idx] = nn.SpatialUpSampling(r, r)
       end
+
+      -- set correct types
+      self.downsamplers[idx]:type(self.output:type())
+      self.padders[idx]:type(self.output:type())
+      self.upsamplers[idx]:type(self.output:type())
    end
 end
 
@@ -265,7 +270,7 @@ function SpatialFovea:backward(input, gradOutput)
    -- (4) is fovea focused ?
    if self.focused then
       for idx = 1,nscales do
-         self.gradPadded[idx] = self.gradPadded[idx] or torch.Tensor()
+         self.gradPadded[idx] = self.gradPadded[idx] or torch.Tensor():typeAs(self.output)
          self.gradPadded[idx]:resizeAs(self.padded[idx]):zero()
          local fov = self.fov
          local ox = math.floor(math.floor((self.x-1) / self.ratios[idx]) / self.sub) * self.sub + 1
@@ -325,6 +330,20 @@ function SpatialFovea:updateParameters(learningRate)
    for idx = 1,#self.processors do
       self.processors[idx]:updateParameters(learningRate)
    end
+end
+
+function SpatialFovea:type(type)
+   parent.type(self,type)
+   for idx = 1,#self.processors do
+      self.processors[idx]:type(type)
+      self.upsamplers[idx]:type(type)
+      self.downsamplers[idx]:type(type)
+      self.padders[idx]:type(type)
+   end
+   for idx = 1,#self.preProcessors do
+      self.preProcessors[idx]:type(type)
+   end
+   return self
 end
 
 function SpatialFovea:write(file)
