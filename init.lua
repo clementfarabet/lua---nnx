@@ -208,7 +208,7 @@ function nnx.flattenParameters(parameters)
          if param:storage() == parameters[i]:storage() then
             offsets[k] = offsets[i]
             if storageOffsets[k] ~= storageOffsets[i] or elements[k] ~= elements[i] then
-               error('<nnx.flattenParameters> canot flatten shared weights with different structures')
+               error('<nnx.flattenParameters> cannot flatten shared weights with different structures')
             end
             isView = true
             break

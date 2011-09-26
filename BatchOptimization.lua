@@ -243,144 +243,131 @@ function Batch:forward_mapreduce(inputs, targets, options)
    return self.output
 end
 
+-- [MS] this default worker code is too detailed needs to be a
+-- skeleton which is easier to adapt... for now I am overriding this
+-- whole function with the 2 closures in GenSGD
+
 function Batch:setup_mapreduce ()
    -- (0) startup parallel package
    if not xrequire 'parallel' then
       xerror('install parallel for Lua to enable parallel computing (luarocks install parallel)',
              'nn.BatchOptimization')
    end
-
-   local worker_code = function () end
-
-   -- (1) define code for workers 
-
-   -- [MS] this default worker code is too detailed needs to be a
-   -- skeleton which is easier to adapt... for now I am allowing the
-   -- worker and setup functions to be overridden
-
-   if self.worker_code then
-      worker_code = self.worker_code
-   else
-      worker_code =
-	 function()
-	    -- require packages
-	    require 'nnx'
-	    
-	    -- retrieve optional code to setup worker
-	    precode = parallel.parent:receive()
-	    if type(precode) == 'function' then precode() end
-	    
-	    -- retrieve module + criterion at startup
-	    parallel.yield()
-	    module = parallel.parent:receive()
-	    criterion = parallel.parent:receive()
-	    
-	    -- create fake optimizer, for hooks
-	    optimizer = {module=module, criterion=criterion}
-	    
-	    -- retrieve optional prehook/posthook
-	    prehook = parallel.parent:receive()
-	    posthook = parallel.parent:receive()
-	    if type(prehook) ~= 'function' then prehook = nil end
-	    if type(posthook) ~= 'function' then posthook = nil end
-	    
-	    -- get pointer to parameter and gradParameter vectors
-	    -- (this assumes that parameters+gradParameters are already flat parameters:
-	    --  it should be the case, as the parent process flattens them at __init)
-	    function check(tocheck)
-	       for i = 2,#tocheck do
-		  if tocheck[i]:storage() ~= tocheck[i-1]:storage() then
-		     print('<BatchOptimization> error: inconsistent parameter vector (not flat)')
-		     return
-		  end
-	       end
-	    end
-	    tableParameters = nnx.getParameters(module)
-	    tableGradParameters = nnx.getGradParameters(module)
-	    check(tableParameters)
-	    check(tableGradParameters)
-	    parameters = torch.Tensor():set(tableParameters[1]:storage())
-	    gradParameters = torch.Tensor():set(tableGradParameters[1]:storage())
-	    
-	    -- outer loop: mini-batches
-	    while true do
-	       -- sync
-	       if parallel.yield() == 'break' then break end
-	       
-	       -- receive new mini-batch
-	       inputs  = parallel.parent:receive()
-	       targets = parallel.parent:receive()
-	       options = parallel.parent:receive()
-	       
-	       -- inner loop: evaluations
-	       while true do
-		  -- sync
-		  if parallel.yield() == 'break' then break end
-		  
-		  -- receive new set of parameters
-		  parameters:copy(parallel.parent:receive())
-		  
-		  -- reset gradients
-		  gradParameters:zero()
-		  -- f is the average of all criterions
-		  local f_x = 0
-		  -- evaluate gradients on inputs for this thread
-		  for i = 1,#inputs do
-		     -- user hook
-		     if prehook then
-			prehook(optimizer, {inputs[i], targets[i], options[i]})
-		     end
-		     -- estimate f
-		     local output = module:forward(inputs[i])
-		     local err = criterion:forward(output, targets[i])
-		     f_x = f_x + err
-		     -- estimate df/dW
-		     local df_do = criterion:backward(output, targets[i])
-		     module:backward(inputs[i], df_do)
-		     module:accGradParameters(inputs[i], df_do)
-		     -- user hook
-		     if posthook then
-			if #inputs == #options then
-			   posthook(optimizer, {inputs[i], targets[i], options[i]})
-			else
-			   posthook(module,options)
-			end
-		     end
-		  end
-		  -- now send back gradParameters + partial output
-		  parallel.parent:send(gradParameters)
-		  parallel.parent:send(f_x)
-		  -- force cleanup
-		  collectgarbage()
-	       end
-	    end
-	 end
-   end
+   
+   local worker_code = 
+      function()
+         -- require packages
+         require 'nnx'
+         
+         -- retrieve optional code to setup worker
+         precode = parallel.parent:receive()
+         if type(precode) == 'function' then precode() end
+         
+         -- retrieve module + criterion at startup
+         parallel.yield()
+         module = parallel.parent:receive()
+         criterion = parallel.parent:receive()
+         
+         -- create fake optimizer, for hooks
+         optimizer = {module=module, criterion=criterion}
+         
+         -- retrieve optional prehook/posthook
+         prehook = parallel.parent:receive()
+         posthook = parallel.parent:receive()
+         if type(prehook) ~= 'function' then prehook = nil end
+         if type(posthook) ~= 'function' then posthook = nil end
+         
+         -- get pointer to parameter and gradParameter vectors
+         -- (this assumes that parameters+gradParameters are already flat parameters:
+         --  it should be the case, as the parent process flattens them at __init)
+         function check(tocheck)
+            for i = 2,#tocheck do
+               if tocheck[i]:storage() ~= tocheck[i-1]:storage() then
+                  print('<BatchOptimization> error: inconsistent parameter vector (not flat)')
+                  return
+               end
+            end
+         end
+         tableParameters = nnx.getParameters(module)
+         tableGradParameters = nnx.getGradParameters(module)
+         check(tableParameters)
+         check(tableGradParameters)
+         parameters = torch.Tensor():set(tableParameters[1]:storage())
+         gradParameters = torch.Tensor():set(tableGradParameters[1]:storage())
+         
+         -- outer loop: mini-batches
+         while true do
+            -- sync
+            if parallel.yield() == 'break' then break end
+            
+            -- receive new mini-batch
+            inputs  = parallel.parent:receive()
+            targets = parallel.parent:receive()
+            options = parallel.parent:receive()
+            
+            -- inner loop: evaluations
+            while true do
+               -- sync
+               if parallel.yield() == 'break' then break end
+               
+               -- receive new set of parameters
+               parameters:copy(parallel.parent:receive())
+               
+               -- reset gradients
+               gradParameters:zero()
+               -- f is the average of all criterions
+               local f_x = 0
+               -- evaluate gradients on inputs for this thread
+               for i = 1,#inputs do
+                  -- user hook
+                  if prehook then
+                     prehook(optimizer, {inputs[i], targets[i], options[i]})
+                  end
+                  -- estimate f
+                  local output = module:forward(inputs[i])
+                  local err = criterion:forward(output, targets[i])
+                  f_x = f_x + err
+                  -- estimate df/dW
+                  local df_do = criterion:backward(output, targets[i])
+                  module:backward(inputs[i], df_do)
+                  module:accGradParameters(inputs[i], df_do)
+                  -- user hook
+                  if posthook then
+                     if #inputs == #options then
+                        posthook(optimizer, {inputs[i], targets[i], options[i]})
+                     else
+                        posthook(module,options)
+                     end
+                  end
+               end
+               -- now send back gradParameters + partial output
+               parallel.parent:send(gradParameters)
+               parallel.parent:send(f_x)
+               -- force cleanup
+               collectgarbage()
+            end
+         end
+      end
    -- (2) dispatch workers
-   local setup = function() end
-
-   if self.setup then
-      setup = self.setup
-   else
-      setup = function()
-		 -- (1) optional calibration
-		 if parallel.remotes then
-		    parallel.calibrate()
-		 end
-		 
-		 -- (2) startup all workers
-		 self.children = parallel.sfork(self.parallelize)
-		 self.children:exec(worker_code)
-		 
-		 -- (3) send them optional config code
-		 self.children:send(self.precode or '')
-		 
-		 -- (4) and send them the module + criterion architecture
-		 self.children:join()
-		 self.children:send(self.module)
-		 self.children:send(self.criterion)
-	      end
-   end
-   local ok,err = pcall(setup(self))
+   local setup = function()
+                      -- (1) optional calibration
+                      if parallel.remotes then
+                         parallel.calibrate()
+                      end
+                      
+                      -- (2) startup all workers
+                      self.children = parallel.sfork(self.parallelize)
+                      self.children:exec(worker_code)
+                      
+                      -- (3) send them optional config code
+                      self.children:send(self.precode or '')
+                      
+                      -- (4) and send them the module + criterion architecture
+                      self.children:join()
+                      self.children:send(self.module)
+                      self.children:send(self.criterion)
+                   end
+   
+   local ok,err = pcall(setup)
    if not ok then parallel.close() error(err) end
 end
