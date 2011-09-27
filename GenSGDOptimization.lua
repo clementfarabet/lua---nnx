@@ -2,7 +2,7 @@ local GenSGD,parent = torch.class('nn.GenSGDOptimization',
                                   'nn.BatchOptimization') 
 
 -- this module parallelizes SGD in a particular way.  It sends out the
--- same batch to each of several worker each with a different learning
+-- same batch to each of several workers, each with a different learning
 -- rate.  The workers run and the parameters from the best worker and
 -- it's learning rate are kept for the next batch.
 
@@ -36,7 +36,8 @@ function GenSGD:__init(...)
    self.baseParameters = { momentum          = self.momentum, 
                            weightDecay       = self.weightDecay,
                            learningRate      = self.learningRate,
-                           learningRateDecay = self.learningRateDecay
+                           learningRateDecay = self.learningRateDecay,
+                           sampleCounter     = self.sampleCounter
                         }
 end
 
@@ -44,14 +45,25 @@ end
 -- change gradParametersPartial to ParametersPartial, as the logic is
 -- different for this kind of parallelization.
 function GenSGD:map_hook()
+   local P = self.parallelize
    -- transmit new parameters to all workers
    self.children:join()
    self.children:send(self.parameters)
+   print('randomizing for '..P..' lr: '..self.learningRate..' sigma: '..self.sigma)
    -- randomize learning rate (could randomize other bits)
-   local n = self.learningRate + (lab.randn(P) * self.sigma)
-   for i = 1,P do
-      self.baseParameters[learningRate] = n[i]
-      self.children[t]:join()
+   local n = torch.Tensor(P)
+
+   n[1] = self.learningRate
+   n[2] = self.learningRate * 10
+   n[3] = self.learningRate / 10
+   n[4] = self.learningRate / 100 
+--  (lab.randn(P) * self.sigma):add(self.learningRate)
+   self.baseParameters.sampleCounter = self.sampleCounter
+
+   for t = 1,P do
+      self.baseParameters.learningRate = n[t]
+      print('lr: '..self.baseParameters.learningRate)
+      --self.children[t]:join() 
       self.children[t]:send(self.baseParameters) 
    end
    -- then wait for all workers to return their Parameters + outputs
@@ -63,6 +75,7 @@ function GenSGD:map_hook()
 end
 
 function GenSGD:reduce_hook()
+   local P = self.parallelize
    local id = 0
    local mx = 1e9
    for t = 1,P do
@@ -75,11 +88,12 @@ function GenSGD:reduce_hook()
       xerror('diverging','nn.GenSGDOptimization')
    else
       self.baseParameters = outputsPartial[id]
-      self.output = self.currentParameters.f_x
+      self.output = self.baseParameters.f_x
       -- in this case we get the parameters back directly
       self.parameters:copy(gradParametersPartial[id])
       print('Winner: output = '..self.output..
             'learningRate = '..self.baseParameters['learningRate'])
+      self.learningRate = self.baseParameters.learningRate
    end
 end
 
@@ -88,8 +102,9 @@ function GenSGD:optimize()
 end
 
 -- optimization (could do others in this mode)
-function GenSGD:optimizer(module,params)
-   -- apply momentum (store in the module)
+GenSGD.optimizer = 
+   function (module,params)
+      -- apply momentum (store in the module)
    if params.momentum ~= 0 then
       if not module.currentGradParameters then
          module.currentGradParameters = 
@@ -132,6 +147,12 @@ function GenSGD:setup_mapreduce ()
          criterion = parallel.parent:receive()
          optimizer = parallel.parent:receive()
          
+         -- retrieve optional prehook/posthook
+         prehook = parallel.parent:receive()
+         posthook = parallel.parent:receive()
+         if type(prehook) ~= 'function' then prehook = nil end
+         if type(posthook) ~= 'function' then posthook = nil end
+
          -- I don't understand this [MS]
          -- get pointer to parameter and gradParameter vectors
          -- (this assumes that parameters+gradParameters are already flat parameters:
@@ -168,7 +189,6 @@ function GenSGD:setup_mapreduce ()
                
                -- receive new set of parameters
                parameters:copy(parallel.parent:receive())
-               
                -- receive the learning rate etc. parameters which are
                -- tweaked for each thread
                optimization_parameters = parallel.parent:receive()	 
@@ -177,6 +197,8 @@ function GenSGD:setup_mapreduce ()
                -- SGD on these inputs
                -- reset gradients 
                gradParameters:zero()
+               module.parameters = parameters
+               module.gradParameters = gradParameters
                for i = 1,#inputs do
                   -- estimate f
                   local output = module:forward(inputs[i])
@@ -215,8 +237,7 @@ function GenSGD:setup_mapreduce ()
                     if parallel.remotes then
                        parallel.calibrate()
                     end
-                    print(self.P)
-                    print(self.parallelize)                 
+
                     -- (2) startup all workers
                     self.children = parallel.sfork(self.parallelize)
                     self.children:exec(worker_code)
