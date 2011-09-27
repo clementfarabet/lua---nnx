@@ -20,10 +20,7 @@ function GenSGD:__init(...)
                      {arg='weightDecay', type='number', 
                       help='amount of weight decay (W = W - decay*W)', default=0},
                      {arg='momentum', type='number', 
-                      help='amount of momentum on weights (dE/W = dE/dW*(1-momentum) + prev(dE/dW)*momentum)', default=0},
-                     {arg='sigma', type='number',
-                      help='sigma of gaussian used to randomize learningRate',
-                      default = 1e3}
+                      help='amount of momentum on weights (dE/W = dE/dW*(1-momentum) + prev(dE/dW)*momentum)', default=0}
                   )
    require 'lab' 
    if self.parallelize < 2 then
@@ -49,20 +46,14 @@ function GenSGD:map_hook()
    -- transmit new parameters to all workers
    self.children:join()
    self.children:send(self.parameters)
-   print('randomizing for '..P..' lr: '..self.learningRate..' sigma: '..self.sigma)
-   -- randomize learning rate (could randomize other bits)
-   local n = torch.Tensor(P)
+   -- randomize learning rate (could randomize other bits).  Using a
+   -- log normal around the base rate.
+   local n = lab.randn(P):exp() * self.learningRate
 
-   n[1] = self.learningRate
-   n[2] = self.learningRate * 10
-   n[3] = self.learningRate / 10
-   n[4] = self.learningRate / 100 
---  (lab.randn(P) * self.sigma):add(self.learningRate)
    self.baseParameters.sampleCounter = self.sampleCounter
 
    for t = 1,P do
       self.baseParameters.learningRate = n[t]
-      print('lr: '..self.baseParameters.learningRate)
       --self.children[t]:join() 
       self.children[t]:send(self.baseParameters) 
    end
@@ -91,8 +82,7 @@ function GenSGD:reduce_hook()
       self.output = self.baseParameters.f_x
       -- in this case we get the parameters back directly
       self.parameters:copy(gradParametersPartial[id])
-      print('Winner: output = '..self.output..
-            'learningRate = '..self.baseParameters['learningRate'])
+      -- keep this learning rate for the next batch
       self.learningRate = self.baseParameters.learningRate
    end
 end
