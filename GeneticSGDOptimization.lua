@@ -1,4 +1,4 @@
-local GenSGD,parent = torch.class('nn.GenSGDOptimization',
+local GenSGD,parent = torch.class('nn.GeneticSGDOptimization',
                                   'nn.BatchOptimization')
 
 -- this module parallelizes SGD in a particular way.  It sends out the
@@ -38,6 +38,14 @@ function GenSGD:__init(...)
                         }
 end
 
+function ldn(n,m,s)
+   -- pdf = lambda s,m,x: exp(-(log(x)-m)**2 / (2.*s**2)) / ( x*sqrt(2.*pi*s**2) )
+   local x = lab.rand(n)
+   local num = x:log():add(-1*m)
+   num = num:cmul(num):mul(-1):div(2 * s * s):exp():cdiv(x:mul(math.sqrt(2*math.pi*s*s)))
+   return num
+end
+
 -- we are changing the way we map and reduce.  It would be nice to
 -- change gradParametersPartial to ParametersPartial, as the logic is
 -- different for this kind of parallelization.
@@ -48,13 +56,13 @@ function GenSGD:map_hook()
    self.children:send(self.parameters)
    -- randomize learning rate (could randomize other bits).  Using a
    -- log normal around the base rate.
-   local n = lab.randn(P):exp() * self.learningRate
-   n[1] = self.learningRate
+   -- local n = ldn(P,self.learningRate,5)
+   local n = lab.rand(P)*self.learningRate
+   -- n[1] = self.learningRate
    self.baseParameters.sampleCounter = self.sampleCounter
 
    for t = 1,P do
       self.baseParameters.learningRate = n[t]
-      --self.children[t]:join()
       self.children[t]:send(self.baseParameters)
    end
    -- then wait for all workers to return their Parameters + outputs
@@ -79,17 +87,11 @@ function GenSGD:reduce_hook()
       xerror('diverging','nn.GenSGDOptimization')
    else
       self.baseParameters = outputsPartial[id]
+      self.learningRate = self.baseParameters.learningRate
       self.output = self.baseParameters.f_x
+      print('Chose: '..self.learningRate..' b/c '..self.output)
       -- in this case we get the parameters back directly
       self.parameters:copy(gradParametersPartial[id])
-      if not self.old_fx then 
-         self.old_fx = self.baseParameters.f_x 
-      elseif self.old_fx > self.baseParameters.f_x then
-         -- average towards this learning rate for the next batch
-         self.learningRate = 0.5 * self.learningRate * self.baseParameters.learningRate 
-         self.old_fx = self.baseParameters.f_x 
-      end
-      print('lr: '..self.learningRate..' fx: '..self.old_fx..' bfx: '..self.baseParameters.f_x)
    end
 end
 
@@ -136,7 +138,11 @@ function GenSGD:setup_mapreduce ()
          -- require packages
          require 'nnx'
 
-         -- retrieve module + criterion at startup
+         -- retrieve optional code to setup worker
+         precode = parallel.parent:receive()
+         if type(precode) == 'function' then precode() end
+
+         -- retrieve module + criterion + optimimzer at startup
          parallel.yield()
 
          module    = parallel.parent:receive()
@@ -239,6 +245,9 @@ function GenSGD:setup_mapreduce ()
                     -- (2) startup all workers
                     self.children = parallel.sfork(self.parallelize)
                     self.children:exec(worker_code)
+
+                    -- (3) send them optional config code
+                    self.children:send(self.precode or '')
 
                     -- (4) and send them the module + criterion architecture
                     self.children:join()
