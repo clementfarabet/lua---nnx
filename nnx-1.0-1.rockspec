@@ -136,7 +136,7 @@ build = {
          install_files(/lua/nnx Optimization.lua)
          install_files(/lua/nnx LBFGSOptimization.lua)
          install_files(/lua/nnx SGDOptimization.lua)
-         install_files(/lua/nnx GenSGDOptimization.lua)
+         install_files(/lua/nnx GeneticSGDOptimization.lua)
          install_files(/lua/nnx BatchOptimization.lua)
          install_files(/lua/nnx BatchTrainer.lua)
          add_subdirectory (test)

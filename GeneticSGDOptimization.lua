@@ -1,5 +1,5 @@
 local GenSGD,parent = torch.class('nn.GenSGDOptimization',
-                                  'nn.BatchOptimization') 
+                                  'nn.BatchOptimization')
 
 -- this module parallelizes SGD in a particular way.  It sends out the
 -- same batch to each of several workers, each with a different learning
@@ -10,19 +10,19 @@ function GenSGD:__init(...)
    parent.__init(self,...)
    xlua.unpack_class(self, {...},
                      'GenSGDOptimization', nil,
-                     {arg='maxIterations', type='number', 
+                     {arg='maxIterations', type='number',
                       help='maximum nb of iterations per pass', default=1},
-                     {arg='learningRate', type='number', 
+                     {arg='learningRate', type='number',
                       help='learning rate (W = W - rate*dE/dW)', default=1e-2},
-                     {arg='learningRateDecay', type='number', 
-                      help='learning rate decay (lr_t = lr_0 / (1 + samplesSeen*lrDecay))', 
+                     {arg='learningRateDecay', type='number',
+                      help='learning rate decay (lr_t = lr_0 / (1 + samplesSeen*lrDecay))',
                       default=0},
-                     {arg='weightDecay', type='number', 
+                     {arg='weightDecay', type='number',
                       help='amount of weight decay (W = W - decay*W)', default=0},
-                     {arg='momentum', type='number', 
+                     {arg='momentum', type='number',
                       help='amount of momentum on weights (dE/W = dE/dW*(1-momentum) + prev(dE/dW)*momentum)', default=0}
                   )
-   require 'lab' 
+   require 'lab'
    if self.parallelize < 2 then
       xerror('GenSGD needs to work on several processors: set parallelize',
              'nn.GenSGDOptimization')
@@ -30,7 +30,7 @@ function GenSGD:__init(...)
    -- change the mapper to send the same batch to each worker
    self.copyBatch = true
    -- create default parameter set which will be randomized for each worker
-   self.baseParameters = { momentum          = self.momentum, 
+   self.baseParameters = { momentum          = self.momentum,
                            weightDecay       = self.weightDecay,
                            learningRate      = self.learningRate,
                            learningRateDecay = self.learningRateDecay,
@@ -49,13 +49,13 @@ function GenSGD:map_hook()
    -- randomize learning rate (could randomize other bits).  Using a
    -- log normal around the base rate.
    local n = lab.randn(P):exp() * self.learningRate
-
+   n[1] = self.learningRate
    self.baseParameters.sampleCounter = self.sampleCounter
 
    for t = 1,P do
       self.baseParameters.learningRate = n[t]
-      --self.children[t]:join() 
-      self.children[t]:send(self.baseParameters) 
+      --self.children[t]:join()
+      self.children[t]:send(self.baseParameters)
    end
    -- then wait for all workers to return their Parameters + outputs
    -- should rename this to parametersParallel and optionsParallel
@@ -82,8 +82,14 @@ function GenSGD:reduce_hook()
       self.output = self.baseParameters.f_x
       -- in this case we get the parameters back directly
       self.parameters:copy(gradParametersPartial[id])
-      -- keep this learning rate for the next batch
-      self.learningRate = self.baseParameters.learningRate
+      if not self.old_fx then 
+         self.old_fx = self.baseParameters.f_x 
+      elseif self.old_fx > self.baseParameters.f_x then
+         -- average towards this learning rate for the next batch
+         self.learningRate = 0.5 * self.learningRate * self.baseParameters.learningRate 
+         self.old_fx = self.baseParameters.f_x 
+      end
+      print('lr: '..self.learningRate..' fx: '..self.old_fx..' bfx: '..self.baseParameters.f_x)
    end
 end
 
@@ -92,32 +98,32 @@ function GenSGD:optimize()
 end
 
 -- optimization (could do others in this mode)
-GenSGD.optimizer = 
+GenSGD.optimizer =
    function (module,params)
       -- apply momentum (store in the module)
-   if params.momentum ~= 0 then
-      if not module.currentGradParameters then
-         module.currentGradParameters = 
-            torch.Tensor():resizeAs(module.gradParameters):copy(module.gradParameters)
+      if params.momentum ~= 0 then
+         if not module.currentGradParameters then
+            module.currentGradParameters =
+               torch.Tensor():resizeAs(module.gradParameters):copy(module.gradParameters)
+         else
+            module.currentGradParameters:mul(params.momentum):add(1-params.momentum, module.gradParameters)
+         end
       else
-         module.currentGradParameters:mul(params.momentum):add(1-params.momentum, module.gradParameters)
+         module.currentGradParameters = module.gradParameters
       end
-   else
-      module.currentGradParameters = module.gradParameters
-   end
 
-   -- weight decay
-   if params.weightDecay ~= 0 then
-      module.parameters:add(-params.weightDecay, module.parameters)
-   end
+      -- weight decay
+      if params.weightDecay ~= 0 then
+         module.parameters:add(-params.weightDecay, module.parameters)
+      end
 
-   -- update parameters
-   local learningRate = 
-      params.learningRate / (1 + params.sampleCounter*params.learningRateDecay)
-   module.parameters:add(-learningRate, module.currentGradParameters)
-   -- make keep track of final rate
-   params.learningRate = learningRate
-end
+      -- update parameters
+      local learningRate =
+         params.learningRate / (1 + params.sampleCounter*params.learningRateDecay)
+      module.parameters:add(-learningRate, module.currentGradParameters)
+      -- make keep track of final rate
+      params.learningRate = learningRate
+   end
 
 function GenSGD:setup_mapreduce ()
    -- (0) startup parallel package
@@ -125,18 +131,18 @@ function GenSGD:setup_mapreduce ()
       xerror('install parallel for Lua to enable parallel computing (luarocks install parallel)',
              'nn.GenSGDOptimization')
    end
-   local worker_code  =  
+   local worker_code  =
       function()
          -- require packages
          require 'nnx'
-         
+
          -- retrieve module + criterion at startup
          parallel.yield()
-         
+
          module    = parallel.parent:receive()
          criterion = parallel.parent:receive()
          optimizer = parallel.parent:receive()
-         
+
          -- retrieve optional prehook/posthook
          prehook = parallel.parent:receive()
          posthook = parallel.parent:receive()
@@ -161,34 +167,36 @@ function GenSGD:setup_mapreduce ()
          check(tableGradParameters)
          parameters = torch.Tensor():set(tableParameters[1]:storage())
          gradParameters = torch.Tensor():set(tableGradParameters[1]:storage())
-   
+
          -- outer loop: mini-batches
          while true do
             -- sync
             if parallel.yield() == 'break' then break end
-            
+
             -- receive new mini-batch
             inputs  = parallel.parent:receive()
             targets = parallel.parent:receive()
             options = parallel.parent:receive()
-            
+
             -- inner loop: evaluations
             while true do
                -- sync
                if parallel.yield() == 'break' then break end
-               
+
                -- receive new set of parameters
                parameters:copy(parallel.parent:receive())
                -- receive the learning rate etc. parameters which are
                -- tweaked for each thread
-               optimization_parameters = parallel.parent:receive()	 
-               
+               optimization_parameters = parallel.parent:receive()
+
                -- evaluate gradients on inputs for this thread and perform
                -- SGD on these inputs
-               -- reset gradients 
+               -- reset gradients
                gradParameters:zero()
+
                module.parameters = parameters
                module.gradParameters = gradParameters
+
                for i = 1,#inputs do
                   -- estimate f
                   local output = module:forward(inputs[i])
@@ -197,7 +205,7 @@ function GenSGD:setup_mapreduce ()
                   local df_do = criterion:backward(output, targets[i])
                   module:backward(inputs[i], df_do)
                   module:accGradParameters(inputs[i], df_do)
-                  optimizer(module,optimization_parameters) 
+                  optimizer(module,optimization_parameters)
                end
                -- we need the result averaged over all the samples _after_
                -- the gradient steps so do one more loop to fprop through
@@ -231,7 +239,7 @@ function GenSGD:setup_mapreduce ()
                     -- (2) startup all workers
                     self.children = parallel.sfork(self.parallelize)
                     self.children:exec(worker_code)
-                    
+
                     -- (4) and send them the module + criterion architecture
                     self.children:join()
                     self.children:send(self.module)

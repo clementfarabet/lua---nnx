@@ -102,7 +102,7 @@ torch.include('nnx', 'Optimization.lua')
 torch.include('nnx', 'BatchOptimization.lua')
 torch.include('nnx', 'SGDOptimization.lua')
 torch.include('nnx', 'LBFGSOptimization.lua')
-torch.include('nnx', 'GenSGDOptimization.lua')
+torch.include('nnx', 'GeneticSGDOptimization.lua')
 
 -- trainers:
 torch.include('nnx', 'Trainer.lua')
