@@ -130,10 +130,6 @@ function Batch:forward_mapreduce(inputs, targets, options)
          self.children[t]:send(targets)
          self.children[t]:send(options)
       end
-<<<<<<< HEAD
-=======
-         
->>>>>>> genetic
    else
       -- (0b) divide input/target batch into N batches, based on speed
       -- of each worker
