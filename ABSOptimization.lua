@@ -5,10 +5,10 @@ local ABS,parent = torch.class('nn.ABSOptimization', 'nn.SGDOptimization')
 function ABS:__init(...)
    parent.__init(self,...)
    xlua.unpack_class(self, {...},
-		     'ABSOptimization', nil,
-		     {arg='theta', type='number', 
-		      help='threshold for increasing batch size', default=1}
-		  )
+                     'ABSOptimization', nil,
+                     {arg='theta', type='number',
+                      help='threshold for increasing batch size', default=1}
+                  )
 end
 
 function ABS:reduce_hook()
@@ -22,14 +22,14 @@ function ABS:reduce_hook()
    self.gradParameters:div(#inputs)
    self.gradStd = torch.Tensor():resizeAs(self.gradParameters):zero()
    local tmp = torch.Tensor():resizeAs(self.gradParameters):zero()
-   -- compute std 
+   -- compute std
    -- 1) sum the variances (doing it element-wise)
-   for t = 1,P do 
+   for t = 1,P do
       tmp:add(self.gradParameters):mul(-1):add(gradParametersPartial[t]):pow(2)
       self.gradStd:add(tmp)
       tmp:zero()
    end
-   -- 2) now take sqrt 
+   -- 2) now take sqrt
    self.gradStd:sqrt()
 
    -- test to increase batchSize
