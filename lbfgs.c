@@ -945,7 +945,7 @@ int cg(
 
     /* compute 'momentum' term B = (g1'*g1)/(g0'*g0) */
     vecdot(&g1dot, g, g, n);
-    B = g1dot / g0dot; 
+    B = g1dot / g0dot;
     /* store val for next iteration */
     g0dot = g1dot;
 
@@ -956,9 +956,9 @@ int cg(
     /* add the 'momentum' term */
     /* d_1 = -g_1 + B*d_0 */
     vecadd(d, dp, B, n);
-    
+
     /* increment the number of iterations */
-    ++k; 
+    ++k;
 
     /*
       Now the search direction d is ready. We try step = 1 first.
@@ -1787,15 +1787,15 @@ static lbfgsfloatval_t evaluate(void *instance,
 }
 
 static int cg_progress(void *instance,
-                    const lbfgsfloatval_t *x,
-                    const lbfgsfloatval_t *g,
-                    const lbfgsfloatval_t fx,
-                    const lbfgsfloatval_t xnorm,
-                    const lbfgsfloatval_t gnorm,
-                    const lbfgsfloatval_t step,
-                    int n,
-                    int k,
-                    int ls)
+                       const lbfgsfloatval_t *x,
+                       const lbfgsfloatval_t *g,
+                       const lbfgsfloatval_t fx,
+                       const lbfgsfloatval_t xnorm,
+                       const lbfgsfloatval_t gnorm,
+                       const lbfgsfloatval_t step,
+                       int n,
+                       int k,
+                       int ls)
 {
   nIteration = k;
   if (verbose > 1) {
@@ -1808,15 +1808,15 @@ static int cg_progress(void *instance,
 }
 
 static int lbfgs_progress(void *instance,
-                    const lbfgsfloatval_t *x,
-                    const lbfgsfloatval_t *g,
-                    const lbfgsfloatval_t fx,
-                    const lbfgsfloatval_t xnorm,
-                    const lbfgsfloatval_t gnorm,
-                    const lbfgsfloatval_t step,
-                    int n,
-                    int k,
-                    int ls)
+                          const lbfgsfloatval_t *x,
+                          const lbfgsfloatval_t *g,
+                          const lbfgsfloatval_t fx,
+                          const lbfgsfloatval_t xnorm,
+                          const lbfgsfloatval_t gnorm,
+                          const lbfgsfloatval_t step,
+                          int n,
+                          int k,
+                          int ls)
 {
   nIteration = k;
   if (verbose > 1) {
@@ -1884,10 +1884,10 @@ int init(lua_State *L) {
   maxEval = lua_tonumber(L,3);
   lbfgs_param.max_iterations = lua_tonumber(L, 4);
   lbfgs_param.max_linesearch = lua_tonumber(L, 5);
-  lbfgs_param.linesearch = LBFGS_LINESEARCH_BACKTRACKING;
-  lbfgs_param.orthantwise_c = lua_tonumber(L, 6);
+  lbfgs_param.orthantwise_c  = lua_tonumber(L, 6);
+  lbfgs_param.linesearch     = lua_tonumber(L, 7);
   /* get verbose level */
-  verbose = lua_tonumber(L,7);
+  verbose = lua_tonumber(L,8);
 
   /* done */
   return 0;
