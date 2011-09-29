@@ -801,8 +801,11 @@ int cg(
 
   /* Compute the initial step:
      1 / |d| + 1
+     from minfunc: 
+     t = min(1,1/sum(abs(g)));
   */
-  vec2norminv(&step, d, n);
+  vec1norminv(&step, d, n);
+  step = min2(1,step);
 
   k = 1;
   end = 0;
@@ -1020,7 +1023,7 @@ static int line_search_backtracking(
 
     /* Evaluate the function and gradient values. */
     *f = cd->proc_evaluate(cd->instance, x, g, cd->n, *stp);
-
+    
     ++count;
 
     if (*f > finit + *stp * dgtest) {
@@ -1941,7 +1944,7 @@ int lbfgs_run(lua_State *L) {
 int cg_run(lua_State *L) {
   /* check existence of x */
   if (!x) {
-    THError("lbfgs.init() should be called once before calling lbfgs.run()");
+    THError("cg.init() should be called once before calling cg.run()");
   }
   /* reset our counter */
   nEvaluation = 0;
@@ -1967,7 +1970,7 @@ int cg_run(lua_State *L) {
 }
 
 static const struct luaL_Reg cg_methods__ [] = {
-  /* init and clear are the same methods */
+  /* clear is the same method */
   {"init",  cg_init},
   {"clear", clear},
   {"run",   cg_run},
