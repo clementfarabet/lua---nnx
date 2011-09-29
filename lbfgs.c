@@ -85,7 +85,7 @@
 #define max2(a, b)      ((a) >= (b) ? (a) : (b))
 #define max3(a, b, c)   max2(max2((a), (b)), (c));
 
-/* extra globals */ 
+/* extra globals */
 static int nEvaluation = 0;
 static int maxEval     = 0; /* maximum number of function evaluations */
 static int nIteration  = 0;
@@ -425,8 +425,8 @@ int lbfgs(
     fx += xnorm * param.orthantwise_c;
     owlqn_pseudo_gradient(
                           pg, x, g, n,
-                          param.orthantwise_c, 
-			  param.orthantwise_start, param.orthantwise_end
+                          param.orthantwise_c,
+                          param.orthantwise_start, param.orthantwise_end
                           );
   }
 
@@ -479,8 +479,8 @@ int lbfgs(
       ls = linesearch(n, x, &fx, g, d, &step, xp, pg, w, &cd, &param);
       owlqn_pseudo_gradient(
                             pg, x, g, n,
-                            param.orthantwise_c, 
-			    param.orthantwise_start, param.orthantwise_end
+                            param.orthantwise_c,
+                            param.orthantwise_start, param.orthantwise_end
                             );
     }
     if (ls < 0) {
@@ -489,7 +489,7 @@ int lbfgs(
       veccpy(g, gp, n);
       ret = ls;
       if (verbose > 1){
-	printf("Stopping b/c ls (%d) < 0\n", ls);
+        printf("Stopping b/c ls (%d) < 0\n", ls);
       }
       goto lbfgs_exit;
     }
@@ -505,17 +505,17 @@ int lbfgs(
     /* Report the progress. */
     if (cd.proc_progress) {
       if ((ret = cd.proc_progress(cd.instance, x, g, fx, xnorm, gnorm, step, cd.n, k, ls))) {
-	if (verbose > 1){
-	  printf("Stopping b/c cd.proc_progress (%d)\n", ret);
-	}
-	goto lbfgs_exit;
+        if (verbose > 1){
+          printf("Stopping b/c cd.proc_progress (%d)\n", ret);
+        }
+        goto lbfgs_exit;
       }
     }
 
     /* Count number of function evaluations */
     if ((maxEval != 0)&&(nEvaluation > maxEval)) {
       if (verbose > 1){
-	printf("Stopping b/c exceeded max number of function evaluations\n");
+        printf("Stopping b/c exceeded max number of function evaluations\n");
       }
       goto lbfgs_exit;
     }
@@ -527,9 +527,9 @@ int lbfgs(
     if (xnorm < 1.0) xnorm = 1.0;
     if (gnorm / xnorm <= param.epsilon) {
       if (verbose > 1){
-	printf("Stopping b/c gnorm(%f)/xnorm(%f) <= param.epsilon (%f)\n",
-	       gnorm, xnorm, param.epsilon);
-	  }
+        printf("Stopping b/c gnorm(%f)/xnorm(%f) <= param.epsilon (%f)\n",
+               gnorm, xnorm, param.epsilon);
+      }
       /* Convergence. */
       ret = LBFGS_SUCCESS;
       break;
@@ -548,10 +548,10 @@ int lbfgs(
 
         /* The stopping criterion. */
         if (rate < param.delta) {
-	  if (verbose > 1){
-	    printf("Stopping b/c rate (%f) < param.delta (%f)\n",
-		   rate, param.delta);
-	  }
+          if (verbose > 1){
+            printf("Stopping b/c rate (%f) < param.delta (%f)\n",
+                   rate, param.delta);
+          }
           ret = LBFGS_STOP;
           break;
         }
@@ -563,9 +563,9 @@ int lbfgs(
 
     if (param.max_iterations != 0 && param.max_iterations < k+1) {
       if (verbose > 1){
-	printf("Stopping b/c param.max_iterations (%d) < k+1 (%d)\n",
-	       param.max_iterations, k+1);
-	  }
+        printf("Stopping b/c param.max_iterations (%d) < k+1 (%d)\n",
+               param.max_iterations, k+1);
+      }
       /* Maximum number of iterations. */
       ret = LBFGSERR_MAXIMUMITERATION;
       break;
@@ -644,6 +644,319 @@ int lbfgs(
       }
     }
 
+    /*
+      Now the search direction d is ready. We try step = 1 first.
+    */
+    step = 1.0;
+  }
+
+ lbfgs_exit:
+  /* Return the final value of the objective function. */
+  if (ptr_fx != NULL) {
+    *ptr_fx = fx;
+  }
+
+  vecfree(pf);
+
+  /* Free memory blocks used by this function. */
+  if (lm != NULL) {
+    for (i = 0;i < m;++i) {
+      vecfree(lm[i].s);
+      vecfree(lm[i].y);
+    }
+    vecfree(lm);
+  }
+  vecfree(pg);
+  vecfree(w);
+  vecfree(d);
+  vecfree(gp);
+  vecfree(g);
+  vecfree(xp);
+
+  return ret;
+}
+
+int cg(
+       int n,
+       lbfgsfloatval_t *x,
+       lbfgsfloatval_t *ptr_fx,
+       lbfgs_evaluate_t proc_evaluate,
+       lbfgs_progress_t proc_progress,
+       void *instance,
+       lbfgs_parameter_t *_param
+       )
+{
+  int ret;
+  int i, j, k, ls, end, bound;
+  lbfgsfloatval_t step;
+
+  /* Constant parameters and their default values. */
+  lbfgs_parameter_t param = (_param != NULL) ? (*_param) : _defparam;
+  const int m = param.m;
+
+  lbfgsfloatval_t *xp = NULL;
+  lbfgsfloatval_t *g = NULL, *gp = NULL, *pg = NULL;
+  lbfgsfloatval_t *d = NULL, *dp = NULL, *w = NULL, *pf = NULL;
+  iteration_data_t *lm = NULL, *it = NULL;
+  lbfgsfloatval_t xnorm, gnorm;
+  lbfgsfloatval_t B, g0dot, g1dot;
+  lbfgsfloatval_t fx = 0.;
+  lbfgsfloatval_t rate = 0.;
+  line_search_proc linesearch = line_search_morethuente;
+
+  /* Construct a callback data. */
+  callback_data_t cd;
+  cd.n = n;
+  cd.instance = instance;
+  cd.proc_evaluate = proc_evaluate;
+  cd.proc_progress = proc_progress;
+
+#if     defined(USE_SSE) && (defined(__SSE__) || defined(__SSE2__))
+  /* Round out the number of variables. */
+  n = round_out_variables(n);
+#endif/*defined(USE_SSE)*/
+
+  /* Check the input parameters for errors. */
+  if (n <= 0) {
+    return LBFGSERR_INVALID_N;
+  }
+#if     defined(USE_SSE) && (defined(__SSE__) || defined(__SSE2__))
+  if (n % 8 != 0) {
+    return LBFGSERR_INVALID_N_SSE;
+  }
+  if ((uintptr_t)(const void*)x % 16 != 0) {
+    return LBFGSERR_INVALID_X_SSE;
+  }
+#endif/*defined(USE_SSE)*/
+  if (param.epsilon < 0.) {
+    return LBFGSERR_INVALID_EPSILON;
+  }
+  if (param.past < 0) {
+    return LBFGSERR_INVALID_TESTPERIOD;
+  }
+  if (param.delta < 0.) {
+    return LBFGSERR_INVALID_DELTA;
+  }
+  if (param.min_step < 0.) {
+    return LBFGSERR_INVALID_MINSTEP;
+  }
+  if (param.max_step < param.min_step) {
+    return LBFGSERR_INVALID_MAXSTEP;
+  }
+  if (param.ftol < 0.) {
+    return LBFGSERR_INVALID_FTOL;
+  }
+  if (param.linesearch == LBFGS_LINESEARCH_BACKTRACKING_WOLFE ||
+      param.linesearch == LBFGS_LINESEARCH_BACKTRACKING_STRONG_WOLFE) {
+    if (param.wolfe <= param.ftol || 1. <= param.wolfe) {
+      return LBFGSERR_INVALID_WOLFE;
+    }
+  }
+  if (param.gtol < 0.) {
+    return LBFGSERR_INVALID_GTOL;
+  }
+  if (param.xtol < 0.) {
+    return LBFGSERR_INVALID_XTOL;
+  }
+  if (param.max_linesearch <= 0) {
+    return LBFGSERR_INVALID_MAXLINESEARCH;
+  }
+  if (param.orthantwise_c < 0.) {
+    return LBFGSERR_INVALID_ORTHANTWISE;
+  }
+  if (param.orthantwise_start < 0 || n < param.orthantwise_start) {
+    return LBFGSERR_INVALID_ORTHANTWISE_START;
+  }
+  if (param.orthantwise_end < 0) {
+    param.orthantwise_end = n;
+  }
+  if (n < param.orthantwise_end) {
+    return LBFGSERR_INVALID_ORTHANTWISE_END;
+  }
+  if (param.orthantwise_c != 0.) {
+    switch (param.linesearch) {
+    case LBFGS_LINESEARCH_BACKTRACKING:
+      linesearch = line_search_backtracking_owlqn;
+      break;
+    default:
+      /* Only the backtracking method is available. */
+      return LBFGSERR_INVALID_LINESEARCH;
+    }
+  } else {
+    switch (param.linesearch) {
+    case LBFGS_LINESEARCH_MORETHUENTE:
+      linesearch = line_search_morethuente;
+      break;
+    case LBFGS_LINESEARCH_BACKTRACKING_ARMIJO:
+    case LBFGS_LINESEARCH_BACKTRACKING_WOLFE:
+    case LBFGS_LINESEARCH_BACKTRACKING_STRONG_WOLFE:
+      linesearch = line_search_backtracking;
+      break;
+    default:
+      return LBFGSERR_INVALID_LINESEARCH;
+    }
+  }
+
+  /* Allocate working space. */
+  xp = (lbfgsfloatval_t*)vecalloc(n * sizeof(lbfgsfloatval_t));
+  g  = (lbfgsfloatval_t*)vecalloc(n * sizeof(lbfgsfloatval_t));
+  gp = (lbfgsfloatval_t*)vecalloc(n * sizeof(lbfgsfloatval_t));
+  d  = (lbfgsfloatval_t*)vecalloc(n * sizeof(lbfgsfloatval_t));
+  dp = (lbfgsfloatval_t*)vecalloc(n * sizeof(lbfgsfloatval_t));
+  w  = (lbfgsfloatval_t*)vecalloc(n * sizeof(lbfgsfloatval_t));
+  if (xp == NULL || g == NULL || gp == NULL || d == NULL || w == NULL) {
+    ret = LBFGSERR_OUTOFMEMORY;
+    goto lbfgs_exit;
+  }
+
+  /* Allocate an array for storing previous values of the objective function. */
+  if (0 < param.past) {
+    pf = (lbfgsfloatval_t*)vecalloc(param.past * sizeof(lbfgsfloatval_t));
+  }
+
+  /* Evaluate the function value and its gradient. */
+  fx = cd.proc_evaluate(cd.instance, x, g, cd.n, 0);
+
+  /* used to compute the momentum  term for CG */
+  vecdot(&g0dot,g,g,n);
+
+  /* Store the initial value of the objective function. */
+  if (pf != NULL) {
+    pf[0] = fx;
+  }
+
+  /*
+    Compute the inital search direction (the negative gradient)
+  */
+  vecncpy(d, g, n);
+
+  /*
+    Make sure that the initial variables are not a minimizer.
+  */
+  vec2norm(&xnorm, x, n);
+  vec2norm(&gnorm, g, n);
+
+
+  if (xnorm < 1.0) xnorm = 1.0;
+  if (gnorm / xnorm <= param.epsilon) {
+    ret = LBFGS_ALREADY_MINIMIZED;
+    goto lbfgs_exit;
+  }
+
+  /* Compute the initial step:
+     step = 1.0 / sqrt(vecdot(d, d, n))
+     Do we want to do this for CG?
+  */
+  vec2norminv(&step, d, n);
+
+  k = 1;
+  end = 0;
+  for (;;) {
+    /* Store the current position and gradient vectors. */
+    veccpy(xp, x, n);
+    veccpy(gp, g, n);
+    veccpy(dp, d, n);
+
+    /* Search for an optimal step. */
+    ls = linesearch(n, x, &fx, g, d, &step, xp, gp, w, &cd, &param);
+
+    if (ls < 0) {
+      /* Revert to the previous point. */
+      veccpy(x, xp, n);
+      veccpy(g, gp, n);
+      ret = ls;
+      if (verbose > 1){
+        printf("Stopping b/c ls (%d) < 0\n", ls);
+      }
+      goto lbfgs_exit;
+    }
+
+    /* Compute x and g norms. */
+    vec2norm(&xnorm, x, n);
+    vec2norm(&gnorm, g, n);
+
+    /* Report the progress. */
+    if (cd.proc_progress) {
+      if ((ret = cd.proc_progress(cd.instance, x, g, fx, xnorm, gnorm, step, cd.n, k, ls))) {
+        if (verbose > 1){
+          printf("Stopping b/c cd.proc_progress (%d)\n", ret);
+        }
+        goto lbfgs_exit;
+      }
+    }
+
+    /* Count number of function evaluations */
+    if ((maxEval != 0)&&(nEvaluation > maxEval)) {
+      if (verbose > 1){
+        printf("Stopping b/c exceeded max number of function evaluations\n");
+      }
+      goto lbfgs_exit;
+    }
+    /*
+      Convergence test.
+      The criterion is given by the following formula:
+      |g(x)| / \max(1, |x|) < \epsilon
+    */
+    if (xnorm < 1.0) xnorm = 1.0;
+    if (gnorm / xnorm <= param.epsilon) {
+      if (verbose > 1){
+        printf("Stopping b/c gnorm(%f)/xnorm(%f) <= param.epsilon (%f)\n",
+               gnorm, xnorm, param.epsilon);
+      }
+      /* Convergence. */
+      ret = LBFGS_SUCCESS;
+      break;
+    }
+
+    /*
+      Test for stopping criterion.
+      The criterion is given by the following formula:
+      (f(past_x) - f(x)) / f(x) < \delta
+    */
+    if (pf != NULL) {
+      /* We don't test the stopping criterion while k < past. */
+      if (param.past <= k) {
+        /* Compute the relative improvement from the past. */
+        rate = (pf[k % param.past] - fx) / fx;
+
+        /* The stopping criterion. */
+        if (rate < param.delta) {
+          if (verbose > 1){
+            printf("Stopping b/c rate (%f) < param.delta (%f)\n",
+                   rate, param.delta);
+          }
+          ret = LBFGS_STOP;
+          break;
+        }
+      }
+
+      /* Store the current value of the objective function. */
+      pf[k % param.past] = fx;
+    }
+
+    if (param.max_iterations != 0 && param.max_iterations < k+1) {
+      if (verbose > 1){
+        printf("Stopping b/c param.max_iterations (%d) < k+1 (%d)\n",
+               param.max_iterations, k+1);
+      }
+      /* Maximum number of iterations. */
+      ret = LBFGSERR_MAXIMUMITERATION;
+      break;
+    }
+
+    /* compute 'momentum' term */
+    vecdot(&g1dot, g, g, n);
+    B = g1dot / g0dot; 
+    /* store val for next iteration */
+    g0dot = g1dot;
+
+    /* Compute the steepest direction. */
+    /* Compute the negative of gradients. */
+    vecncpy(d, g, n);
+    /* add the 'momentum' term */
+    /* d_1 = -g_1 + B*d_0 */
+    vecadd(d, dp, B, n);
+    
     /*
       Now the search direction d is ready. We try step = 1 first.
     */
@@ -1419,7 +1732,7 @@ static void *parameters     = NULL;
 static void *gradParameters = NULL;
 
 #include "generic/lbfgs.c"
-#include "THGenerateFloatTypes.h" 
+#include "THGenerateFloatTypes.h"
 
 #ifdef WITH_CUDA
 /* generate cuda code */
@@ -1447,12 +1760,12 @@ static lbfgsfloatval_t evaluate(void *instance,
                                 const lbfgsfloatval_t step)
 {
 
-  if ( current_torch_type == torch_DoubleTensor_id ) 
+  if ( current_torch_type == torch_DoubleTensor_id )
     THDoubleTensor_copy_evaluate_start(parameters, x, nParameter);
-  else if ( current_torch_type == torch_FloatTensor_id ) 
+  else if ( current_torch_type == torch_FloatTensor_id )
     THFloatTensor_copy_evaluate_start(parameters, x, nParameter);
 #ifdef WITH_CUDA
-  else if ( current_torch_type == torch_CudaTensor_id ) 
+  else if ( current_torch_type == torch_CudaTensor_id )
     THCudaTensor_copy_evaluate_start(parameters, x, nParameter);
 #endif
   /* evaluate f(x) and g(f(x)) */
@@ -1465,12 +1778,12 @@ static lbfgsfloatval_t evaluate(void *instance,
   /* incr eval counter */
   nEvaluation ++;
 
-  if ( current_torch_type == torch_DoubleTensor_id ) 
+  if ( current_torch_type == torch_DoubleTensor_id )
     THDoubleTensor_copy_evaluate_end(g, gradParameters, nParameter);
-  else if ( current_torch_type == torch_FloatTensor_id ) 
+  else if ( current_torch_type == torch_FloatTensor_id )
     THFloatTensor_copy_evaluate_end(g, gradParameters, nParameter);
 #ifdef WITH_CUDA
-  else if ( current_torch_type == torch_CudaTensor_id ) 
+  else if ( current_torch_type == torch_CudaTensor_id )
     THCudaTensor_copy_evaluate_end(g, gradParameters, nParameter);
 #endif
 
@@ -1478,7 +1791,28 @@ static lbfgsfloatval_t evaluate(void *instance,
   return fx;
 }
 
-static int progress(void *instance,
+static int cg_progress(void *instance,
+                    const lbfgsfloatval_t *x,
+                    const lbfgsfloatval_t *g,
+                    const lbfgsfloatval_t fx,
+                    const lbfgsfloatval_t xnorm,
+                    const lbfgsfloatval_t gnorm,
+                    const lbfgsfloatval_t step,
+                    int n,
+                    int k,
+                    int ls)
+{
+  nIteration = k;
+  if (verbose > 1) {
+    printf("<CGOptimization> iteration %d:\n", nIteration);
+    printf("  + f(X) = %f\n", fx);
+    printf("  + xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
+    printf("  + nb evaluations = %d\n", nEvaluation);
+  }
+  return 0;
+}
+
+static int lbfgs_progress(void *instance,
                     const lbfgsfloatval_t *x,
                     const lbfgsfloatval_t *g,
                     const lbfgsfloatval_t fx,
@@ -1499,9 +1833,7 @@ static int progress(void *instance,
   return 0;
 }
 
-
-
-int lbfgs_init(lua_State *L) {
+int init(lua_State *L) {
   /* get params from userspace */
   GL = L;
 
@@ -1535,7 +1867,7 @@ int lbfgs_init(lua_State *L) {
       current_torch_type = torch_CudaTensor_id;
     }
 #endif
-  else 
+  else
     luaL_typerror(L,1,"torch.*Tensor");
 
   /* parameters for algorithm */
@@ -1543,14 +1875,14 @@ int lbfgs_init(lua_State *L) {
   x = lbfgs_malloc(nParameter);
 
   /* dispatch the copies */
-  if ( current_torch_type == torch_DoubleTensor_id ) 
+  if ( current_torch_type == torch_DoubleTensor_id )
     THDoubleTensor_copy_init(x,(THDoubleTensor *)parameters,nParameter);
-  else if ( current_torch_type == torch_FloatTensor_id ) 
+  else if ( current_torch_type == torch_FloatTensor_id )
     THFloatTensor_copy_init(x,(THFloatTensor *)parameters,nParameter);
 #ifdef WITH_CUDA
-  else if ( current_torch_type = torch_CudaTensor_id ) 
+  else if ( current_torch_type = torch_CudaTensor_id )
     THCudaTensor_copy_init(x,(THCudaTensor *)parameters,nParameter);
-#endif  
+#endif
 
   /* initialize the parameters for the L-BFGS optimization */
   lbfgs_parameter_init(&lbfgs_param);
@@ -1562,12 +1894,11 @@ int lbfgs_init(lua_State *L) {
   /* get verbose level */
   verbose = lua_tonumber(L,7);
 
-
   /* done */
   return 0;
 }
 
-int lbfgs_clear(lua_State *L) {
+int clear(lua_State *L) {
   /* cleanup */
   lbfgs_free(x);
   return 0;
@@ -1580,11 +1911,11 @@ int lbfgs_run(lua_State *L) {
   }
   /* reset our counter */
   nEvaluation = 0;
-  
+
   /*  Start the L-BFGS optimization; this will invoke the callback functions */
   /*  evaluate() and progress() when necessary. */
   static lbfgsfloatval_t fx;
-  int ret = lbfgs(nParameter, x, &fx, evaluate, progress, NULL, &lbfgs_param);
+  int ret = lbfgs(nParameter, x, &fx, evaluate, lbfgs_progress, NULL, &lbfgs_param);
 
   /*  verbose */
   if (verbose) {
@@ -1599,10 +1930,44 @@ int lbfgs_run(lua_State *L) {
   return 1;
 }
 
+int cg_run(lua_State *L) {
+  /* check existence of x */
+  if (!x) {
+    THError("lbfgs.init() should be called once before calling lbfgs.run()");
+  }
+  /* reset our counter */
+  nEvaluation = 0;
+
+  /*  Start the CG optimization; this will invoke the callback functions */
+  /*  evaluate() and progress() when necessary. */
+  static lbfgsfloatval_t fx;
+  int ret = cg(nParameter, x, &fx, evaluate, cg_progress, NULL, &lbfgs_param);
+
+  /*  verbose */
+  if (verbose) {
+    printf("<CGOptimization> batch optimized after %d iterations\n", nIteration);
+    printf("  + f(X) = %f\n", fx);
+    printf("  + X = [%f , ... %f]\n",x[0],x[nParameter-1]);
+    printf("  + nb evaluations = %d\n", nEvaluation);
+  }
+
+  /*  return current error */
+  lua_pushnumber(L, fx);
+  return 1;
+}
+
+static const struct luaL_Reg cg_methods__ [] = {
+  /* init and clear are the same methods */
+  {"init",  init},
+  {"clear", clear},
+  {"run",   cg_run},
+  {NULL, NULL}
+};
+
 static const struct luaL_Reg lbfgs_methods__ [] = {
-  {"init", lbfgs_init},
-  {"clear", lbfgs_clear},
-  {"run", lbfgs_run},
+  {"init",  init},
+  {"clear", clear},
+  {"run",   lbfgs_run},
   {NULL, NULL}
 };
 
@@ -1615,6 +1980,8 @@ DLL_EXPORT int luaopen_liblbfgs(lua_State *L)
   lua_pop(L,1);
 
   luaL_register(L, "lbfgs", lbfgs_methods__);
+
+  luaL_register(L, "cg", cg_methods__);
 
   return 1;
 }
