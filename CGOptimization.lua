@@ -14,25 +14,50 @@ function CG:__init(...)
                      {arg='sparsity', type='number',
                       help='sparsity coef (Orthantwise C)', default=0},
                      {arg='linesearch', type='string',
-                      help='type of linesearch used: morethuente, armijo, wolfe, strong_wolfe',
+                      help=[[ type of linesearch used: 
+                            "morethuente", "m",
+                            "armijo", "a",
+                            "wolfe", "w",
+                            "strong_wolfe", "s"
+                      ]],
                       default='wolfe'},
+                     {arg='momentum', type='string',
+                      help=[[ type of momentum used: 
+                            "fletcher-reeves", "fr",
+                            "polack-ribiere", "pr",
+                            "hestens-steifel", "hs",
+                            "gilbert-nocedal", "gn"
+                      ]],
+                      default='fletcher-reeves'},
                      {arg='parallelize', type='number',
                       help='parallelize onto N cores (experimental!)', default=1}
                   )
    local linesearch = 2
-   if not (self.linesearch == 'wolfe') then
-      if self.linesearch == 'morethuente' then
+   if not (self.linesearch == 'w' or self.linesearch == 'wolfe') then
+      if self.linesearch == 'm' or self.linesearch == 'morethuente' then
          linesearch = 0
-      elseif self.linesearch == 'armijo' then
+      elseif self.linesearch == 'a' or self.linesearch == 'armijo' then
          linesearch = 1
-      elseif self.linesearch == 'strong_wolfe' then
+      elseif self.linesearch == 's' or self.linesearch == 'strong_wolfe' then
          linesearch = 3
       end
    end
+
+   local momentum = 0
+   if not (self.momentum == 'fr' or self.momentum == 'fletcher-reeves') then
+      if self.momentum == 'pr' or self.momentum == 'polack-ribiere' then
+         momentum = 1
+      elseif self.momentum == 'hs' or self.momentum == 'hestens-steifel' then
+         momentum = 2
+      elseif self.momentum == 'gn' or self.momentum == 'gilbert-nocedal' then
+         momentum = 3
+      end
+   end
+
    -- init CG state
    cg.init(self.parameters, self.gradParameters,
            self.maxEvaluation, self.maxIterations, self.maxLineSearch,
-           self.sparsity, linesearch, self.verbose)
+           momentum, linesearch, self.verbose)
 end
 
 function CG:optimize()
