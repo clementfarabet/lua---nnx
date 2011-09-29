@@ -697,7 +697,6 @@ int cg(
   lbfgsfloatval_t *xp = NULL;
   lbfgsfloatval_t *g = NULL, *gp = NULL, *pg = NULL;
   lbfgsfloatval_t *d = NULL, *dp = NULL, *w = NULL, *pf = NULL;
-  iteration_data_t *lm = NULL, *it = NULL;
   lbfgsfloatval_t xnorm, gnorm;
   lbfgsfloatval_t B, g0dot, g1dot;
   lbfgsfloatval_t fx = 0.;
@@ -944,7 +943,7 @@ int cg(
       break;
     }
 
-    /* compute 'momentum' term */
+    /* compute 'momentum' term B = (g1'*g1)/(g0'*g0) */
     vecdot(&g1dot, g, g, n);
     B = g1dot / g0dot; 
     /* store val for next iteration */
@@ -953,6 +952,7 @@ int cg(
     /* Compute the steepest direction. */
     /* Compute the negative of gradients. */
     vecncpy(d, g, n);
+
     /* add the 'momentum' term */
     /* d_1 = -g_1 + B*d_0 */
     vecadd(d, dp, B, n);
@@ -973,18 +973,10 @@ int cg(
   }
 
   vecfree(pf);
-
-  /* Free memory blocks used by this function. */
-  if (lm != NULL) {
-    for (i = 0;i < m;++i) {
-      vecfree(lm[i].s);
-      vecfree(lm[i].y);
-    }
-    vecfree(lm);
-  }
   vecfree(pg);
   vecfree(w);
   vecfree(d);
+  vecfree(dp);
   vecfree(gp);
   vecfree(g);
   vecfree(xp);
