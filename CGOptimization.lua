@@ -25,6 +25,6 @@ end
 function CG:optimize()
    -- callback for lBFGS
    lbfgs.evaluate = self.evaluate
-   -- the magic function: will update the parameter vector according to the l-BFGS method
+   -- the magic function: will update the parameter vector using CG
    self.output = cg.run()
 end

@@ -957,6 +957,9 @@ int cg(
     /* d_1 = -g_1 + B*d_0 */
     vecadd(d, dp, B, n);
     
+    /* increment the number of iterations */
+    ++k; 
+
     /*
       Now the search direction d is ready. We try step = 1 first.
     */
