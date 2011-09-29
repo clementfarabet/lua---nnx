@@ -107,12 +107,14 @@ struct tag_iteration_data {
 };
 typedef struct tag_iteration_data iteration_data_t;
 
-static const lbfgs_parameter_t _defparam = {
+static const lbfgs_parameter_t _def_param = {
   6,                          /* max nb or corrections stored, to estimate hessian */
   1e-5,                       /* espilon = stop condition on f(x) */
-  0,                          /* - */
-  1e-5,                       /* - */
-  0,                          /* number of complete bfgs iterations (0 = inf) */
+  0,                          /* - past */
+  1e-5,                       /* - delta */
+  0,                          /* number of complete iterations (0 = inf) */
+  0,                          /* number of function evaluations (0 = inf) */
+  1.0e-16,                    /* floating-point precision */
   LBFGS_LINESEARCH_DEFAULT,   /* line search method */
   40,                         /* max number of trials for line search */
   1e-20,                      /* min step for line search */
@@ -120,11 +122,13 @@ static const lbfgs_parameter_t _defparam = {
   1e-4,                       /* ftol = granularity for f(x) estimation */
   0.9,                        /* wolfe */
   0.9,                        /* gtol = granularity for df/dx estimation */
-  1.0e-16,                    /* floating-point precision */
   0.0,                        /* sparsity constraint */
   0,                          /* sparsity offset */
-  -1                          /* sparsity end */
+  -1,                          /* sparsity end */
+  CG_FLETCHER_REEVES,         /* momentum type */
 };
+
+
 
 /* Forward function declarations. */
 
@@ -248,44 +252,11 @@ void lbfgs_free(lbfgsfloatval_t *x)
 
 void lbfgs_parameter_init(lbfgs_parameter_t *param)
 {
-  memcpy(param, &_defparam, sizeof(*param));
+  memcpy(param, &_def_param, sizeof(*param));
 }
 
-int lbfgs(
-          int n,
-          lbfgsfloatval_t *x,
-          lbfgsfloatval_t *ptr_fx,
-          lbfgs_evaluate_t proc_evaluate,
-          lbfgs_progress_t proc_progress,
-          void *instance,
-          lbfgs_parameter_t *_param
-          )
+int check_params (int n, lbfgs_parameter_t param)
 {
-  int ret;
-  int i, j, k, ls, end, bound;
-  lbfgsfloatval_t step;
-
-  /* Constant parameters and their default values. */
-  lbfgs_parameter_t param = (_param != NULL) ? (*_param) : _defparam;
-  const int m = param.m;
-
-  lbfgsfloatval_t *xp = NULL;
-  lbfgsfloatval_t *g = NULL, *gp = NULL, *pg = NULL;
-  lbfgsfloatval_t *d = NULL, *w = NULL, *pf = NULL;
-  iteration_data_t *lm = NULL, *it = NULL;
-  lbfgsfloatval_t ys, yy;
-  lbfgsfloatval_t xnorm, gnorm, beta;
-  lbfgsfloatval_t fx = 0.;
-  lbfgsfloatval_t rate = 0.;
-  line_search_proc linesearch = line_search_morethuente;
-
-  /* Construct a callback data. */
-  callback_data_t cd;
-  cd.n = n;
-  cd.instance = instance;
-  cd.proc_evaluate = proc_evaluate;
-  cd.proc_progress = proc_progress;
-
 #if     defined(USE_SSE) && (defined(__SSE__) || defined(__SSE2__))
   /* Round out the number of variables. */
   n = round_out_variables(n);
@@ -336,6 +307,51 @@ int lbfgs(
   if (param.max_linesearch <= 0) {
     return LBFGSERR_INVALID_MAXLINESEARCH;
   }
+  return 0;
+}
+
+int lbfgs(
+          int n,
+          lbfgsfloatval_t *x,
+          lbfgsfloatval_t *ptr_fx,
+          lbfgs_evaluate_t proc_evaluate,
+          lbfgs_progress_t proc_progress,
+          void *instance,
+          lbfgs_parameter_t *_param
+          )
+{
+  int ret;
+  int i, j, k, ls, end, bound;
+  lbfgsfloatval_t step;
+
+  /* Constant parameters and their default values. */
+  lbfgs_parameter_t param = (_param != NULL) ? (*_param) : _def_param;
+  const int m = param.m;
+
+  lbfgsfloatval_t *xp = NULL;
+  lbfgsfloatval_t *g = NULL, *gp = NULL, *pg = NULL;
+  lbfgsfloatval_t *d = NULL, *w = NULL, *pf = NULL;
+  iteration_data_t *lm = NULL, *it = NULL;
+  lbfgsfloatval_t ys, yy;
+  lbfgsfloatval_t xnorm, gnorm, beta;
+  lbfgsfloatval_t fx = 0.;
+  lbfgsfloatval_t rate = 0.;
+  line_search_proc linesearch = line_search_morethuente;
+
+  /* Construct a callback data. */
+  callback_data_t cd;
+  cd.n = n;
+  cd.instance = instance;
+  cd.proc_evaluate = proc_evaluate;
+  cd.proc_progress = proc_progress;
+
+  /* check common params */
+  ret = check_params(n,param);
+  if (ret < 0) {
+    return ret;
+  }
+
+  /* check params specific to lbfgs() */
   if (param.orthantwise_c < 0.) {
     return LBFGSERR_INVALID_ORTHANTWISE;
   }
@@ -513,10 +529,11 @@ int lbfgs(
     }
 
     /* Count number of function evaluations */
-    if ((maxEval != 0)&&(nEvaluation > maxEval)) {
+    if ((param.max_evaluations != 0)&&(nEvaluation > param.max_evaluations)) {
       if (verbose > 1){
         printf("Stopping b/c exceeded max number of function evaluations\n");
       }
+      ret = LBFGSERR_MAXIMUMEVALUATION;
       goto lbfgs_exit;
     }
     /*
@@ -676,6 +693,7 @@ int lbfgs(
   return ret;
 }
 
+
 int cg(
        int n,
        lbfgsfloatval_t *x,
@@ -691,15 +709,14 @@ int cg(
   lbfgsfloatval_t step;
 
   /* Constant parameters and their default values. */
-  lbfgs_parameter_t param = (_param != NULL) ? (*_param) : _defparam;
-  const int m = param.m;
+  lbfgs_parameter_t param = (_param != NULL) ? (*_param) : _def_param;
 
   lbfgsfloatval_t *xp = NULL;
   lbfgsfloatval_t *g = NULL, *gp = NULL, *pg = NULL;
   lbfgsfloatval_t *d = NULL, *dp = NULL, *w = NULL, *pf = NULL;
-  iteration_data_t *lm = NULL, *it = NULL;
+  lbfgsfloatval_t *tmp = NULL;
   lbfgsfloatval_t xnorm, gnorm;
-  lbfgsfloatval_t B, g0dot, g1dot;
+  lbfgsfloatval_t B, gptgp, gtg, gtgp, gnum, gden, B_FR, B_PR;
   lbfgsfloatval_t fx = 0.;
   lbfgsfloatval_t rate = 0.;
   line_search_proc linesearch = line_search_morethuente;
@@ -711,91 +728,28 @@ int cg(
   cd.proc_evaluate = proc_evaluate;
   cd.proc_progress = proc_progress;
 
-#if     defined(USE_SSE) && (defined(__SSE__) || defined(__SSE2__))
-  /* Round out the number of variables. */
-  n = round_out_variables(n);
-#endif/*defined(USE_SSE)*/
+  /* check common params */
+  ret = check_params(n,param);
+  if (ret < 0) {
+    return ret;
+  }
+  /* check CG specific params */
+  if (param.momentum < 0 || param.momentum > 3 ){
+    return CGERR_INVALID_MOMENTUM;
+  }
+  switch (param.linesearch) {
+  case LBFGS_LINESEARCH_MORETHUENTE:
+    linesearch = line_search_morethuente;
+    break;
+  case LBFGS_LINESEARCH_BACKTRACKING_ARMIJO:
+  case LBFGS_LINESEARCH_BACKTRACKING_WOLFE:
+  case LBFGS_LINESEARCH_BACKTRACKING_STRONG_WOLFE:
+    linesearch = line_search_backtracking;
+    break;
+  default:
+    return LBFGSERR_INVALID_LINESEARCH;
+  }
 
-  /* Check the input parameters for errors. */
-  if (n <= 0) {
-    return LBFGSERR_INVALID_N;
-  }
-#if     defined(USE_SSE) && (defined(__SSE__) || defined(__SSE2__))
-  if (n % 8 != 0) {
-    return LBFGSERR_INVALID_N_SSE;
-  }
-  if ((uintptr_t)(const void*)x % 16 != 0) {
-    return LBFGSERR_INVALID_X_SSE;
-  }
-#endif/*defined(USE_SSE)*/
-  if (param.epsilon < 0.) {
-    return LBFGSERR_INVALID_EPSILON;
-  }
-  if (param.past < 0) {
-    return LBFGSERR_INVALID_TESTPERIOD;
-  }
-  if (param.delta < 0.) {
-    return LBFGSERR_INVALID_DELTA;
-  }
-  if (param.min_step < 0.) {
-    return LBFGSERR_INVALID_MINSTEP;
-  }
-  if (param.max_step < param.min_step) {
-    return LBFGSERR_INVALID_MAXSTEP;
-  }
-  if (param.ftol < 0.) {
-    return LBFGSERR_INVALID_FTOL;
-  }
-  if (param.linesearch == LBFGS_LINESEARCH_BACKTRACKING_WOLFE ||
-      param.linesearch == LBFGS_LINESEARCH_BACKTRACKING_STRONG_WOLFE) {
-    if (param.wolfe <= param.ftol || 1. <= param.wolfe) {
-      return LBFGSERR_INVALID_WOLFE;
-    }
-  }
-  if (param.gtol < 0.) {
-    return LBFGSERR_INVALID_GTOL;
-  }
-  if (param.xtol < 0.) {
-    return LBFGSERR_INVALID_XTOL;
-  }
-  if (param.max_linesearch <= 0) {
-    return LBFGSERR_INVALID_MAXLINESEARCH;
-  }
-  if (param.orthantwise_c < 0.) {
-    return LBFGSERR_INVALID_ORTHANTWISE;
-  }
-  if (param.orthantwise_start < 0 || n < param.orthantwise_start) {
-    return LBFGSERR_INVALID_ORTHANTWISE_START;
-  }
-  if (param.orthantwise_end < 0) {
-    param.orthantwise_end = n;
-  }
-  if (n < param.orthantwise_end) {
-    return LBFGSERR_INVALID_ORTHANTWISE_END;
-  }
-  if (param.orthantwise_c != 0.) {
-    switch (param.linesearch) {
-    case LBFGS_LINESEARCH_BACKTRACKING:
-      linesearch = line_search_backtracking_owlqn;
-      break;
-    default:
-      /* Only the backtracking method is available. */
-      return LBFGSERR_INVALID_LINESEARCH;
-    }
-  } else {
-    switch (param.linesearch) {
-    case LBFGS_LINESEARCH_MORETHUENTE:
-      linesearch = line_search_morethuente;
-      break;
-    case LBFGS_LINESEARCH_BACKTRACKING_ARMIJO:
-    case LBFGS_LINESEARCH_BACKTRACKING_WOLFE:
-    case LBFGS_LINESEARCH_BACKTRACKING_STRONG_WOLFE:
-      linesearch = line_search_backtracking;
-      break;
-    default:
-      return LBFGSERR_INVALID_LINESEARCH;
-    }
-  }
 
   /* Allocate working space. */
   xp = (lbfgsfloatval_t*)vecalloc(n * sizeof(lbfgsfloatval_t));
@@ -804,7 +758,9 @@ int cg(
   d  = (lbfgsfloatval_t*)vecalloc(n * sizeof(lbfgsfloatval_t));
   dp = (lbfgsfloatval_t*)vecalloc(n * sizeof(lbfgsfloatval_t));
   w  = (lbfgsfloatval_t*)vecalloc(n * sizeof(lbfgsfloatval_t));
-  if (xp == NULL || g == NULL || gp == NULL || d == NULL || w == NULL) {
+  tmp  = (lbfgsfloatval_t*)vecalloc(n * sizeof(lbfgsfloatval_t));
+  if (xp == NULL || g == NULL || gp == NULL ||
+      d == NULL || dp == NULL || w == NULL || tmp == NULL) {
     ret = LBFGSERR_OUTOFMEMORY;
     goto lbfgs_exit;
   }
@@ -818,7 +774,7 @@ int cg(
   fx = cd.proc_evaluate(cd.instance, x, g, cd.n, 0);
 
   /* used to compute the momentum  term for CG */
-  vecdot(&g0dot,g,g,n);
+  vecdot(&gtg,g,g,n);
 
   /* Store the initial value of the objective function. */
   if (pf != NULL) {
@@ -844,8 +800,7 @@ int cg(
   }
 
   /* Compute the initial step:
-     step = 1.0 / sqrt(vecdot(d, d, n))
-     Do we want to do this for CG?
+     1 / |d| + 1
   */
   vec2norminv(&step, d, n);
 
@@ -944,19 +899,60 @@ int cg(
       break;
     }
 
-    /* compute 'momentum' term */
-    vecdot(&g1dot, g, g, n);
-    B = g1dot / g0dot; 
-    /* store val for next iteration */
-    g0dot = g1dot;
+    /* compute 'momentum' term (following min func) */
+    if (param.momentum != CG_HESTENES_STIEFEL) {
+      vecdot(&gtg, g, g, n);
+    }
+    switch(param.momentum) {
+    case CG_FLETCHER_REEVES :
+      /* B = (g'*g)/(gp'*gp) */
+      B = gtg / gptgp;
+      break;
+    case CG_POLAK_RIBIERE :
+      /* B = (g'*(g-gp)) /(gp'*gp);*/
+      vecdiff(tmp,g,gp,n);
+      vecdot(&gnum,g,tmp,n);
+      B = gnum / gptgp;
+      break;
+    case CG_HESTENES_STIEFEL :
+      /* B = (g'*(g-gp))/((g-gp)'*d); */
+      vecdiff(tmp,g,gp,n);
+      vecdot(&gnum,g,tmp,n);
+      vecdot(&gden,tmp,d,n);
+      B = gnum / gden;
+      break;
+    case CG_GILBERT_NOCEDAL :
+      /* B_FR = (g'*(g-gp)) /(gp'*gp); */
+      /* B_PR = (g'*g-(g'*gp))/(gp'*gp); */
+      /* B = max(-B_FR,min(B_PR,B_FR)); */
+      vecdiff(tmp,g,gp,n);   /*  g-gp */
+      vecdot(&gnum,g,tmp,n); /*  g'*(g-gp) */
+      B_FR = gnum / gptgp;   /* (g'*(g-gp)) /(gp'*gp) */
+      vecdot(&gtgp,g,gp,n);   /*  g'*gp */
+      gnum = gtg - gtgp;     /*  g'*g-(g'*gp) */
+      B_PR = gnum / gptgp;   /* (g'*g-(g'*gp))/(gp'*gp) */
+      B = max2(-B_FR,min2(B_PR,B_FR));
+      break;
+    default :
+      ret = CGERR_INVALID_MOMENTUM;
+      break;
+    }
+    if (param.momentum != CG_HESTENES_STIEFEL) {
+      /* store val for next iteration */
+      gptgp = gtg;
+    }
 
     /* Compute the steepest direction. */
     /* Compute the negative of gradients. */
     vecncpy(d, g, n);
+
     /* add the 'momentum' term */
     /* d_1 = -g_1 + B*d_0 */
     vecadd(d, dp, B, n);
-    
+
+    /* increment the number of iterations */
+    ++k;
+
     /*
       Now the search direction d is ready. We try step = 1 first.
     */
@@ -970,26 +966,17 @@ int cg(
   }
 
   vecfree(pf);
-
-  /* Free memory blocks used by this function. */
-  if (lm != NULL) {
-    for (i = 0;i < m;++i) {
-      vecfree(lm[i].s);
-      vecfree(lm[i].y);
-    }
-    vecfree(lm);
-  }
   vecfree(pg);
   vecfree(w);
   vecfree(d);
   vecfree(gp);
   vecfree(g);
   vecfree(xp);
+  vecfree(dp);
+  vecfree(tmp);
 
   return ret;
 }
-
-
 
 static int line_search_backtracking(
                                     int n,
@@ -1640,10 +1627,6 @@ static int update_trial_interval(
   return 0;
 }
 
-
-
-
-
 static lbfgsfloatval_t owlqn_x1norm(
                                     const lbfgsfloatval_t* x,
                                     const int start,
@@ -1792,15 +1775,15 @@ static lbfgsfloatval_t evaluate(void *instance,
 }
 
 static int cg_progress(void *instance,
-                    const lbfgsfloatval_t *x,
-                    const lbfgsfloatval_t *g,
-                    const lbfgsfloatval_t fx,
-                    const lbfgsfloatval_t xnorm,
-                    const lbfgsfloatval_t gnorm,
-                    const lbfgsfloatval_t step,
-                    int n,
-                    int k,
-                    int ls)
+                       const lbfgsfloatval_t *x,
+                       const lbfgsfloatval_t *g,
+                       const lbfgsfloatval_t fx,
+                       const lbfgsfloatval_t xnorm,
+                       const lbfgsfloatval_t gnorm,
+                       const lbfgsfloatval_t step,
+                       int n,
+                       int k,
+                       int ls)
 {
   nIteration = k;
   if (verbose > 1) {
@@ -1813,15 +1796,15 @@ static int cg_progress(void *instance,
 }
 
 static int lbfgs_progress(void *instance,
-                    const lbfgsfloatval_t *x,
-                    const lbfgsfloatval_t *g,
-                    const lbfgsfloatval_t fx,
-                    const lbfgsfloatval_t xnorm,
-                    const lbfgsfloatval_t gnorm,
-                    const lbfgsfloatval_t step,
-                    int n,
-                    int k,
-                    int ls)
+                          const lbfgsfloatval_t *x,
+                          const lbfgsfloatval_t *g,
+                          const lbfgsfloatval_t fx,
+                          const lbfgsfloatval_t xnorm,
+                          const lbfgsfloatval_t gnorm,
+                          const lbfgsfloatval_t step,
+                          int n,
+                          int k,
+                          int ls)
 {
   nIteration = k;
   if (verbose > 1) {
@@ -1830,6 +1813,38 @@ static int lbfgs_progress(void *instance,
     printf("  + xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
     printf("  + nb evaluations = %d\n", nEvaluation);
   }
+  return 0;
+}
+
+int lbfgs_init(lua_State *L){
+  /* initialize the parameters for the L-BFGS optimization */
+  lbfgs_parameter_init(&lbfgs_param);
+  lbfgs_param.max_evaluations  = lua_tonumber(L, 3);
+  lbfgs_param.max_iterations   = lua_tonumber(L, 4);
+  lbfgs_param.max_linesearch   = lua_tonumber(L, 5);
+  lbfgs_param.orthantwise_c    = lua_tonumber(L, 6);
+  lbfgs_param.linesearch       = lua_tonumber(L, 7);
+  /* get verbose level */
+  verbose = lua_tonumber(L,8);
+  /* now load the common parameter and gradient vectors */
+  init(L);
+
+  return 0;
+}
+
+int cg_init(lua_State *L){
+  /* initialize the parameters for the L-BFGS optimization */
+  lbfgs_parameter_init(&lbfgs_param);
+  lbfgs_param.max_evaluations  = lua_tonumber(L, 3);
+  lbfgs_param.max_iterations = lua_tonumber(L, 4);
+  lbfgs_param.max_linesearch = lua_tonumber(L, 5);
+  lbfgs_param.momentum       = lua_tonumber(L, 6);
+  lbfgs_param.linesearch     = lua_tonumber(L, 7);
+  /* get verbose level */
+  verbose = lua_tonumber(L,8);
+  /* now load the common parameter and gradient vectors */
+  init(L);
+
   return 0;
 }
 
@@ -1868,7 +1883,9 @@ int init(lua_State *L) {
     }
 #endif
   else
-    luaL_typerror(L,1,"torch.*Tensor");
+    {
+      luaL_typerror(L,1,"torch.*Tensor");
+    }
 
   /* parameters for algorithm */
   nEvaluation = 0;
@@ -1884,15 +1901,6 @@ int init(lua_State *L) {
     THCudaTensor_copy_init(x,(THCudaTensor *)parameters,nParameter);
 #endif
 
-  /* initialize the parameters for the L-BFGS optimization */
-  lbfgs_parameter_init(&lbfgs_param);
-  maxEval = lua_tonumber(L,3);
-  lbfgs_param.max_iterations = lua_tonumber(L, 4);
-  lbfgs_param.max_linesearch = lua_tonumber(L, 5);
-  lbfgs_param.linesearch = LBFGS_LINESEARCH_BACKTRACKING;
-  lbfgs_param.orthantwise_c = lua_tonumber(L, 6);
-  /* get verbose level */
-  verbose = lua_tonumber(L,7);
 
   /* done */
   return 0;
@@ -1949,6 +1957,8 @@ int cg_run(lua_State *L) {
     printf("  + f(X) = %f\n", fx);
     printf("  + X = [%f , ... %f]\n",x[0],x[nParameter-1]);
     printf("  + nb evaluations = %d\n", nEvaluation);
+    printf("  + linesearch = %d , momentum = %d\n",
+           lbfgs_param.linesearch, lbfgs_param.momentum);
   }
 
   /*  return current error */
@@ -1958,14 +1968,14 @@ int cg_run(lua_State *L) {
 
 static const struct luaL_Reg cg_methods__ [] = {
   /* init and clear are the same methods */
-  {"init",  init},
+  {"init",  cg_init},
   {"clear", clear},
   {"run",   cg_run},
   {NULL, NULL}
 };
 
 static const struct luaL_Reg lbfgs_methods__ [] = {
-  {"init",  init},
+  {"init",  lbfgs_init},
   {"clear", clear},
   {"run",   lbfgs_run},
   {NULL, NULL}
