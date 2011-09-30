@@ -108,7 +108,7 @@ build = {
          install_files(/lua/nnx Threshold.lua)
          install_files(/lua/nnx OmpModule.lua)
          install_files(/lua/nnx SpatialClassifier.lua)
-         install_files(/lua/nnx SpatialMaxPooling.lua)
+         install_files(/lua/nnx SpatialMaxSampling.lua)
          install_files(/lua/nnx SpatialLinear.lua)
          install_files(/lua/nnx SpatialPadding.lua)
          install_files(/lua/nnx SpatialNormalization.lua)
