@@ -92,6 +92,23 @@ function nnxtest.SpatialUpSampling()
    mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
 
+function nnxtest.SpatialMaxSampling()
+   local fanin = math.random(1,4)
+   local sizex = math.random(8,16)
+   local sizey = math.random(8,16)
+   local osizex = math.random(2,8)
+   local osizey = math.random(2,8)
+   local module = nn.SpatialMaxSampling(osizex,osizey)
+   local input = lab.rand(fanin,sizey,sizex)
+
+   local err = nn.Jacobian.testJacobian(module, input)
+   mytester:assertlt(err, precision, 'error on state ')
+
+   local ferr, berr = nn.Jacobian.testIO(module, input)
+   mytester:asserteq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
+   mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
+end
+
 function nnxtest.SpatialReSampling_1()
    local fanin = math.random(1,4)
    local sizex = math.random(4,8)
@@ -366,10 +383,19 @@ function nnxtest.SpatialGraph_3() template_SpatialGraph(256, 2, 2, 'euclid', fal
 function nnxtest.SpatialGraph_4() template_SpatialGraph(2, 16, 16, 'cosine', false) end
 function nnxtest.SpatialGraph_5() template_SpatialGraph(64, 3, 3, 'cosine', false) end
 
-function nnx.test()
+if not nnx then
+   require 'nnx'
    xlua.require('image',true)
    mytester = torch.Tester()
    mytester:add(nnxtest)
    math.randomseed(os.time())
    mytester:run()
+else
+   function nnx.test()
+      xlua.require('image',true)
+      mytester = torch.Tester()
+      mytester:add(nnxtest)
+      math.randomseed(os.time())
+      mytester:run()
+   end
 end
