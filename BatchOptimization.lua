@@ -34,6 +34,7 @@ end
 
 function Batch:forward(inputs, targets, options)
    options = options or {}
+   targets = targets or {}
    if self.P > 1 then
       return self:forward_mapreduce(inputs, targets, options)
    else
