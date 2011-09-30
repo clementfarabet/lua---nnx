@@ -94,6 +94,10 @@ function Batch:forward_sequential(inputs, targets, options)
                  self.evalCounter = self.evalCounter + 1
               end
 
+              -- normalize gradients and f(X)
+              self.gradParameters:div(batchsize)
+              self.output = self.output/batchsize
+
            else -- minibatch is assumed to be a BatchSize x ... tensor
 
               -- estimate f
@@ -109,10 +113,6 @@ function Batch:forward_sequential(inputs, targets, options)
 
            -- update evaluation counter
            self.batchCounter = self.batchCounter + 1
-
-           -- normalize gradients and f(X)
-           self.gradParameters:div(batchsize)
-           self.output = self.output/batchsize
 
            -- verbose
            if self.verbose >= 2 then
