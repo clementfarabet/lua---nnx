@@ -5,8 +5,6 @@ function SpatialMaxSampling:__init(...)
    xlua.unpack_class(
       self, {...}, 'nn.SpatialMaxSampling',
       'resample an image using max selection',
-      {arg='rwidth', type='number', help='ratio: owidth/iwidth'},
-      {arg='rheight', type='number', help='ratio: oheight/iheight'},
       {arg='owidth', type='number', help='output width'},
       {arg='oheight', type='number', help='output height'}
    )
@@ -14,8 +12,6 @@ function SpatialMaxSampling:__init(...)
 end
 
 function SpatialMaxSampling:forward(input)
-   self.oheight = self.oheight or self.rheight*input:size(2)
-   self.owidth = self.owidth or self.rwidth*input:size(3)
    input.nn.SpatialMaxSampling_forward(self, input)
    return self.output
 end
