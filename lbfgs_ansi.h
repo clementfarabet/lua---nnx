@@ -120,6 +120,21 @@ inline static void vecdot(lbfgsfloatval_t* s, const lbfgsfloatval_t *x, const lb
     }
 }
 
+inline static void vec1norm(lbfgsfloatval_t* s, const lbfgsfloatval_t *x, const int n)
+{
+    int i;
+    *s = 0.;
+    for (i = 0;i < n;++i) {
+      *s += fabs(x[i]);
+    }
+}
+
+inline static void vec1norminv(lbfgsfloatval_t* s, const lbfgsfloatval_t *x, const int n)
+{
+    vec1norm(s, x, n);
+    *s = (lbfgsfloatval_t)(1.0 / *s);
+}
+
 inline static void vec2norm(lbfgsfloatval_t* s, const lbfgsfloatval_t *x, const int n)
 {
     vecdot(s, x, x, n);
