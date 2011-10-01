@@ -94,8 +94,8 @@ end
 
 function nnxtest.SpatialMaxSampling()
    local fanin = math.random(1,4)
-   local sizex = math.random(8,16)
-   local sizey = math.random(8,16)
+   local sizex = math.random(1,16)
+   local sizey = math.random(1,16)
    local osizex = math.random(2,8)
    local osizey = math.random(2,8)
    local module = nn.SpatialMaxSampling(osizex,osizey)

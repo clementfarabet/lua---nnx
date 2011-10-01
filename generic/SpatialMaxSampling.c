@@ -20,7 +20,6 @@ static int nn_(SpatialMaxSampling_forward)(lua_State *L)
 
   // check dims
   luaL_argcheck(L, input->nDimension == 3, 2, "3D tensor expected");
-  luaL_argcheck(L, (input->size[1] >= oheight) && (input->size[2] >= owidth), 2, "upsampling not supported");
 
   // dims
   int ichannels = input->size[0];
@@ -58,10 +57,10 @@ static int nn_(SpatialMaxSampling_forward)(lua_State *L)
     for(i = 0; i < oheight; i++) {
       for(j = 0; j < owidth; j++) {
         // compute nearest offsets
-        long ixs = (long)(j*dW+0.5);
-        long iys = (long)(i*dH+0.5);
-        long ixe = (long)((j+1)*dW+0.5);
-        long iye = (long)((i+1)*dH+0.5);
+        long ixs = (long)(j*dW);
+        long iys = (long)(i*dH);
+        long ixe = MAX(ixs+1, (long)((j+1)*dW));
+        long iye = MAX(iys+1, (long)((i+1)*dH));
 
         // local pointers
         real *op = output_p + i*owidth + j;
@@ -144,8 +143,8 @@ static int nn_(SpatialMaxSampling_backward)(lua_State *L)
     for(i = 0; i < oheight; i++) {
       for(j = 0; j < owidth; j++) {
         // compute nearest offsets
-        long iys = (long)(i*dH+0.5);
-        long ixs = (long)(j*dW+0.5);
+        long iys = (long)(i*dH);
+        long ixs = (long)(j*dW);
 
         // retrieve position of max
         real *indyp = indy_p + i*owidth + j;
