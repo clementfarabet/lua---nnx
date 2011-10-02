@@ -209,7 +209,7 @@ function nnx.flattenParameters(parameters)
       for k,param in ipairs(parameters) do
          nParameters = nParameters + param:nElement()
       end
-      flatParameters = torch.Tensor(parameters[1]:storage())
+      flatParameters = parameters[1].new(parameters[1]:storage())
       if nParameters ~= flatParameters:nElement() then
          error('<nnx.flattenParameters> weird parameters')
       end
@@ -245,7 +245,7 @@ function nnx.flattenParameters(parameters)
       end
    end
    -- create flat vector
-   local flatParameters = torch.Tensor(nParameters)
+   local flatParameters = parameters[1].new(nParameters)
    local storage = flatParameters:storage()
    -- reallocate all parameters in flat vector
    for i = 1,#parameters do
