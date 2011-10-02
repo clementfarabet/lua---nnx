@@ -902,56 +902,59 @@ int cg(
       break;
     }
 
-    /* compute 'momentum' term (following min func) */
-    if (param.momentum != CG_HESTENES_STIEFEL) {
-      vecdot(&gtg, g, g, n);
-    }
-    switch(param.momentum) {
-    case CG_FLETCHER_REEVES :
-      /* B = (g'*g)/(gp'*gp) */
-      B = gtg / gptgp;
-      break;
-    case CG_POLAK_RIBIERE :
-      /* B = (g'*(g-gp)) /(gp'*gp);*/
-      vecdiff(tmp,g,gp,n);
-      vecdot(&gnum,g,tmp,n);
-      B = gnum / gptgp;
-      break;
-    case CG_HESTENES_STIEFEL :
-      /* B = (g'*(g-gp))/((g-gp)'*d); */
-      vecdiff(tmp,g,gp,n);
-      vecdot(&gnum,g,tmp,n);
-      vecdot(&gden,tmp,d,n);
-      B = gnum / gden;
-      break;
-    case CG_GILBERT_NOCEDAL :
-      /* B_FR = (g'*(g-gp)) /(gp'*gp); */
-      /* B_PR = (g'*g-(g'*gp))/(gp'*gp); */
-      /* B = max(-B_FR,min(B_PR,B_FR)); */
-      vecdiff(tmp,g,gp,n);   /*  g-gp */
-      vecdot(&gnum,g,tmp,n); /*  g'*(g-gp) */
-      B_FR = gnum / gptgp;   /* (g'*(g-gp)) /(gp'*gp) */
-      vecdot(&gtgp,g,gp,n);   /*  g'*gp */
-      gnum = gtg - gtgp;     /*  g'*g-(g'*gp) */
-      B_PR = gnum / gptgp;   /* (g'*g-(g'*gp))/(gp'*gp) */
-      B = max2(-B_FR,min2(B_PR,B_FR));
-      break;
-    default :
-      ret = CGERR_INVALID_MOMENTUM;
-      break;
+    if (k > 1)
+    {
+      /* compute 'momentum' term (following min func) */
+      if (param.momentum != CG_HESTENES_STIEFEL) {
+	vecdot(&gtg, g, g, n);
+      }
+      switch(param.momentum) {
+      case CG_FLETCHER_REEVES :
+	/* B = (g'*g)/(gp'*gp) */
+	B = gtg / gptgp;
+	break;
+      case CG_POLAK_RIBIERE :
+	/* B = (g'*(g-gp)) /(gp'*gp);*/
+	vecdiff(tmp,g,gp,n);
+	vecdot(&gnum,g,tmp,n);
+	B = gnum / gptgp;
+	break;
+      case CG_HESTENES_STIEFEL :
+	/* B = (g'*(g-gp))/((g-gp)'*d); */
+	vecdiff(tmp,g,gp,n);
+	vecdot(&gnum,g,tmp,n);
+	vecdot(&gden,tmp,d,n);
+	B = gnum / gden;
+	break;
+      case CG_GILBERT_NOCEDAL :
+	/* B_FR = (g'*(g-gp)) /(gp'*gp); */
+	/* B_PR = (g'*g-(g'*gp))/(gp'*gp); */
+	/* B = max(-B_FR,min(B_PR,B_FR)); */
+	vecdiff(tmp,g,gp,n);   /*  g-gp */
+	vecdot(&gnum,g,tmp,n); /*  g'*(g-gp) */
+	B_FR = gnum / gptgp;   /* (g'*(g-gp)) /(gp'*gp) */
+	vecdot(&gtgp,g,gp,n);   /*  g'*gp */
+	gnum = gtg - gtgp;     /*  g'*g-(g'*gp) */
+	B_PR = gnum / gptgp;   /* (g'*g-(g'*gp))/(gp'*gp) */
+	B = max2(-B_FR,min2(B_PR,B_FR));
+	break;
+      default :
+	ret = CGERR_INVALID_MOMENTUM;
+	break;
+      }
+
+      /* Compute the steepest direction. */
+      /* Compute the negative of gradients. */
+      vecncpy(d, g, n);
+      
+      /* add the 'momentum' term */
+      /* d_1 = -g_1 + B*d_0 */
+      vecadd(d, dp, B, n);
     }
     if (param.momentum != CG_HESTENES_STIEFEL) {
       /* store val for next iteration */
       gptgp = gtg;
     }
-
-    /* Compute the steepest direction. */
-    /* Compute the negative of gradients. */
-    vecncpy(d, g, n);
-
-    /* add the 'momentum' term */
-    /* d_1 = -g_1 + B*d_0 */
-    vecadd(d, dp, B, n);
 
     /* increment the number of iterations */
     ++k;
