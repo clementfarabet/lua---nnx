@@ -33,6 +33,12 @@ function Type:backward(input, gradOutput)
    return self.gradInput
 end
 
+function Type:accGradParameters(input, gradOutput)
+   input = self.convert_input:forward(input)
+   gradOutput = self.convert_gradOutput:forward(gradOutput)
+   parent.accGradParameters(self, input, gradOutput)
+end
+
 local Float, parent = torch.class('nn.Float', 'nn.Type')
 function Float:__init()
    parent.__init(self, 'torch.FloatTensor')
