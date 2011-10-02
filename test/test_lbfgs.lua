@@ -1,4 +1,5 @@
 dofile('rosenbrock.lua')
+dofile('l2.lua')
 
 require 'liblbfgs'
 neval = 0
@@ -8,10 +9,12 @@ linesearch = 2
 sparsity = 0
 verbose = 2
 nparam = 8
+local testfunc = rosenbrock
 
 local parameters  = torch.Tensor(nparam):fill(0.1)
+local gradParameters = torch.Tensor(nparam):zero()
 
-output, gradParameters = rosenbrock(parameters)
+output, gradParameters = testfunc(parameters,gradParameters)
 
 function printstats ()
    print('nEval: '..neval)
@@ -32,7 +35,7 @@ print('Starting:')
 printstats()
 lbfgs.evaluate 
    = function()
-	output, gradParameters = rosenbrock(parameters)
+	output, gradParameters = testfunc(parameters,gradParameters)
 	neval = neval + 1
 	printstats()
 	return output

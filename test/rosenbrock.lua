@@ -8,7 +8,7 @@ require 'torch'
 --
 -- Carl Edward Rasmussen, 2001-07-21.
 
-function rosenbrock(x)
+function rosenbrock(x,dx)
    
    -- (1) compute f(x)
    local d = x:size(1)
@@ -45,6 +45,7 @@ function rosenbrock(x)
    x0:cmul(x0):mul(-1):add(x:narrow(1,2,d-1)):mul(200)
    dxout:narrow(1,2,d-1):add(x0)
 
-  return fout,dxout
+   dx:copy(dxout)
+  return fout,dx
 
 end
