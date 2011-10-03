@@ -85,9 +85,8 @@
 #define max2(a, b)      ((a) >= (b) ? (a) : (b))
 #define max3(a, b, c)   max2(max2((a), (b)), (c));
 
-/* extra globals */
+/* extra globals: counters, verbose flag */
 static int nEvaluation = 0;
-static int maxEval     = 0; /* maximum number of function evaluations */
 static int nIteration  = 0;
 static int verbose     = 0;
 
@@ -435,6 +434,10 @@ int lbfgs(
 
   /* Evaluate the function value and its gradient. */
   fx = cd.proc_evaluate(cd.instance, x, g, cd.n, 0);
+  if (verbose > 2){
+    printf("<lbfgs()>\n");
+    print_fxxdx(fx,x,g,cd.n);
+  }
   if (0. != param.orthantwise_c) {
     /* Compute the L1 norm of the variable and add it to the object value. */
     xnorm = owlqn_x1norm(x, param.orthantwise_start, param.orthantwise_end);
@@ -505,7 +508,8 @@ int lbfgs(
       veccpy(g, gp, n);
       ret = ls;
       if (verbose > 1){
-        printf("Stopping b/c ls (%d) < 0\n", ls);
+        printf("<linesearch> Stopping b/c :\n");
+        print_lbfgs_error(ls);
       }
       goto lbfgs_exit;
     }
@@ -522,7 +526,7 @@ int lbfgs(
     if (cd.proc_progress) {
       if ((ret = cd.proc_progress(cd.instance, x, g, fx, xnorm, gnorm, step, cd.n, k, ls))) {
         if (verbose > 1){
-          printf("Stopping b/c cd.proc_progress (%d)\n", ret);
+          printf("<lbfgs()> Stopping b/c cd.proc_progress (%d)\n", ret);
         }
         goto lbfgs_exit;
       }
@@ -531,7 +535,7 @@ int lbfgs(
     /* Count number of function evaluations */
     if ((param.max_evaluations != 0)&&(nEvaluation > param.max_evaluations)) {
       if (verbose > 1){
-        printf("Stopping b/c exceeded max number of function evaluations\n");
+        printf("<lbfgs()> Stopping b/c exceeded max number of function evaluations\n");
       }
       ret = LBFGSERR_MAXIMUMEVALUATION;
       goto lbfgs_exit;
@@ -544,7 +548,7 @@ int lbfgs(
     if (xnorm < 1.0) xnorm = 1.0;
     if (gnorm / xnorm <= param.epsilon) {
       if (verbose > 1){
-        printf("Stopping b/c gnorm(%f)/xnorm(%f) <= param.epsilon (%f)\n",
+        printf("<lbfgs()> Stopping b/c gnorm(%f)/xnorm(%f) <= param.epsilon (%f)\n",
                gnorm, xnorm, param.epsilon);
       }
       /* Convergence. */
@@ -566,7 +570,7 @@ int lbfgs(
         /* The stopping criterion. */
         if (rate < param.delta) {
           if (verbose > 1){
-            printf("Stopping b/c rate (%f) < param.delta (%f)\n",
+            printf("<lbfgs()> Stopping b/c rate (%f) < param.delta (%f)\n",
                    rate, param.delta);
           }
           ret = LBFGS_STOP;
@@ -580,7 +584,7 @@ int lbfgs(
 
     if (param.max_iterations != 0 && param.max_iterations < k+1) {
       if (verbose > 1){
-        printf("Stopping b/c param.max_iterations (%d) < k+1 (%d)\n",
+        printf("<lbfgs()> Stopping b/c param.max_iterations (%d) < k+1 (%d)\n",
                param.max_iterations, k+1);
       }
       /* Maximum number of iterations. */
@@ -673,6 +677,10 @@ int lbfgs(
     *ptr_fx = fx;
   }
 
+  if(verbose){
+    printf("<lbfgs()>\n");
+    print_lbfgs_error(ret);
+  }
   vecfree(pf);
 
   /* Free memory blocks used by this function. */
@@ -762,7 +770,7 @@ int cg(
   if (xp == NULL || g == NULL || gp == NULL ||
       d == NULL || dp == NULL || w == NULL || tmp == NULL) {
     ret = LBFGSERR_OUTOFMEMORY;
-    goto lbfgs_exit;
+    goto cg_exit;
   }
 
   /* Allocate an array for storing previous values of the objective function. */
@@ -772,7 +780,10 @@ int cg(
 
   /* Evaluate the function value and its gradient. */
   fx = cd.proc_evaluate(cd.instance, x, g, cd.n, 0);
-
+  if (verbose > 2){
+    printf("<cg()>\n");
+    print_fxxdx(fx,x,g,cd.n);
+  }
   /* used to compute the momentum  term for CG */
   vecdot(&gtg,g,g,n);
 
@@ -796,7 +807,7 @@ int cg(
   if (xnorm < 1.0) xnorm = 1.0;
   if (gnorm / xnorm <= param.epsilon) {
     ret = LBFGS_ALREADY_MINIMIZED;
-    goto lbfgs_exit;
+    goto cg_exit;
   }
 
   /* Compute the initial step:
@@ -824,9 +835,10 @@ int cg(
       veccpy(g, gp, n);
       ret = ls;
       if (verbose > 1){
-        printf("Stopping b/c ls (%d) < 0\n", ls);
+        printf("<linesearch()> Stopping b/c :\n");
+        print_lbfgs_error(ls);
       }
-      goto lbfgs_exit;
+      // goto cg_exit;
     }
 
     /* Compute x and g norms. */
@@ -837,18 +849,18 @@ int cg(
     if (cd.proc_progress) {
       if ((ret = cd.proc_progress(cd.instance, x, g, fx, xnorm, gnorm, step, cd.n, k, ls))) {
         if (verbose > 1){
-          printf("Stopping b/c cd.proc_progress (%d)\n", ret);
+          printf("<cg()> Stopping b/c cd.proc_progress (%d)\n", ret);
         }
-        goto lbfgs_exit;
+        goto cg_exit;
       }
     }
 
     /* Count number of function evaluations */
-    if ((maxEval != 0)&&(nEvaluation > maxEval)) {
+    if ((param.max_evaluations != 0)&&(nEvaluation > param.max_evaluations)) {
       if (verbose > 1){
-        printf("Stopping b/c exceeded max number of function evaluations\n");
+        printf("<cg()> Stopping b/c exceeded max number of function evaluations\n");
       }
-      goto lbfgs_exit;
+      goto cg_exit;
     }
     /*
       Convergence test.
@@ -858,7 +870,7 @@ int cg(
     if (xnorm < 1.0) xnorm = 1.0;
     if (gnorm / xnorm <= param.epsilon) {
       if (verbose > 1){
-        printf("Stopping b/c gnorm(%f)/xnorm(%f) <= param.epsilon (%f)\n",
+        printf("<cg()> Stopping b/c gnorm(%f)/xnorm(%f) <= param.epsilon (%f)\n",
                gnorm, xnorm, param.epsilon);
       }
       /* Convergence. */
@@ -880,7 +892,7 @@ int cg(
         /* The stopping criterion. */
         if (rate < param.delta) {
           if (verbose > 1){
-            printf("Stopping b/c rate (%f) < param.delta (%f)\n",
+            printf("<cg()> Stopping b/c rate (%f) < param.delta (%f)\n",
                    rate, param.delta);
           }
           ret = LBFGS_STOP;
@@ -894,7 +906,7 @@ int cg(
 
     if (param.max_iterations != 0 && param.max_iterations < k+1) {
       if (verbose > 1){
-        printf("Stopping b/c param.max_iterations (%d) < k+1 (%d)\n",
+        printf("<cg()> Stopping b/c param.max_iterations (%d) < k+1 (%d)\n",
                param.max_iterations, k+1);
       }
       /* Maximum number of iterations. */
@@ -965,10 +977,14 @@ int cg(
     step = 1.0;
   }
 
- lbfgs_exit:
+ cg_exit:
   /* Return the final value of the objective function. */
   if (ptr_fx != NULL) {
     *ptr_fx = fx;
+  }
+
+  if(verbose){
+    print_lbfgs_error(ret);
   }
 
   vecfree(pf);
@@ -1027,6 +1043,12 @@ static int line_search_backtracking(
     /* Evaluate the function and gradient values. */
     *f = cd->proc_evaluate(cd->instance, x, g, cd->n, *stp);
     
+    if (verbose > 2){
+      printf("<line_search_backtracking()>\n");
+      print_linesearch_type(param->linesearch);
+      print_fxxdx(*f,x,g,cd->n);
+    }
+
     ++count;
 
     if (*f > finit + *stp * dgtest) {
@@ -1116,6 +1138,12 @@ static int line_search_backtracking_owlqn(
     /* Evaluate the function and gradient values. */
     *f = cd->proc_evaluate(cd->instance, x, g, cd->n, *stp);
 
+    if (verbose > 2){
+      printf("<line_search_backtracking_owlqn()>\n");
+      print_linesearch_type(param->linesearch);
+      print_fxxdx(*f,x,g,cd->n);
+    }
+    
     /* Compute the L1 norm of the variables and add it to the object value. */
     norm = owlqn_x1norm(x, param->orthantwise_start, param->orthantwise_end);
     *f += norm * param->orthantwise_c;
@@ -1243,6 +1271,13 @@ static int line_search_morethuente(
 
     /* Evaluate the function and gradient values. */
     *f = cd->proc_evaluate(cd->instance, x, g, cd->n, *stp);
+
+    if (verbose > 2){
+      printf("<line_search_morethuente()>\n");
+      print_linesearch_type(param->linesearch);
+      print_fxxdx(*f,x,g,cd->n);
+    }
+
     vecdot(&dg, g, s, n);
 
     ftest1 = finit + *stp * dgtest;
@@ -1793,9 +1828,11 @@ static int cg_progress(void *instance,
 {
   nIteration = k;
   if (verbose > 1) {
-    printf("<CGOptimization> iteration %d:\n", nIteration);
-    printf("  + f(X) = %f\n", fx);
-    printf("  + xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
+    printf("<cg()> iteration %d:\n", nIteration);
+    if (verbose > 2){
+      print_fxxdx(fx,x,g,n);
+      printf("  + xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
+    }
     printf("  + nb evaluations = %d\n", nEvaluation);
   }
   return 0;
@@ -1814,9 +1851,11 @@ static int lbfgs_progress(void *instance,
 {
   nIteration = k;
   if (verbose > 1) {
-    printf("<LBFGSOptimization> iteration %d:\n", nIteration);
-    printf("  + f(X) = %f\n", fx);
-    printf("  + xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
+    printf("<lbfgs()> iteration %d:\n", nIteration);
+    if (verbose > 2){
+      print_fxxdx(fx,x,g,n);
+      printf("  + xnorm = %f, gnorm = %f, step = %f\n", xnorm, gnorm, step);
+    }
     printf("  + nb evaluations = %d\n", nEvaluation);
   }
   return 0;
@@ -1835,7 +1874,7 @@ int lbfgs_init(lua_State *L){
   /* now load the common parameter and gradient vectors */
   init(L);
 
-  return 0;
+   return 0;
 }
 
 int cg_init(lua_State *L){
@@ -1917,6 +1956,31 @@ int clear(lua_State *L) {
   lbfgs_free(x);
   return 0;
 }
+int print_fxxdx (lbfgsfloatval_t fx,
+                 const lbfgsfloatval_t *x,
+                 const lbfgsfloatval_t *dx,
+                 int n){
+  printf("  + fx = %f\n", fx);
+  if (nParameter > 10) {
+    printf("  +  x = [%f, %f, %f, ..., %f, %f ,%f]\n",
+           x[0],x[1],x[2],x[n-3],x[n-2],x[n-1]);
+    printf("  + dx = [%f, %f, %f, ..., %f, %f , %f]\n",
+           dx[0],dx[1],dx[2],dx[n-3],dx[n-2],dx[n-1]);
+  } else {
+    int i;
+    printf("  +  x = [%f", x[0]);
+    for (i=1; i<n;i++) {
+      printf(", %f", x[i]);
+    }
+    printf("]\n");
+    printf("  + dx = [%f", dx[0]);
+    for (i=1; i<n;i++) {
+      printf(", %f", dx[i]);
+    }
+    printf("]\n");
+  }
+}
+
 
 int lbfgs_run(lua_State *L) {
   /* check existence of x */
@@ -1933,10 +1997,12 @@ int lbfgs_run(lua_State *L) {
 
   /*  verbose */
   if (verbose) {
-    printf("<LBFGSOptimization> batch optimized after %d iterations\n", nIteration);
-    printf("  + f(X) = %f\n", fx);
-    printf("  + X = [%f , ... %f]\n",x[0],x[nParameter-1]);
+    printf("<lbfgs_run()> batch optimized after %d iterations\n", nIteration);
     printf("  + nb evaluations = %d\n", nEvaluation);
+    if (verbose > 1){
+      print_fxxdx(fx,x,gradParameters,nParameter);      
+      print_linesearch_type(lbfgs_param.linesearch);
+    }
   }
 
   /*  return current error */
@@ -1959,12 +2025,14 @@ int cg_run(lua_State *L) {
 
   /*  verbose */
   if (verbose) {
-    printf("<CGOptimization> batch optimized after %d iterations\n", nIteration);
-    printf("  + f(X) = %f\n", fx);
-    printf("  + X = [%f , ... %f]\n",x[0],x[nParameter-1]);
+    printf("<cg_run()> batch optimized after %d iterations\n", nIteration);
     printf("  + nb evaluations = %d\n", nEvaluation);
     printf("  + linesearch = %d , momentum = %d\n",
            lbfgs_param.linesearch, lbfgs_param.momentum);
+    if (verbose > 1){
+      print_fxxdx(fx,x,gradParameters,nParameter);
+      print_linesearch_type(lbfgs_param.linesearch);
+    }
   }
 
   /*  return current error */
