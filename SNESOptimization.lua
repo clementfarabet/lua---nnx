@@ -32,6 +32,7 @@ function SNES:f(X, inputs, targets)
       local output = self.modules[i]:forward(inputs[i])
       f = f + self.criterions[i]:forward(output, targets[i])
    end
+   self.output = f/#inputs
    return f
 end
 
