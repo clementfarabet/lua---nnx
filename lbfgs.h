@@ -150,6 +150,193 @@ extern "C" {
     CGERR_INVALID_MOMENTUM,
   };
 
+  void  print_lbfgs_error(int lbfgs_err) {
+    printf("  + error/return code : ");
+    if (lbfgs_err == LBFGS_SUCCESS) {
+      printf("LBFGS_SUCCESS and LBFGS_CONVERGENCE\n");
+      printf("    L-BFGS reaches convergence.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGS_STOP) {
+      printf("LBFGS_STOP\n");
+      return;
+    }
+    if (lbfgs_err == LBFGS_ALREADY_MINIMIZED) {
+      printf("LBFGS_ALREADY_MINIMIZED\n");
+      printf("    The initial variables already minimize the objective function.\n");
+      return;
+    }
+
+    if (lbfgs_err == LBFGSERR_UNKNOWNERROR) {
+      printf("LBFGSERR_UNKNOWNERROR\n");
+      printf("    Unknown error.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_LOGICERROR) {
+      printf("LBFGSERR_LOGICERROR\n");
+      printf("    Logic error.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_OUTOFMEMORY) {
+      printf("LBFGSERR_OUTOFMEMORY\n");
+      printf("    Insufficient memory.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_CANCELED) {
+      printf("LBFGSERR_CANCELED\n");
+      printf("    The minimization process has been canceled.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INVALID_N) {
+      printf("LBFGSERR_INVALID_N\n");
+      printf("    Invalid number of variables specified.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INVALID_N_SSE) {
+      printf("LBFGSERR_INVALID_N_SSE\n");
+      printf("    Invalid number of variables (for SSE) specified.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INVALID_X_SSE) {
+      printf("LBFGSERR_INVALID_X_SSE\n");
+      printf("    The array x must be aligned to 16 (for SSE).\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INVALID_EPSILON) {
+      printf("LBFGSERR_INVALID_EPSILON\n");
+      printf("    Invalid parameter lbfgs_parameter_t::epsilon specified.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INVALID_TESTPERIOD) {
+      printf("LBFGSERR_INVALID_TESTPERIOD\n");
+      printf("    Invalid parameter lbfgs_parameter_t::past specified.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INVALID_DELTA) {
+      printf("LBFGSERR_INVALID_DELTA\n");
+      printf("    Invalid parameter lbfgs_parameter_t::delta specified.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INVALID_LINESEARCH) {
+      printf("LBFGSERR_INVALID_LINESEARCH\n");
+      printf("    Invalid parameter lbfgs_parameter_t::linesearch specified.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INVALID_MINSTEP) {
+      printf("LBFGSERR_INVALID_MINSTEP\n");
+      printf("    Invalid parameter lbfgs_parameter_t::max_step specified.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INVALID_MAXSTEP) {
+      printf("LBFGSERR_INVALID_MAXSTEP\n");
+      printf("    Invalid parameter lbfgs_parameter_t::max_step specified.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INVALID_FTOL) {
+      printf("LBFGSERR_INVALID_FTOL\n");
+      printf("    Invalid parameter lbfgs_parameter_t::ftol specified.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INVALID_WOLFE) {
+      printf("LBFGSERR_INVALID_WOLFE\n");
+      printf("    Invalid parameter lbfgs_parameter_t::wolfe specified.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INVALID_GTOL) {
+      printf("LBFGSERR_INVALID_GTOL\n");
+      printf("    Invalid parameter lbfgs_parameter_t::gtol specified.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INVALID_XTOL) {
+      printf("LBFGSERR_INVALID_XTOL\n");
+      printf("    Invalid parameter lbfgs_parameter_t::xtol specified.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INVALID_MAXLINESEARCH) {
+      printf("LBFGSERR_INVALID_MAXLINESEARCH\n");
+      printf("    Invalid parameter lbfgs_parameter_t::max_linesearch specified.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INVALID_ORTHANTWISE) {
+      printf("LBFGSERR_INVALID_ORTHANTWISE\n");
+      printf("    Invalid parameter lbfgs_parameter_t::orthantwise_c specified.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INVALID_ORTHANTWISE_START) {
+      printf("LBFGSERR_INVALID_ORTHANTWISE_START\n");
+      printf("    Invalid parameter lbfgs_parameter_t::orthantwise_start specified.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INVALID_ORTHANTWISE_END) {
+      printf("LBFGSERR_INVALID_ORTHANTWISE_END\n");
+      printf("    Invalid parameter lbfgs_parameter_t::orthantwise_end specified.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_OUTOFINTERVAL) {
+      printf("LBFGSERR_OUTOFINTERVAL\n");
+      printf("    The line-search step went out of the interval of uncertainty.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INCORRECT_TMINMAX) {
+      printf("LBFGSERR_INCORRECT_TMINMAX\n");
+      printf("     A logic error occurred; alternatively, the interval of uncertainty became too small.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_ROUNDING_ERROR) {
+      printf("LBFGSERR_ROUNDING_ERROR\n");
+      printf("    A rounding error occurred; alternatively, no line-search step satisfies the sufficient decrease and curvature conditions.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_MINIMUMSTEP) {
+      printf("LBFGSERR_MINIMUMSTEP\n");
+      printf("    The line-search step became smaller than lbfgs_parameter_t::min_step.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_MAXIMUMSTEP) {
+      printf("LBFGSERR_MAXIMUMSTEP\n");
+      printf("    The line-search step became larger than lbfgs_parameter_t::max_step.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_MAXIMUMLINESEARCH) {
+      printf("LBFGSERR_MAXIMUMLINESEARCH\n");
+      printf("    The line-search routine reaches the maximum number of evaluations.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_MAXIMUMITERATION) {
+      printf("LBFGSERR_MAXIMUMITERATION\n");
+      printf("    The algorithm routine reaches the maximum number of iterations.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_MAXIMUMEVALUATION) {
+      printf("LBFGSERR_MAXIMUMEVALUATION\n");
+      printf("    The algorithm routine reaches the maximum number of iterations.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_WIDTHTOOSMALL) {
+      printf("LBFGSERR_WIDTHTOOSMALL\n");
+      printf("    Relative width of the interval of uncertainty is at most lbfgs_parameter_t::xtol.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INVALIDPARAMETERS) {
+      printf("LBFGSERR_INVALIDPARAMETERS\n");
+      printf("    A logic error (negative line-search step) occurred.\n");
+      return;
+    }
+    if (lbfgs_err == LBFGSERR_INCREASEGRADIENT) {
+      printf("LBFGSERR_INCREASEGRADIENT\n");
+      printf("    The current search direction increases the objective function value.\n");
+      return;
+    }
+    if (lbfgs_err == CGERR_INVALID_MOMENTUM) {
+      printf("CGERR_INVALID_MOMENTUM\n");
+      printf("    Invalid momentum type for CG\n");
+      return;
+    }
+    printf("(LBFGS|CG)ERR\n");
+	printf("    not known, not in enum\n");
+    return;
+  };
+
   /**
    * Line search algorithms.
    */
@@ -194,28 +381,29 @@ extern "C" {
     LBFGS_LINESEARCH_BACKTRACKING_STRONG_WOLFE = 3,
   };
 
+
   /**
    * CG momentum terms
    */
-  
-  enum { 
+
+  enum {
     /* beta = (g'*g)/(gotgo); */
     CG_DEFAULT = 0,
     CG_FLETCHER_REEVES = 0,
-    
+
     /* beta = (g'*(g-g_old)) /(gotgo);*/
     CG_POLAK_RIBIERE = 1,
-    
-    /* beta = (g'*(g-g_old))/((g-g_old)'*d); */    
+
+    /* beta = (g'*(g-g_old))/((g-g_old)'*d); */
     CG_HESTENES_STIEFEL = 2,
-    
+
     /* beta_FR = (g'*(g-g_old)) /(gotgo); */
     /* beta_PR = (g'*g-gtgo)/(gotgo); */
     /* beta = max(-beta_FR,min(beta_PR,beta_FR)); */
     CG_GILBERT_NOCEDAL = 3,
   };
 
-  
+
   /**
    * L-BFGS optimization parameters.
    *  Call lbfgs_parameter_init() function to initialize parameters to the
@@ -394,11 +582,33 @@ extern "C" {
     /**
      * momentum criteria : by what value do you multiply the previous
      * gradient to the current: CG_FLETCHER_REEVES,etc.
-     */ 
+     */
     int  momentum;
-    
+
   } lbfgs_parameter_t;
 
+
+  void print_linesearch_type (int ls_type){
+    printf("  + linesearch : ");
+    if (ls_type == LBFGS_LINESEARCH_MORETHUENTE  ) {
+      printf("LBFGS_LINESEARCH_MORETHUENTE\n");
+      return;
+    }
+    if (ls_type == LBFGS_LINESEARCH_BACKTRACKING_ARMIJO  ) {
+      printf("LBFGS_LINESEARCH_BACKTRACKING_ARMIJO\n");
+      return;
+    }
+    if (ls_type == LBFGS_LINESEARCH_BACKTRACKING_WOLFE  ) {
+      printf("LBFGS_LINESEARCH_BACKTRACKING_WOLFE\n");
+      return;
+    }
+    if (ls_type == LBFGS_LINESEARCH_BACKTRACKING_STRONG_WOLFE  ) {
+      printf("LBFGS_LINESEARCH_BACKTRACKING_STRONG_WOLFE\n");
+      return;
+    }
+    printf("LBFGS_LINESEARCH_UNKNOWN\n");
+    return;
+  }
 
   /**
    * Callback interface to provide objective function and gradient evaluations.
