@@ -96,4 +96,7 @@ function SNES:optimize(inputs, targets)
 
    -- optimization done, copy back best parameter vector
    self.parameter:copy(fitness[1].z)
+
+   -- for now call GC
+   collectgarbage()
 end
