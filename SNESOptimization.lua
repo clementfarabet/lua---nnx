@@ -45,10 +45,10 @@ function SNES:utilities(fitness)
    table.sort(fitness, function(a,b) if a.f < b.f then return a end end)
    -- compute utilities
    local sum = 0
-   for i,fitness in ipairs(fitness) do
+   for i,fit in ipairs(fitness) do
       local x = (i-1)/#fitness -- x in [0..1]
-      fitness.u = math.max(0, x-0.5)
-      sum = sum + fitness.u
+      fit.u = math.max(0, x-0.5)
+      sum = sum + fit.u
    end
    -- normalize us
    for i,fitness in ipairs(fitness) do
