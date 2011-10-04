@@ -64,7 +64,7 @@ function SNES:optimize(inputs, targets)
    for i = 1,self.lambda do
       -- random distribution
       local s_k = lab.randn(self.sigma:size())
-      local z_k = self.mu + self.sigma*s_k
+      local z_k = self.sigma:clone():cmul(s_k):add(self.mu)
 
       -- evaluate fitness of f(X)
       local f_X = self:f(i, z_k, inputs, targets)
