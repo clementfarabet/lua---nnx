@@ -8,6 +8,8 @@ function SNES:__init(...)
                      {arg='eta_mu', type='number', help='learning rate for mu', default=1e-2},
                      {arg='eta_sigma', type='number', help='learning rate for sigma', default=1e-2}
                   )
+   -- original parameters
+   self.parameter = nnx.flattenParameters(nnx.getParameters(self.module))
    -- SNES needs one module per lambda
    self.modules = {}
    self.criterions = {}
@@ -18,21 +20,23 @@ function SNES:__init(...)
       self.parameters[i] = nnx.flattenParameters(nnx.getParameters(self.modules[i]))
    end
    -- SNES initial parameters
-   self.mu = lab.zeros(#self.parameters)
-   self.sigma = lab.ones(#self.parameters)
+   self.mu = lab.zeros(#self.parameters[1])
+   self.sigma = lab.ones(#self.parameters[1])
    -- SNES gradient vectors
    self.gradmu = torch.Tensor():resizeAs(self.mu)
    self.gradsigma = torch.Tensor():resizeAs(self.sigma)
 end
 
-function SNES:f(X, inputs, targets)
+function SNES:f(th, X, inputs, targets)
+   -- set parameter to X
+   self.parameters[th]:copy(X)
    -- estimate f on given mini batch
    local f = 0
    for i = 1,#inputs do
-      local output = self.modules[i]:forward(inputs[i])
-      f = f + self.criterions[i]:forward(output, targets[i])
+      local output = self.modules[th]:forward(inputs[i])
+      f = f + self.criterions[th]:forward(output, targets[i])
    end
-   self.output = f/#inputs
+   f = f/#inputs
    return f
 end
 
@@ -63,7 +67,7 @@ function SNES:optimize(inputs, targets)
       local z_k = self.mu + self.sigma*s_k
 
       -- evaluate fitness of f(X)
-      local f_X = self:f(z_k, inputs, targets)
+      local f_X = self:f(i, z_k, inputs, targets)
 
       -- store s_k, z_k
       fitness[i] = {f=f_X, s=s_k, z=z_k}
@@ -71,6 +75,9 @@ function SNES:optimize(inputs, targets)
 
    -- compute utilities
    self:utilities(fitness)
+
+   -- set current output to best f_X (lowest)
+   self.output = fitness[1].f
 
    -- compute gradients
    self.gradmu:zero()
@@ -86,4 +93,7 @@ function SNES:optimize(inputs, targets)
       self.mu:add( self.sigma * self.gradmu * self.eta_mu )
       self.sigma:add( (self.gradsigma * self.eta_sigma/2):exp() )
    end
+
+   -- optimization done, copy back best parameter vector
+   self.parameter:copy(fitness[1].z)
 end
