@@ -123,7 +123,7 @@ function Batch:forward_sequential(inputs, targets, options)
 
    -- (2) optimization callback
    if self.optimize then
-      self:optimize()
+      self:optimize(inputs, targets)
    end
 
    -- (3) update sample counter
