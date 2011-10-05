@@ -6,7 +6,7 @@ function SNES:__init(...)
                      'SNESOptimization', nil,
                      {arg='lambda', type='number', help='number of parallel samples', default=100},
                      {arg='eta_mu', type='number', help='learning rate for mu', default=1},
-                     {arg='eta_sigma', type='number', help='learning rate for sigma', default=1e-2}
+                     {arg='eta_sigma', type='number', help='learning rate for sigma', default=1e-3}
                   )
    -- original parameters
    self.parameter = nnx.flattenParameters(nnx.getParameters(self.module))
@@ -47,8 +47,8 @@ function SNES:utilities()
    local sum = 0
    self.u = {}
    for i = 1,self.lambda do
-      local x = (i-1)/self.lambda -- x in [0..1]
-      self.u[i] = math.exp(1-x*10)-1
+      local x = i/self.lambda -- x in [0..1]
+      self.u[i] = math.exp((1-x)*10)-1
       sum = sum + self.u[i]
    end
    -- normalize u
@@ -85,13 +85,13 @@ function SNES:optimize(inputs, targets)
    self.gradsigma:zero()
    for i = 1,self.lambda do
       self.gradmu:add(self.u[i], fitness[i].s)
-      self.gradsigma:add(self.u[i], fitness[i].s:clone():pow(2):add(-1))
+      self.gradsigma:add(self.u[i], lab.pow(fitness[i].s,2):add(-1))
    end
 
    -- update parameters
    for i = 1,self.lambda do
-      self.mu:add( self.sigma * self.gradmu * self.eta_mu )
-      self.sigma:cmul( lab.exp(self.gradsigma * self.eta_sigma/2) )
+      self.mu:add(self.eta_mu, self.sigma:clone():cmul(self.gradmu))
+      self.sigma:cmul(lab.exp(self.gradsigma:clone():mul(self.eta_sigma/2)))
    end
 
    -- optimization done, copy back best parameter vector
@@ -103,7 +103,8 @@ function SNES:optimize(inputs, targets)
    if self.verbose >= 2 then
       print('<SNESOptimization> evaluated f(X) on ' .. self.lambda .. ' random points')
       print('  + batches seen: ' .. self.batchCounter)
-      print('  + lowest eval f(X) = ' .. self.output)
+      print('  + lowest eval f(X) = ' .. fitness[1].f)
+      print('  + worst eval f(X) = ' .. fitness[#fitness].f)
    end
 
    -- for now call GC
