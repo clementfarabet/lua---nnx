@@ -40,7 +40,10 @@ function KLDivCriterion:forward(input, target)
    self:normalize(input, target)
    self.output = 0
    for i = 1,input:size(1) do
-      local acc = self.probTarget[i] * math.log(math.max(self.probTarget[i],1e-9) / math.max(self.probInput[i],1e-9))
+      local acc = 0
+      if self.probTarget[i] > 0 then
+         acc = self.probTarget[i] * math.log(self.probTarget[i] / math.max(self.probInput[i],1e-9))
+      end
       self.output = self.output + acc
    end
    return self.output
