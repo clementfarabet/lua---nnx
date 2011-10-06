@@ -27,7 +27,7 @@ function SpatialColorTransform:__init(type)
    )
 
    -- transform type
-   self.type = type
+   self.transform = type
    if type == 'yuv2rgb' then
       self.islinear = true
       self.linear = nn.SpatialLinear(3,3)
@@ -93,17 +93,17 @@ function SpatialColorTransform:forward(input)
    if self.islinear then
       self.output = self.linear:forward(input)
    else
-      if self.type == 'rgb2hsl' then
+      if self.transform == 'rgb2hsl' then
          self.output = image.rgb2hsl(input, self.output)
-      elseif self.type == 'rgb2hsv' then
+      elseif self.transform == 'rgb2hsv' then
          self.output = image.rgb2hsv(input, self.output)
-      elseif self.type == 'hsl2rgb' then
+      elseif self.transform == 'hsl2rgb' then
          self.output = image.hsl2rgb(input, self.output)
-      elseif self.type == 'rgb2hsv' then
+      elseif self.transform == 'rgb2hsv' then
          self.output = image.rgb2hsv(input, self.output)
-      elseif self.type == 'rgb2nrgb' then
+      elseif self.transform == 'rgb2nrgb' then
          self.output = image.rgb2nrgb(input, self.output)
-      elseif self.type == 'rgb2y+nrgb' then
+      elseif self.transform == 'rgb2y+nrgb' then
          self.output:resize(4, input:size(2), input:size(3))
          image.rgb2y(input, self.output:narrow(1,1,1))
          image.rgb2nrgb(input, self.output:narrow(1,2,3))
@@ -124,7 +124,7 @@ end
 
 function SpatialColorTransform:write(file)
    parent.write(self, file)
-   file:writeObject(self.type)
+   file:writeObject(self.transform)
    file:writeBool(self.islinear)
    if self.islinear then
       file:writeObject(self.linear)
@@ -133,7 +133,7 @@ end
 
 function SpatialColorTransform:read(file)
    parent.read(self, file)
-   self.type = file:readObject()
+   self.transform = file:readObject()
    self.islinear = file:readBool()
    if self.islinear then
       self.linear = file:readObject()
