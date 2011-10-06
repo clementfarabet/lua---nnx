@@ -137,7 +137,7 @@ extern "C" {
     LBFGSERR_MAXIMUMLINESEARCH,
     /** The algorithm routine reaches the maximum number of iterations. */
     LBFGSERR_MAXIMUMITERATION,
-    /** The algorithm routine reaches the maximum number of iterations. */
+    /** The algorithm routine reaches the maximum number of function evaluations. */
     LBFGSERR_MAXIMUMEVALUATION,
     /** Relative width of the interval of uncertainty is at most
         lbfgs_parameter_t::xtol. */
@@ -309,7 +309,7 @@ extern "C" {
     }
     if (lbfgs_err == LBFGSERR_MAXIMUMEVALUATION) {
       printf("LBFGSERR_MAXIMUMEVALUATION\n");
-      printf("    The algorithm routine reaches the maximum number of iterations.\n");
+      printf("    The algorithm routine reaches the maximum number of function evaluations.\n");
       return;
     }
     if (lbfgs_err == LBFGSERR_WIDTHTOOSMALL) {
