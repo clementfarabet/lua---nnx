@@ -5,6 +5,8 @@ function SNES:__init(...)
    xlua.unpack_class(self, {...},
                      'SNESOptimization', nil,
                      {arg='lambda', type='number', help='number of parallel samples', default=100},
+                     {arg='mu_0', type='number', help='initial value for mu', default=0},
+                     {arg='sigma_0', type='number', help='initial value for sigma', default=1},
                      {arg='eta_mu', type='number', help='learning rate for mu', default=1},
                      {arg='eta_sigma', type='number', help='learning rate for sigma', default=1e-3}
                   )
@@ -20,8 +22,8 @@ function SNES:__init(...)
       self.parameters[i] = nnx.flattenParameters(nnx.getParameters(self.modules[i]))
    end
    -- SNES initial parameters
-   self.mu = lab.zeros(#self.parameters[1])
-   self.sigma = lab.ones(#self.parameters[1])
+   self.mu = torch.Tensor(#self.parameters[1]):fill(self.mu_0)
+   self.sigma = torch.Tensor(#self.parameters[1]):fill(self.sigma_0)
    -- SNES gradient vectors
    self.gradmu = torch.Tensor():resizeAs(self.mu)
    self.gradsigma = torch.Tensor():resizeAs(self.sigma)
