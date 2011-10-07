@@ -6,7 +6,7 @@ maxIterations = 100
 maxLineSearch = 40
 -- this is to compare with minFunc
 maxEvaluation = 25
-linesearch = 2 
+linesearch = 0 
 sparsity = 0
 verbose = 3
 nparam = 2
