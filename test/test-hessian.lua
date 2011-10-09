@@ -5,14 +5,23 @@
 --
 -- given an input vector X, we want to learn a mapping
 -- f(X) = \sum_i X_i
+-- 
+-- we use a two-layer perceptron, just to validate
+-- the tanh+linear hessian 
+-- (of course learning such a function is much more
+--  trivial using a single linear layer :-)
 --
 
 -- libs
 require 'nnx'
 
+-- fix random seed
+random.manualSeed(1)
+
 -- SGD params
 learningRate = 1e-3
 diagHessianEpsilon = 1e-2
+computeDiagHessian = true
 
 -- fake data
 inputs = {}
@@ -24,44 +33,49 @@ end
 
 -- create module
 module = nn.Sequential()
+module:add(nn.Linear(10,10))
+module:add(nn.Tanh())
 module:add(nn.Linear(10,1))
 
 -- loss
 criterion = nn.MSECriterion()
 
--- init diag hessian
-module:initDiagHessianParameters()
-diagHessianParameters = nnx.flattenParameters(nnx.getDiagHessianParameters(module))
-
--- estimate diag hessian over dataset
-diagHessianParameters:zero()
-for i = 1,#inputs do
-   local output = module:forward(inputs[i])
-   local critDiagHessian = criterion:backwardDiagHessian(output, targets[i])
-   module:backwardDiagHessian(inputs[i], critDiagHessian)
-   module:accDiagHessianParameters(inputs[i], critDiagHessian)
-end
-diagHessianParameters:div(#inputs)
-
--- protect diag hessian
-diagHessianParameters:apply(function(x)
-                               return math.max(x, diagHessianEpsilon)
-                            end)
-
--- now learning rates are obtained like this:
-learningRates = diagHessianParameters.new()
-learningRates:resizeAs(diagHessianParameters):fill(1)
-learningRates:cdiv(diagHessianParameters)
-
--- print info
-print('learning rates calculated to')
-print(learningRates)
-
--- regular SGD
+-- get params
 parameters = nnx.flattenParameters(nnx.getParameters(module))
 gradParameters = nnx.flattenParameters(nnx.getGradParameters(module))
 
-for epoch = 1,10 do
+-- compute learning rates
+learningRates = torch.Tensor(parameters:size()):fill(1)
+if computeDiagHessian then
+   -- init diag hessian
+   module:initDiagHessianParameters()
+   diagHessianParameters = nnx.flattenParameters(nnx.getDiagHessianParameters(module))
+
+   -- estimate diag hessian over dataset
+   diagHessianParameters:zero()
+   for i = 1,#inputs do
+      local output = module:forward(inputs[i])
+      local critDiagHessian = criterion:backwardDiagHessian(output, targets[i])
+      module:backwardDiagHessian(inputs[i], critDiagHessian)
+      module:accDiagHessianParameters(inputs[i], critDiagHessian)
+   end
+   diagHessianParameters:div(#inputs)
+
+   -- protect diag hessian
+   diagHessianParameters:apply(function(x)
+                                  return math.max(x, diagHessianEpsilon)
+                               end)
+
+   -- now learning rates are obtained like this:
+   learningRates:cdiv(diagHessianParameters)
+
+   -- print info
+   print('learning rates calculated to')
+   print(learningRates)
+end
+
+-- regular SGD
+for epoch = 1,100 do
    error = 0
    for i = 1,#inputs do
       -- backprop gradients
@@ -77,7 +91,7 @@ for epoch = 1,10 do
       module:accGradParameters(inputs[i], critGradInput)
 
       -- given a parameter vector, and a gradParameter vector, the update goes like this:
-      deltaParameters = deltaParameters or diagHessianParameters.new()
+      deltaParameters = deltaParameters or parameters.new()
       deltaParameters:resizeAs(gradParameters):copy(learningRates):cmul(gradParameters)
       parameters:add(-learningRate, deltaParameters)
    end
@@ -86,9 +100,9 @@ for epoch = 1,10 do
 end
 
 -- test vector
-input = lab.range(1,10)
-grountruth = input:sum()
+input = lab.randn(10)
+groundtruth = input:sum()
 output = module:forward(input)
 print('test input:') print(input)
 print('predicted output:', output[1])
-print('groundtruth (\sum_i X_i):', output[1])
+print('groundtruth (\sum_i X_i):', groundtruth)

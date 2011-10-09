@@ -59,6 +59,16 @@ function nn.Linear.accDiagHessianParameters(self, input, diagHessianOutput, scal
    end
 end
 
+-- Tanh
+function nn.Tanh.backwardDiagHessian(self, input, diagHessianOutput)
+   self.diagHessianInput = self.diagHessianInput or self.output.new()
+   self.derivativeSq = self.derivativeSq or self.output.new()
+   self.derivativeSq:resizeAs(self.output):copy(self.output):cmul(self.output):mul(-1):add(1)
+   self.derivativeSq:cmul(self.derivativeSq)
+   self.diagHessianInput:resizeAs(input):copy(diagHessianOutput):cmul(self.derivativeSq)
+   return self.diagHessianInput
+end
+
 -- Sequential
 function nn.Sequential.backwardDiagHessian(self, input, diagHessianOutput)
    local currentDiagHessianOutput = diagHessianOutput
