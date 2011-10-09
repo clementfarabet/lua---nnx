@@ -108,6 +108,7 @@ torch.include('nnx', 'SGDOptimization.lua')
 torch.include('nnx', 'LBFGSOptimization.lua')
 torch.include('nnx', 'CGOptimization.lua')
 torch.include('nnx', 'GeneticSGDOptimization.lua')
+torch.include('nnx', 'DiagHessian.lua')
 
 -- trainers:
 torch.include('nnx', 'Trainer.lua')
@@ -191,6 +192,18 @@ function nnx.getGradParameters(...)
    local modules = {...}
    for _,module in ipairs(modules) do
       get(module, holder, {'gradWeight', 'gradBias'})
+   end
+   -- return all parameters found
+   return holder
+end
+
+function nnx.getDiagHessianParameters(...)
+   -- to hold all parameters found
+   local holder = {}
+   -- call recursive call
+   local modules = {...}
+   for _,module in ipairs(modules) do
+      get(module, holder, {'diagHessianWeight', 'diagHessianBias'})
    end
    -- return all parameters found
    return holder
