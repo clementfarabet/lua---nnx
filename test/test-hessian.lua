@@ -20,8 +20,8 @@ random.manualSeed(1)
 
 -- SGD params
 learningRate = 1e-3
-diagHessianEpsilon = 1e-2
-computeDiagHessian = true
+diagHessianEpsilon = 1e-3
+computeDiagHessian = true    -- SET THIS FLAG TO FALSE TO SEE THE EFFECT OF THE DIAG HESSIAN
 
 -- fake data
 inputs = {}
@@ -61,10 +61,10 @@ if computeDiagHessian then
    end
    diagHessianParameters:div(#inputs)
 
-   -- protect diag hessian
-   diagHessianParameters:apply(function(x)
-                                  return math.max(x, diagHessianEpsilon)
-                               end)
+   -- protect diag hessian (the proper way of doing it is the commented code,
+   -- but for speed reasons, the uncommented code just works)
+   --diagHessianParameters:apply(function(x) return math.max(x, diagHessianEpsilon) end)
+   diagHessianParameters:add(diagHessianEpsilon)
 
    -- now learning rates are obtained like this:
    learningRates:cdiv(diagHessianParameters)
