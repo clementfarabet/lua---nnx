@@ -20,10 +20,10 @@ end
 function SGD:optimize()
    -- optimize N times
    for i = 1,self.maxIterations do
-      -- evaluate f(X) + df/dX
+      -- (0) evaluate f(X) + df/dX
       self.evaluate()
 
-      -- apply momentum
+      -- (1) apply momentum
       if self.momentum ~= 0 then
          if not self.currentGradParameters then
             self.currentGradParameters = torch.Tensor():resizeAs(self.gradParameters):copy(self.gradParameters)
@@ -34,24 +34,93 @@ function SGD:optimize()
          self.currentGradParameters = self.gradParameters
       end
 
-      -- weight decay
+      -- (2) weight decay
       if self.weightDecay ~= 0 then
          self.parameters:add(-self.weightDecay, self.parameters)
       end
 
-      -- update parameters
-      local learningRate = self.learningRate / (1 + self.sampleCounter*self.learningRateDecay)
-      self.parameters:add(-learningRate, self.currentGradParameters)
+      -- (3) learning rate decay (annealing)
+      local learningRate = 
+         self.learningRate / (1 + self.sampleCounter*self.learningRateDecay)
+      
+      -- (4) parameter update with single or individual learningRates
+      if self.learningRates then
+         -- we are using diagHessian and have individual learningRates
+         self.deltaParameters = self.deltaParameters or 
+            self.parameters.new():resizeAs(self.currentGradParameters)
+         deltaParameters:copy(self.learningRates):cmul(self.currentGradParameters)
+         self.parameters:add(-learningRate, deltaParameters)
+      else
+         -- normal single learningRate parameter update
+         self.parameters:add(-learningRate, self.currentGradParameters)
+      end
+   end -- for loop on maxIterations
+end
+
+function SGD:condition (inputs, targets, ctype)
+   if (ctype == 'dh') then
+      -- Leon and Antoines' SGD-QN algorithm
+      self:diagHessian(inputs,targets)
+   elseif (ctype == 'qn') then
+      -- Leon and Antoines' SGD-QN algorithm
+      self:QN(inputs,targets)
+   elseif (ctype == 'olr') then 
+      -- Yann's optimal learning rate from Efficient BackProp 1998
+      self:optimalLearningRate(inputs, targets)
+   else 
+      print("Not contitioning : don't understand conditioning type")
    end
 end
 
-function SGD:condition(inputs, targets)
+function SGD:QN(inputs, targets)
    
-   -- for now the only conditioning is Yann's optimal learning rate
+end
+
+function SGD:diagHessian(inputs, targets)
+   if not self.learningRates then 
+      -- do initialization
+      self.diagHessianEpsilon = self.diagHessianEpslion or 1e-3
+      self.learningRates = self.parameters.new():resizeAs(self.parameters):fill(1)
+      self.module:initDiagHessianParameters()
+      self.diagHessianParameters = 
+         nnx.flattenParameters(nnx.getDiagHessianParameters(self.module))
+   end
+   self.diagHessianParameters:zero()
+   -- estimate diag hessian over dataset
+   if type(inputs) == 'table' then      -- slow
+      for i = 1,#inputs do
+         local output = self.module:forward(inputs[i])
+         local critDiagHessian = 
+            self.criterion:backwardDiagHessian(output, targets[i])
+         self.module:backwardDiagHessian(inputs[i], critDiagHessian)
+         self.module:accDiagHessianParameters(inputs[i], critDiagHessian)
+      end
+      self.diagHessianParameters:div(#inputs)
+   else
+      local output = self.module:forward(inputs)
+      -- not sure if we can do the fast version yet
+      local critDiagHessian = criterion:backwardDiagHessian(output, targets)
+      module:backwardDiagHessian(inputs, critDiagHessian)
+      module:accDiagHessianParameters(inputs, critDiagHessian)
+      self.diagHessianParameters:div(inputs:size(1))
+   end
+   -- protect diag hessian (the proper way of doing it is the commented code,
+   -- but for speed reasons, the uncommented code just works)
+   -- self.diagHessianParameters:apply(function(x) return math.max(x, diagHessianEpsilon) end)
+   self.diagHessianParameters:add(self.diagHessianEpsilon)
+
+   -- now learning rates are obtained like this:
+   self.learningRates:cdiv(self.diagHessianParameters) 
+end
+
+function SGD:optimalLearningRate(inputs, targets)
+   
+   -- conditioning using Yann's optimal learning rate
    -- from Efficient BackProp 1998
+   -- self.alpha = self.alpha or 1e-2 -- 1 / ||parameters|| ?
    self.alpha = self.alpha or 1e-2 -- 1 / ||parameters|| ?
    self.gamma = self.gamma or 0.95
-
+      
    if not self.phi then
       -- make tensor in current default type
       self.phi = torch.Tensor(self.gradParameters:size())
@@ -61,7 +130,7 @@ function SGD:condition(inputs, targets)
 	 torch.setdefaulttensortype('torch.FloatTensor')
       end
       local r = lab.randn(self.gradParameters:size())
-      r:div(r:norm()) -- norm 1
+      r:div(r:norm()) -- norm 2
       if (old_type == 'torch.CudaTensor') then
 	 torch.setdefaulttensortype(old_type)
       end
@@ -88,7 +157,7 @@ function SGD:condition(inputs, targets)
 	 self.module:accGradParameters(inputs[i], df_do)
       end
       -- normalize gradients
-      self.gradParameters:div(#inputs)
+      -- self.gradParameters:div(#inputs)
       
       -- backup gradient and weights
       self.param_bkup:copy(self.parameters)
@@ -96,13 +165,19 @@ function SGD:condition(inputs, targets)
       
       -- (2) compute dE/dw(w + alpha * phi / || phi|| )
       -- normalize + scale phi
-      print('norm phi before: ',self.phi:norm(),' alpha: ',self.alpha)
-      self.phi:div(self.phi:norm()):mul(self.alpha)
-      print('norm phi after: ',self.phi:norm())
+      local norm_phi = self.phi:norm()
+      print(' + norm phi before: ',norm_phi,' alpha: ',self.alpha)
+      if norm_phi > 1e-16 then
+         self.phi:div(self.phi:norm()):mul(self.alpha)
+      else
+         self.phi:fill(1/self.phi:size(1)):mul(self.alpha)
+      end
+      norm_phi = self.phi:norm()
+      print(' + norm phi after : ', norm_phi)
       -- perturb weights
-      print('norm param before: ',self.parameters:norm())
+      print(' + norm param before wiggle: ',self.parameters:norm())
       self.parameters:add(self.phi)
-      print('norm param after: ',self.parameters:norm())
+      print(' + norm param after  wiggle: ',self.parameters:norm())
       -- reset gradients
       self.gradParameters:zero()
       --re-estimate f
@@ -116,14 +191,22 @@ function SGD:condition(inputs, targets)
 	 self.module:accGradParameters(inputs[i], df_do)
       end
       -- normalize gradients
-      self.gradParameters:div(#inputs)
+      -- self.gradParameters:div(#inputs)
 
       -- (3) phi - 1/alpha(dE/dw(w + alpha * oldphi / || oldphi ||) - dE/dw(w))
       -- compute new phi
       self.phi:copy(self.grad_bkup):mul(-1):add(self.gradParameters):mul(1/self.alpha)
-      print('norm old_grad: ',self.grad_bkup:norm(),' norm cur_grad: ',self.gradParameters:norm(), ' norm phi: ',self.phi:norm())      
-      -- (4) new learning rate eta = 1 / || phi || 
-      self.learningRate = 1 / self.phi:norm()
+      norm_phi = self.phi:norm()
+      print(' + norm old_grad: ',self.grad_bkup:norm())
+      print(' + norm cur_grad: ',self.gradParameters:norm())
+      print(' + norm phi: ',norm_phi)      
+      -- (4) new learning rate eta = 1 / || phi ||
+      if norm_phi > 0 then
+         self.learningRate = 1 / ( norm_phi * #inputs )
+      else
+         self.learningRate = 1e-4
+      end
+      print(' + conditioned learningRate: ', self.learningRate)
       -- (5) reset parameters and zero gradients
       self.parameters:copy(self.param_bkup)
       self.gradParameters:zero()
@@ -178,5 +261,5 @@ function SGD:condition(inputs, targets)
       -- (5) reset parameters and zero gradients
       self.parameters:copy(self.param_bkup)
       self.gradParameters:zero()
-   end
+   end 
 end

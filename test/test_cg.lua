@@ -6,7 +6,7 @@ require 'liblbfgs'
 maxIterations = 100
 maxLineSearch = 40
 maxEvaluation = 25 
-linesearch = 2
+linesearch = 0
 momentum   = 0
 verbose = 3
 nparam = 2
