@@ -48,8 +48,8 @@ function SGD:optimize()
          -- we are using diagHessian and have individual learningRates
          self.deltaParameters = self.deltaParameters or 
             self.parameters.new():resizeAs(self.currentGradParameters)
-         deltaParameters:copy(self.learningRates):cmul(self.currentGradParameters)
-         self.parameters:add(-learningRate, deltaParameters)
+         self.deltaParameters:copy(self.learningRates):cmul(self.currentGradParameters)
+         self.parameters:add(-learningRate, self.deltaParameters)
       else
          -- normal single learningRate parameter update
          self.parameters:add(-learningRate, self.currentGradParameters)
