@@ -101,3 +101,29 @@ function nn.Sequential.accDiagHessianParameters(self, input, diagHessianOutput, 
    end
    currentModule:accDiagHessianParameters(input, currentDiagHessianOutput, scale)
 end
+
+-- ConcatTable
+function nn.ConcatTable.backwardDiagHessian(self, input, diagHessianOutput)
+   for i,module in ipairs(self.modules) do
+      local currentDiagHessianInput = module:backward(input, diagHessianOutput[i])
+      if i == 1 then
+         self.diagHessianInput:resizeAs(currentDiagHessianInput):copy(currentDiagHessianInput)
+      else
+         self.diagHessianInput:add(currentDiagHessianInput)
+      end
+   end
+   return self.diagHessianInput
+end
+
+function nn.ConcatTable.initDiagHessianParameters(self)
+   for i=1,#self.modules do
+      self.modules[i]:initDiagHessianParameters()
+   end
+end
+
+function nn.ConcatTable.accDiagHessianParameters(self, input, diagHessianOutput, scale)
+   scale = scale or 1
+   for i,module in ipairs(self.modules) do
+      module:accDiagHessianParameters(input, diagHessianOutput[i], scale)
+   end
+end
