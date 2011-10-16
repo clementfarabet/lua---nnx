@@ -17,7 +17,7 @@ function nn.Criterion.backwardDiagHessian(self, input, diagHessianOutput)
    return self.diagHessianInput
 end
 
--- MSECriterion
+ -- MSECriterion
 function nn.MSECriterion.backwardDiagHessian(self, input, diagHessianOutput)
    self.diagHessianInput = self.diagHessianInput or input.new()
    self.diagHessianInput:resizeAs(input):fill(1)

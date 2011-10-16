@@ -99,7 +99,6 @@ function Batch:forward_sequential(inputs, targets, options)
               self.output = self.output/batchsize
 
            else -- minibatch is assumed to be a BatchSize x ... tensor
-
               -- estimate f
               local output = self.module:forward(inputs)
               self.output = self.criterion:forward(output, targets)

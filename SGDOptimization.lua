@@ -85,7 +85,11 @@ function SGD:diagHessian(inputs, targets)
       self.diagHessianParameters = 
          nnx.flattenParameters(nnx.getDiagHessianParameters(self.module))
    end
+   -- reset gradients
+   self.gradParameters:zero()
+   -- reset Hessian Parameterns
    self.diagHessianParameters:zero()
+   -- reset individual learningRates
    self.learningRates:fill(1)
    -- estimate diag hessian over dataset
    if type(inputs) == 'table' then      -- slow
