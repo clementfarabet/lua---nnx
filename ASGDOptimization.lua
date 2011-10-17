@@ -28,6 +28,8 @@ function ASGD:__init(...)
 end
 
 function ASGD:optimize() 
+   -- (0) evaluate f(X) + df/dX
+   self.evaluate()
    -- (1) decay term  
    --     w := (1 - lambda eta_t) w
    self.parameters:mul(1 - self.lambda * self.eta_t)
