@@ -47,7 +47,7 @@ function SGD:optimize()
       if self.learningRates then
          -- we are using diagHessian and have individual learningRates
          self.deltaParameters = self.deltaParameters or 
-            self.parameters.new():resizeAs(self.currentGradParameters)
+            torch.Tensor():typeAs(self.parameters):resizeAs(self.currentGradParameters)
          self.deltaParameters:copy(self.learningRates):cmul(self.currentGradParameters)
          self.parameters:add(-learningRate, self.deltaParameters)
       else
@@ -80,12 +80,17 @@ function SGD:diagHessian(inputs, targets)
    if not self.learningRates then 
       -- do initialization
       self.diagHessianEpsilon = self.diagHessianEpslion or 1e-3
-      self.learningRates = self.parameters.new():resizeAs(self.parameters):fill(1)
+      self.learningRates = torch.Tensor():typeAs(self.parameters):resizeAs(self.parameters):fill(1)
       self.module:initDiagHessianParameters()
       self.diagHessianParameters = 
          nnx.flattenParameters(nnx.getDiagHessianParameters(self.module))
    end
+   -- reset gradients
+   self.gradParameters:zero()
+   -- reset Hessian Parameterns
    self.diagHessianParameters:zero()
+   -- reset individual learningRates
+   self.learningRates:fill(1)
    -- estimate diag hessian over dataset
    if type(inputs) == 'table' then      -- slow
       for i = 1,#inputs do
@@ -106,11 +111,22 @@ function SGD:diagHessian(inputs, targets)
    end
    -- protect diag hessian (the proper way of doing it is the commented code,
    -- but for speed reasons, the uncommented code just works)
-   -- self.diagHessianParameters:apply(function(x) return math.max(x, diagHessianEpsilon) end)
-   self.diagHessianParameters:add(self.diagHessianEpsilon)
+   self.diagHessianParameters:apply(
+      function(x) 
+	 return math.max(x, self.diagHessianEpsilon) 
+      end)
+   --self.diagHessianParameters:add(self.diagHessianEpsilon)
 
    -- now learning rates are obtained like this:
    self.learningRates:cdiv(self.diagHessianParameters) 
+   print('<diagHessian>')
+   print(' + norm of dhP: '..self.diagHessianParameters:norm()..
+      ' norm of LR: '..self.learningRates:norm())
+   print(' + max dhP : '..self.diagHessianParameters:max() .. 
+      ' max LR: '..self.learningRates:max())
+   print(' + min dhp: '.. self.diagHessianParameters:min() ..
+      ' min LR: '..self.learningRates:min())
+   -- self.learningRates:div(self.learningRates:norm())
 end
 
 function SGD:optimalLearningRate(inputs, targets)
