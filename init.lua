@@ -264,7 +264,7 @@ function nnx.flattenParameters(parameters)
    -- reallocate all parameters in flat vector
    for i = 1,#parameters do
       local data = parameters[i]:clone()
-      parameters[i]:set(storage, offsets[i], elements[i]):resize(sizes[i]):copy(data)
+      parameters[i]:set(storage, offsets[i], elements[i]):resize(sizes[i],strides[i]):copy(data)
       data = nil
       collectgarbage()
    end
