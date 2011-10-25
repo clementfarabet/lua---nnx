@@ -122,6 +122,13 @@ function SpatialColorTransform:backward(input, gradOutput)
    return self.gradInput
 end
 
+function SpatialColorTransform:type(type)
+   parent.type(self,type)
+   if self.islinear then
+      self.linear:type(type)
+   end
+end
+
 function SpatialColorTransform:write(file)
    parent.write(self, file)
    file:writeObject(self.transform)
@@ -138,4 +145,5 @@ function SpatialColorTransform:read(file)
    if self.islinear then
       self.linear = file:readObject()
    end
+   self.type = nil
 end
