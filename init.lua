@@ -108,6 +108,7 @@ torch.include('nnx', 'SGDOptimization.lua')
 torch.include('nnx', 'ASGDOptimization.lua')
 torch.include('nnx', 'LBFGSOptimization.lua')
 torch.include('nnx', 'CGOptimization.lua')
+torch.include('nnx', 'newCGOptimization.lua')
 torch.include('nnx', 'GeneticSGDOptimization.lua')
 torch.include('nnx', 'DiagHessian.lua')
 

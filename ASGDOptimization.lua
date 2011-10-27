@@ -46,6 +46,7 @@ function ASGD:optimize()
       self.parameters:add(-self.eta_t, self.gradParameters)
    end
    -- (3) Average part
+   --     a := a + mu_t [ w - a ]
    self.a = self.a or self.parameters.new():resizeAs(self.parameters):zero()
    if self.mu_t ~= 1 then
       self.tmp = self.tmp or self.a.new():resizeAs(self.a)
