@@ -25,6 +25,7 @@ function SGD:__init(...)
       require 'allreduce'
       allreduce.init(self.allreduceMaster, self.allreduceUniqueId, 
                      self.allreduceNbNodes, self.allreduceNodeId)
+      self.accError = 0
    end
 end
 
@@ -67,8 +68,13 @@ function SGD:optimize()
       end
 
       -- (5) allreduce sync
-      if self.allreduce and (self.sampleCounter % self.allreduceSyncTime) == self.allreduceSyncTime-1 then
-         allreduce.best(self.parameters, self.output)
+      if self.allreduce then
+         if (self.sampleCounter % self.allreduceSyncTime) == self.allreduceSyncTime-1 then
+            allreduce.best(self.parameters, self.accError)
+            self.accError = 0
+         else
+            self.accError = self.accError + self.output 
+         end
       end
    end -- for loop on maxIterations
 end
