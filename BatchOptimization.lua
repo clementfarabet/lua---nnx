@@ -38,7 +38,7 @@ function Batch:__init(...)
    self.P = self.parallelize
 
    if self.allreduce then
-      require 'allreduce'
+      xrequire 'allreduce'
       allreduce.init(self.allreduceMaster, self.allreduceUniqueId, 
                      self.allreduceNbNodes, self.allreduceNodeId)
       self.accError = 0
