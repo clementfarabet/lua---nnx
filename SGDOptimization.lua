@@ -13,20 +13,8 @@ function SGD:__init(...)
       {arg='weightDecay', type='number', 
        help='amount of weight decay (W = W - decay*W)', default=0},
       {arg='momentum', type='number', 
-       help='amount of momentum on weights (dE/W = dE/dW*(1-momentum) + prev(dE/dW)*momentum)', default=0},
-      {arg='allreduce', type='boolean', help='use allreduce', default=false},
-      {arg='allreduceSyncTime', type='boolean', help='sync period', default=10},
-      {arg='allreduceMaster', type='string', help='master address', default='localhost'},
-      {arg='allreduceUniqueId', type='boolean', help='job unique id', default=0},
-      {arg='allreduceNbNodes', type='boolean', help='number of nodes', default=1},
-      {arg='allreduceNodeId', type='boolean', help='this node\'s id', default=1}
+       help='amount of momentum on weights (dE/W = dE/dW*(1-momentum) + prev(dE/dW)*momentum)', default=0}
    )
-   if self.allreduce then
-      require 'allreduce'
-      allreduce.init(self.allreduceMaster, self.allreduceUniqueId, 
-                     self.allreduceNbNodes, self.allreduceNodeId)
-      self.accError = 0
-   end
 end
 
 function SGD:optimize()
