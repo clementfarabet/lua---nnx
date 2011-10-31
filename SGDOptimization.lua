@@ -66,9 +66,9 @@ function SGD:optimize()
          self.parameters:add(-learningRate, self.currentGradParameters)
       end
 
-      -- ()
-      if self.allreduce and (self.sampleCounter % self.allreduceSyncTime) == 0 then
-         allreduce.accumulate(self.parameters)
+      -- (5) allreduce sync
+      if self.allreduce and ((self.sampleCounter-1) % self.allreduceSyncTime) == self.allreduceSyncTime-1 then
+         allreduce.best(self.parameters, self.output)
       end
    end -- for loop on maxIterations
 end
