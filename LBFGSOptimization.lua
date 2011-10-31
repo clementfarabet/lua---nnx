@@ -37,12 +37,16 @@ end
 
 function LBFGS:optimize()
    -- callback for lBFGS
-   lbfgs.evaluate = self.evaluate
-
-   -- allreduce sync
-   if self.allreduce then
-      allreduce.accumulate(self.parameters)
-   end
+   lbfgs.evaluate = function()
+                       local loss = self.evaluate()
+                       if self.allreduce then
+                          local losst = torch.Tensor(1):fill(loss)
+                          allreduce.accumulate(losst)
+                          allreduce.accumulate(self.gradParameters)
+                          loss = losst[1]
+                       end
+                       return loss
+                    end
 
    -- the magic function: will update the parameter vector according to the l-BFGS method
    self.output = lbfgs.run()
