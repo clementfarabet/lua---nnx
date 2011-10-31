@@ -41,9 +41,7 @@ function LBFGS:optimize()
 
    -- allreduce sync
    if self.allreduce then
-      if (self.sampleCounter % self.allreduceSyncTime) == self.allreduceSyncTime-1 then
-         allreduce.accumulate(self.parameters)
-      end
+      allreduce.accumulate(self.parameters)
    end
 
    -- the magic function: will update the parameter vector according to the l-BFGS method
