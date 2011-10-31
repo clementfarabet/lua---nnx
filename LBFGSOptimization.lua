@@ -37,12 +37,12 @@ end
 
 function LBFGS:optimize()
    -- callback for lBFGS
-   lbfgs.evaluate = self.evaluate
-
-   -- allreduce sync
-   if self.allreduce then
-      allreduce.accumulate(self.parameters)
-   end
+   lbfgs.evaluate = function()
+                       self.evaluate()
+                       if self.allreduce then
+                          allreduce.accumulate(self.parameters)
+                       end
+                    end
 
    -- the magic function: will update the parameter vector according to the l-BFGS method
    self.output = lbfgs.run()
