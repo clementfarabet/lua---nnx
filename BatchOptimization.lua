@@ -17,7 +17,13 @@ function Batch:__init(...)
                      {arg='precode', type='function',
                       help='optional code to be run by each parallel worker at their init'},
                      {arg='verbose', type='number',
-                      help='verbose level during training [0-2]', default=0}
+                      help='verbose level during training [0-2]', default=0},
+                     {arg='allreduce', type='boolean', help='use allreduce', default=false},
+                     {arg='allreduceSyncTime', type='boolean', help='sync period', default=1},
+                     {arg='allreduceMaster', type='string', help='master address', default='localhost'},
+                     {arg='allreduceUniqueId', type='boolean', help='job unique id', default=0},
+                     {arg='allreduceNbNodes', type='boolean', help='number of nodes', default=1},
+                     {arg='allreduceNodeId', type='boolean', help='this node\'s id', default=1}
                   )
    self.parameters = nnx.flattenParameters(nnx.getParameters(self.module))
    self.gradParameters = nnx.flattenParameters(nnx.getGradParameters(self.module))
@@ -30,6 +36,13 @@ function Batch:__init(...)
       self:setup_mapreduce()
    end
    self.P = self.parallelize
+
+   if self.allreduce then
+      xrequire 'allreduce'
+      allreduce.init(self.allreduceMaster, self.allreduceUniqueId, 
+                     self.allreduceNbNodes, self.allreduceNodeId)
+      self.accError = 0
+   end
 end
 
 function Batch:forward(inputs, targets, options)
