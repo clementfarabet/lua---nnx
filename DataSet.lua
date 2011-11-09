@@ -58,6 +58,7 @@ function lDataSet:load(...)
          -- File found
          print('<DataSet> Loading samples from cached file ' .. fileName)
          f = torch.DiskFile(fileName, 'rw')
+         f:binary()
          self:read(f)
          f.close(f)
          datasetLoadedFromFile = true
@@ -73,6 +74,7 @@ function lDataSet:load(...)
       if (fileName ~= nil) then
          print('<DataSet> Dumping dataset to cache file ' .. fileName .. ' for fast retrieval')
          f = torch.DiskFile(fileName, 'rw')
+         f:binary()
          self:write(f)
          f.close(f)
       end
@@ -301,6 +303,7 @@ function lDataSet:save(fileName)
    self.fileName = fileName
    print('<DataSet> Saving DataSet to:',fileName)
    local file = torch.DiskFile(fileName, 'w')
+   file:binary()
    self:write(file)
    file:close()
 end
@@ -310,6 +313,7 @@ function lDataSet:open(fileName)
    self.fileName = fileName
    print('<DataSet> Loading DataSet from File:',fileName)
    local file = torch.DiskFile(fileName, 'r')
+   file:binary()
    self:read(file)
    file:close()
    print('<DataSet> '..self.nbSamples..' samples loaded')

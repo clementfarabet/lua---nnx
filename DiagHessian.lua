@@ -1,7 +1,7 @@
 
 -- Module
 function nn.Module.backwardDiagHessian(self, input, diagHessianOutput)
-   self.diagHessianInput = self.diagHessianInput or input
+   self.diagHessianInput = self.diagHessianInput or diagHessianOutput
    return self.diagHessianInput
 end
 

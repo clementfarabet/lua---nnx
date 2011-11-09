@@ -46,6 +46,7 @@ function ASGD:optimize()
       self.parameters:add(-self.eta_t, self.gradParameters)
    end
    -- (3) Average part
+   --     a := a + mu_t [ w - a ]
    self.a = self.a or self.parameters.new():resizeAs(self.parameters):zero()
    if self.mu_t ~= 1 then
       self.tmp = self.tmp or self.a.new():resizeAs(self.a)
@@ -63,4 +64,24 @@ function ASGD:optimize()
    -- (4c) update mu_t
    --   mu_t = 1/max(1,t-t0)
    self.mu_t = 1 / math.max(1,self.t - self.t0)
+end
+
+-- in ASGD we keep a copy of the parameters which is an averaged
+-- version of the current parameters.  This function is to test with
+-- those averaged parameters.  Best to run on batches because we have
+-- to copy the full parameter vector
+
+function ASGD:test(_inputs, _targets) -- function test
+   -- (0) make a backup of the online parameters
+   self.backup = self.backup or
+     self.parameters.new():resizeAs(self.parameters)
+   self.backup:copy(self.parameters)
+   -- (1) copy average parameters into the model
+   self.parameters:copy(self.a)
+   -- (2) do the test with the average parameters
+   self.output = self.module:forward(_inputs)
+   self.error  = self.criterion:forward(self.output, _targets)
+   -- (3) copy back the online parameters to continue training
+   self.parameters:copy(self.backup)
+   return self.error
 end
