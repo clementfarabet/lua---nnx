@@ -3,6 +3,7 @@ local DistNLLCriterion, parent = torch.class('nn.DistNLLCriterion', 'nn.Criterio
 function DistNLLCriterion:__init()
    parent.__init(self)
    -- user options
+   self.inputIsADistance = false
    self.inputIsProbability = false
    self.inputIsLogProbability = false
    self.targetIsProbability = false
@@ -10,6 +11,7 @@ function DistNLLCriterion:__init()
    self.targetSoftMax = nn.SoftMax()
    self.inputLogSoftMax = nn.LogSoftMax()
    self.gradLogInput = torch.Tensor()
+   self.input = torch.Tensor()
 end
 
 function DistNLLCriterion:normalize(input, target)
@@ -20,13 +22,20 @@ function DistNLLCriterion:normalize(input, target)
       self.probTarget = target
    end
 
+   -- flip input if a distance
+   if self.inputIsADistance then
+      self.input:resizeAs(input):copy(input):mul(-1)
+   else
+      self.input = input
+   end
+
    -- normalize input
    if not self.inputIsLogProbability and not self.inputIsProbability then
-      self.logProbInput = self.inputLogSoftMax:forward(input)
+      self.logProbInput = self.inputLogSoftMax:forward(self.input)
    elseif not self.inputIsLogProbability then
       print('TODO: implement nn.Log()')
    else
-      self.logProbInput = input
+      self.logProbInput = self.input
    end
 end
 
@@ -38,6 +47,11 @@ function DistNLLCriterion:denormalize(input)
       print('TODO: implement nn.Log()')
    else
       self.gradInput = self.gradLogInput
+   end
+
+   -- if input is a distance, then flip gradients back
+   if self.inputIsADistance then
+      self.gradInput:mul(-1)
    end
 end
 
