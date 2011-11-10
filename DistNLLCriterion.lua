@@ -42,7 +42,7 @@ end
 function DistNLLCriterion:denormalize(input)
    -- denormalize gradients
    if not self.inputIsLogProbability and not self.inputIsProbability then
-      self.gradInput = self.inputLogSoftMax:backward(input, self.gradLogInput)
+      self.gradInput = self.inputLogSoftMax:backward(self.input, self.gradLogInput)
    elseif not self.inputIsLogProbability then
       print('TODO: implement nn.Log()')
    else
