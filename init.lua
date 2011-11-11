@@ -76,6 +76,9 @@ if not nn.Abs then
    torch.include('nnx', 'Replicate.lua')
 end
 
+-- pointwise modules:
+torch.include('nnx', 'Minus.lua')
+
 -- spatial (images) operators:
 torch.include('nnx', 'SpatialLinear.lua')
 torch.include('nnx', 'SpatialClassifier.lua')
