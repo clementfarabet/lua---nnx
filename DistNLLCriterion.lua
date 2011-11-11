@@ -39,7 +39,7 @@ function DistNLLCriterion:normalize(input, target)
    end
 end
 
-function DistNLLCriterion:denormalize(input)
+function DistNLLCriterion:denormalize()
    -- denormalize gradients
    if not self.inputIsLogProbability and not self.inputIsProbability then
       self.gradInput = self.inputLogSoftMax:backward(self.input, self.gradLogInput)
@@ -70,7 +70,7 @@ function DistNLLCriterion:backward(input, target)
    for i = 1,input:size(1) do
       self.gradLogInput[i] = -self.probTarget[i]
    end
-   self:denormalize(input)
+   self:denormalize()
    return self.gradInput
 end
 
