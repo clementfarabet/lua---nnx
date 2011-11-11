@@ -9,18 +9,6 @@ end
 function Trainer:train(dataset)
 end
 
-function Trainer:write(file)
-   file:writeDouble(self.learningRate)
-   file:writeDouble(self.learningRateDecay)
-   file:writeInt(self.maxIteration)
-end
-
-function Trainer:read(file)
-   self.learningRate = file:readDouble()
-   self.learningRateDecay = file:readDouble()
-   self.maxIteration = file:readInt()
-end
-
 function Trainer:share(mlp, ...)
    for i,v in ipairs(arg) do
       if self[v] ~=nil then self[v]:set(mlp[v]) end

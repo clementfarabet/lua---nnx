@@ -9,7 +9,7 @@
 #define MIN(a,b) ( ((a)<(b)) ? (a) : (b) )
 #endif
 
-static int nn_(SpatialReSampling_forward)(lua_State *L)
+static int nn_(SpatialReSampling_updateOutput)(lua_State *L)
 {
   // get all params
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));
@@ -85,7 +85,7 @@ static int nn_(SpatialReSampling_forward)(lua_State *L)
   return 1;
 }
 
-static int nn_(SpatialReSampling_backward)(lua_State *L)
+static int nn_(SpatialReSampling_updateGradInput)(lua_State *L)
 {
   // get all params
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));  
@@ -166,8 +166,8 @@ static int nn_(SpatialReSampling_backward)(lua_State *L)
 }
 
 static const struct luaL_Reg nn_(SpatialReSampling__) [] = {
-  {"SpatialReSampling_forward", nn_(SpatialReSampling_forward)},
-  {"SpatialReSampling_backward", nn_(SpatialReSampling_backward)},
+  {"SpatialReSampling_updateOutput", nn_(SpatialReSampling_updateOutput)},
+  {"SpatialReSampling_updateGradInput", nn_(SpatialReSampling_updateGradInput)},
   {NULL, NULL}
 };
 

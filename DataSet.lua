@@ -297,28 +297,6 @@ function lDataSet:useCacheFile(fileName)
    self.cacheFileName = fileName
 end
 
-
-function lDataSet:save(fileName)
-   local fileName = fileName or self.fileName
-   self.fileName = fileName
-   print('<DataSet> Saving DataSet to:',fileName)
-   local file = torch.DiskFile(fileName, 'w')
-   file:binary()
-   self:write(file)
-   file:close()
-end
-
-function lDataSet:open(fileName)
-   local fileName = fileName or self.fileName
-   self.fileName = fileName
-   print('<DataSet> Loading DataSet from File:',fileName)
-   local file = torch.DiskFile(fileName, 'r')
-   file:binary()
-   self:read(file)
-   file:close()
-   print('<DataSet> '..self.nbSamples..' samples loaded')
-end
-
 function lDataSet:write(file)
    file:writeBool(self.resized)
    file:writeInt(self.nbSamples)

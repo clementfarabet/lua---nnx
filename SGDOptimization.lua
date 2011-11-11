@@ -108,16 +108,16 @@ function SGD:diagHessian(inputs, targets)
       for i = 1,#inputs do
          local output = self.module:forward(inputs[i])
          local critDiagHessian = 
-            self.criterion:backwardDiagHessian(output, targets[i])
-         self.module:backwardDiagHessian(inputs[i], critDiagHessian)
+            self.criterion:updateDiagHessianInput(output, targets[i])
+         self.module:updateDiagHessianInput(inputs[i], critDiagHessian)
          self.module:accDiagHessianParameters(inputs[i], critDiagHessian)
       end
       self.diagHessianParameters:div(#inputs)
    else
       local output = self.module:forward(inputs)
       -- not sure if we can do the fast version yet
-      local critDiagHessian = criterion:backwardDiagHessian(output, targets)
-      module:backwardDiagHessian(inputs, critDiagHessian)
+      local critDiagHessian = criterion:updateDiagHessianInput(output, targets)
+      module:updateDiagHessianInput(inputs, critDiagHessian)
       module:accDiagHessianParameters(inputs, critDiagHessian)
       self.diagHessianParameters:div(inputs:size(1))
    end
@@ -189,7 +189,6 @@ function SGD:optimalLearningRate(inputs, targets)
 	 -- estimate df/dW
 	 local df_do = self.criterion:backward(output, targets[i])
 	 self.module:backward(inputs[i], df_do)
-	 self.module:accGradParameters(inputs[i], df_do)
       end
       -- normalize gradients
       -- self.gradParameters:div(#inputs)
@@ -223,7 +222,6 @@ function SGD:optimalLearningRate(inputs, targets)
 	 -- estimate df/dW
 	 df_do = self.criterion:backward(output, targets[i])
 	 self.module:backward(inputs[i], df_do)
-	 self.module:accGradParameters(inputs[i], df_do)
       end
       -- normalize gradients
       -- self.gradParameters:div(#inputs)
@@ -255,7 +253,6 @@ function SGD:optimalLearningRate(inputs, targets)
       -- estimate df/dW
       local df_do = self.criterion:backward(output, targets)
       self.module:backward(inputs, df_do)
-      self.module:accGradParameters(inputs, df_do)
       -- backup gradient and weights
       self.param_bkup:copy(self.parameters)
       self.grad_bkup:copy(self.gradParameters)
@@ -279,7 +276,6 @@ function SGD:optimalLearningRate(inputs, targets)
       -- re-estimate df/dW
       df_do = self.criterion:backward(output, targets)
       self.module:backward(inputs, df_do)
-      self.module:accGradParameters(inputs, df_do)
       -- self.gradParameters:div(inputs:size(1))
 
       -- (3) phi - 1/alpha(dE/dw(w + alpha * oldphi / || oldphi ||) - dE/dw(w))

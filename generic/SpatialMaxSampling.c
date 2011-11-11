@@ -9,7 +9,7 @@
 #define MIN(a,b) ( ((a)<(b)) ? (a) : (b) )
 #endif
 
-static int nn_(SpatialMaxSampling_forward)(lua_State *L)
+static int nn_(SpatialMaxSampling_updateOutput)(lua_State *L)
 {
   // get all params
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));
@@ -99,7 +99,7 @@ static int nn_(SpatialMaxSampling_forward)(lua_State *L)
   return 1;
 }
 
-static int nn_(SpatialMaxSampling_backward)(lua_State *L)
+static int nn_(SpatialMaxSampling_updateGradInput)(lua_State *L)
 {
   // get all params
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));  
@@ -165,8 +165,8 @@ static int nn_(SpatialMaxSampling_backward)(lua_State *L)
 }
 
 static const struct luaL_Reg nn_(SpatialMaxSampling__) [] = {
-  {"SpatialMaxSampling_forward", nn_(SpatialMaxSampling_forward)},
-  {"SpatialMaxSampling_backward", nn_(SpatialMaxSampling_backward)},
+  {"SpatialMaxSampling_updateOutput", nn_(SpatialMaxSampling_updateOutput)},
+  {"SpatialMaxSampling_updateGradInput", nn_(SpatialMaxSampling_updateGradInput)},
   {NULL, NULL}
 };
 

@@ -182,7 +182,7 @@ function SpatialNormalization:__init(...) -- kernel for weighted mean | nb of fe
    self.thstd = torch.Tensor()
 end
 
-function SpatialNormalization:forward(input)
+function SpatialNormalization:updateOutput(input)
    -- auto switch to 3-channel
    self.input = input
    if (input:nDimension() == 2) then
@@ -192,32 +192,32 @@ function SpatialNormalization:forward(input)
    -- recompute coef only if necessary
    if (self.input:size(3) ~= self.coef:size(2)) or (self.input:size(2) ~= self.coef:size(1)) then
       local intVals = self.input.new(self.nfeatures,self.input:size(2),self.input:size(3)):fill(1)
-      self.coef = self.convo:forward(intVals)
+      self.coef = self.convo:updateOutput(intVals)
       self.coef = self.coef:clone()
    end
 
    -- compute mean
-   self.inConvo = self.convo:forward(self.input)
-   self.inMean = self.meanDiviseMod:forward{self.inConvo,self.coef}
-   self.inputZeroMean = self.subtractMod:forward{self.input,self.inMean}
+   self.inConvo = self.convo:updateOutput(self.input)
+   self.inMean = self.meanDiviseMod:updateOutput{self.inConvo,self.coef}
+   self.inputZeroMean = self.subtractMod:updateOutput{self.input,self.inMean}
 
    -- compute std dev
-   self.inputZeroMeanSq = self.squareMod:forward(self.inputZeroMean)
-   self.inConvoVar = self.convostd:forward(self.inputZeroMeanSq)
-   self.inStdDevNotUnit = self.sqrtMod:forward(self.inConvoVar)
-   self.inStdDev = self.stdDiviseMod:forward({self.inStdDevNotUnit,self.coef})
+   self.inputZeroMeanSq = self.squareMod:updateOutput(self.inputZeroMean)
+   self.inConvoVar = self.convostd:updateOutput(self.inputZeroMeanSq)
+   self.inStdDevNotUnit = self.sqrtMod:updateOutput(self.inConvoVar)
+   self.inStdDev = self.stdDiviseMod:updateOutput({self.inStdDevNotUnit,self.coef})
    local meanstd = self.inStdDev:mean()
    self.thresMod.threshold = self.fixedThres or math.max(meanstd,1e-3)
    self.thresMod.val = self.fixedThres or math.max(meanstd,1e-3)
-   self.stdDev = self.thresMod:forward(self.inStdDev)
+   self.stdDev = self.thresMod:updateOutput(self.inStdDev)
 
    --remove std dev
-   self.diviseMod:forward{self.inputZeroMean,self.stdDev}
+   self.diviseMod:updateOutput{self.inputZeroMean,self.stdDev}
    self.output = self.diviseMod.output
    return self.output
 end
 
-function SpatialNormalization:backward(input, gradOutput)
+function SpatialNormalization:updateGradInput(input, gradOutput)
    -- auto switch to 3-channel
    self.input = input
    if (input:nDimension() == 2) then
@@ -226,23 +226,23 @@ function SpatialNormalization:backward(input, gradOutput)
    self.gradInput:resizeAs(self.input):zero()
 
    -- backprop all
-   local gradDiv = self.diviseMod:backward({self.inputZeroMean,self.stdDev},gradOutput)
+   local gradDiv = self.diviseMod:updateGradInput({self.inputZeroMean,self.stdDev},gradOutput)
    local gradThres = gradDiv[2]
    local gradZeroMean = gradDiv[1]
-   local gradinStdDev = self.thresMod:backward(self.inStdDev,gradThres)
-   local gradstdDiv = self.stdDiviseMod:backward({self.inStdDevNotUnit,self.coef},gradinStdDev)
+   local gradinStdDev = self.thresMod:updateGradInput(self.inStdDev,gradThres)
+   local gradstdDiv = self.stdDiviseMod:updateGradInput({self.inStdDevNotUnit,self.coef},gradinStdDev)
    local gradinStdDevNotUnit = gradstdDiv[1]
-   local gradinConvoVar  = self.sqrtMod:backward(self.inConvoVar,gradinStdDevNotUnit)
-   local gradinputZeroMeanSq = self.convostd:backward(self.inputZeroMeanSq,gradinConvoVar)
-   gradZeroMean:add(self.squareMod:backward(self.inputZeroMean,gradinputZeroMeanSq))
-   local gradDiff = self.subtractMod:backward({self.input,self.inMean},gradZeroMean)
+   local gradinConvoVar  = self.sqrtMod:updateGradInput(self.inConvoVar,gradinStdDevNotUnit)
+   local gradinputZeroMeanSq = self.convostd:updateGradInput(self.inputZeroMeanSq,gradinConvoVar)
+   gradZeroMean:add(self.squareMod:updateGradInput(self.inputZeroMean,gradinputZeroMeanSq))
+   local gradDiff = self.subtractMod:updateGradInput({self.input,self.inMean},gradZeroMean)
    local gradinMean = gradDiff[2]
-   local gradinConvoNotUnit = self.meanDiviseMod:backward({self.inConvo,self.coef},gradinMean)
+   local gradinConvoNotUnit = self.meanDiviseMod:updateGradInput({self.inConvo,self.coef},gradinMean)
    local gradinConvo = gradinConvoNotUnit[1]
    -- first part of the gradInput
    self.gradInput:add(gradDiff[1])
    -- second part of the gradInput
-   self.gradInput:add(self.convo:backward(self.input,gradinConvo))
+   self.gradInput:add(self.convo:updateGradInput(self.input,gradinConvo))
    return self.gradInput
 end
 
@@ -258,59 +258,4 @@ function SpatialNormalization:type(type)
    self.thresMod:type(type)
    self.diviseMod:type(type)
    return self
-end
-
-function SpatialNormalization:write(file)
-   parent.write(self,file)
-   file:writeObject(self.kernel)
-   file:writeInt(self.nfeatures)
-   file:writeInt(self.padW)
-   file:writeInt(self.padH)
-   file:writeInt(self.kerWisPair)
-   file:writeInt(self.kerHisPair)
-   file:writeObject(self.convo)
-   file:writeObject(self.convostd)
-   file:writeObject(self.squareMod)
-   file:writeObject(self.sqrtMod)
-   file:writeObject(self.subtractMod)
-   file:writeObject(self.meanDiviseMod)
-   file:writeObject(self.stdDiviseMod)
-   file:writeObject(self.thresMod)
-   file:writeObject(self.diviseMod)
-   file:writeObject(self.coef)
-   if type(self.kernel) == 'table' then
-      file:writeInt(self.pad2W)
-      file:writeInt(self.pad2H)
-      file:writeInt(self.ker2WisPair)
-      file:writeInt(self.ker2HisPair)
-   end
-   file:writeInt(self.fixedThres or 0)
-end
-
-function SpatialNormalization:read(file)
-   parent.read(self,file)
-   self.kernel = file:readObject()
-   self.nfeatures = file:readInt()
-   self.padW = file:readInt()
-   self.padH = file:readInt()
-   self.kerWisPair = file:readInt()
-   self.kerHisPair = file:readInt()
-   self.convo = file:readObject()
-   self.convostd = file:readObject()
-   self.squareMod = file:readObject()
-   self.sqrtMod = file:readObject()
-   self.subtractMod = file:readObject()
-   self.meanDiviseMod = file:readObject()
-   self.stdDiviseMod = file:readObject()
-   self.thresMod = file:readObject()
-   self.diviseMod = file:readObject()
-   self.coef = file:readObject()
-   if type(self.kernel) == 'table' then
-      self.pad2W = file:readInt()
-      self.pad2H = file:readInt()
-      self.ker2WisPair = file:readInt()
-      self.ker2HisPair = file:readInt()
-   end
-   self.fixedThres = file:readInt()
-   if self.fixedThres == 0 then self.fixedThres = nil end
 end

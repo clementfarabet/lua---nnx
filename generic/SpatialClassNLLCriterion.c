@@ -2,7 +2,7 @@
 #define TH_GENERIC_FILE "generic/SpatialClassNLLCriterion.c"
 #else
 
-static int nn_(SpatialClassNLLCriterion_forward)(lua_State *L)
+static int nn_(SpatialClassNLLCriterion_updateOutput)(lua_State *L)
 {
   THTensor *input  = luaT_checkudata(L, 2, torch_(Tensor_id));
   THTensor *target  = luaT_checkudata(L, 3, torch_(Tensor_id));
@@ -20,7 +20,7 @@ static int nn_(SpatialClassNLLCriterion_forward)(lua_State *L)
   return 1;
 }
 
-static int nn_(SpatialClassNLLCriterion_backward)(lua_State *L)
+static int nn_(SpatialClassNLLCriterion_updateGradInput)(lua_State *L)
 {
   THTensor *input  = luaT_checkudata(L, 2, torch_(Tensor_id));
   THTensor *target  = luaT_checkudata(L, 3, torch_(Tensor_id));
@@ -39,8 +39,8 @@ static int nn_(SpatialClassNLLCriterion_backward)(lua_State *L)
 }
 
 static const struct luaL_Reg nn_(SpatialClassNLLCriterion__) [] = {
-  {"SpatialClassNLLCriterion_forward", nn_(SpatialClassNLLCriterion_forward)},
-  {"SpatialClassNLLCriterion_backward", nn_(SpatialClassNLLCriterion_backward)},
+  {"SpatialClassNLLCriterion_updateOutput", nn_(SpatialClassNLLCriterion_updateOutput)},
+  {"SpatialClassNLLCriterion_updateGradInput", nn_(SpatialClassNLLCriterion_updateGradInput)},
   {NULL, NULL}
 };
 

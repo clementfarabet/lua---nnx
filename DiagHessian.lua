@@ -1,6 +1,6 @@
 
 -- Module
-function nn.Module.backwardDiagHessian(self, input, diagHessianOutput)
+function nn.Module.updateDiagHessianInput(self, input, diagHessianOutput)
    self.diagHessianInput = self.diagHessianInput or diagHessianOutput
    return self.diagHessianInput
 end
@@ -12,20 +12,20 @@ function nn.Module.initDiagHessianParameters(self)
 end
 
 -- Criterion
-function nn.Criterion.backwardDiagHessian(self, input, diagHessianOutput)
+function nn.Criterion.updateDiagHessianInput(self, input, diagHessianOutput)
    self.diagHessianInput = self.diagHessianInput or self.output.new()
    return self.diagHessianInput
 end
 
  -- MSECriterion
-function nn.MSECriterion.backwardDiagHessian(self, input, diagHessianOutput)
+function nn.MSECriterion.updateDiagHessianInput(self, input, diagHessianOutput)
    self.diagHessianInput = self.diagHessianInput or input.new()
    self.diagHessianInput:resizeAs(input):fill(1)
    return self.diagHessianInput
 end
 
 -- Linear
-function nn.Linear.backwardDiagHessian(self, input, diagHessianOutput)
+function nn.Linear.updateDiagHessianInput(self, input, diagHessianOutput)
    self.diagHessianInput = self.diagHessianInput or self.output.new()
    self.weightSq = self.weightSq or self.output.new():resizeAs(self.weight)
    self.weightSq:copy(self.weight):cmul(self.weightSq)
@@ -60,7 +60,7 @@ function nn.Linear.accDiagHessianParameters(self, input, diagHessianOutput, scal
 end
 
 -- Tanh
-function nn.Tanh.backwardDiagHessian(self, input, diagHessianOutput)
+function nn.Tanh.updateDiagHessianInput(self, input, diagHessianOutput)
    self.diagHessianInput = self.diagHessianInput or self.output.new()
    self.derivativeSq = self.derivativeSq or self.output.new()
    self.derivativeSq:resizeAs(self.output):copy(self.output):cmul(self.output):mul(-1):add(1)
@@ -70,15 +70,15 @@ function nn.Tanh.backwardDiagHessian(self, input, diagHessianOutput)
 end
 
 -- Sequential
-function nn.Sequential.backwardDiagHessian(self, input, diagHessianOutput)
+function nn.Sequential.updateDiagHessianInput(self, input, diagHessianOutput)
    local currentDiagHessianOutput = diagHessianOutput
    local currentModule = self.modules[#self.modules]
    for i=#self.modules-1,1,-1 do
       local previousModule = self.modules[i]
-      currentDiagHessianOutput = currentModule:backwardDiagHessian(previousModule.output, currentDiagHessianOutput)
+      currentDiagHessianOutput = currentModule:updateDiagHessianInput(previousModule.output, currentDiagHessianOutput)
       currentModule = previousModule
    end
-   currentDiagHessianOutput = currentModule:backwardDiagHessian(input, currentDiagHessianOutput)
+   currentDiagHessianOutput = currentModule:updateDiagHessianInput(input, currentDiagHessianOutput)
    self.diagHessianInput = currentDiagHessianOutput
    return currentDiagHessianOutput
 end
@@ -100,30 +100,4 @@ function nn.Sequential.accDiagHessianParameters(self, input, diagHessianOutput, 
       currentModule = previousModule
    end
    currentModule:accDiagHessianParameters(input, currentDiagHessianOutput, scale)
-end
-
--- ConcatTable
-function nn.ConcatTable.backwardDiagHessian(self, input, diagHessianOutput)
-   for i,module in ipairs(self.modules) do
-      local currentDiagHessianInput = module:backward(input, diagHessianOutput[i])
-      if i == 1 then
-         self.diagHessianInput:resizeAs(currentDiagHessianInput):copy(currentDiagHessianInput)
-      else
-         self.diagHessianInput:add(currentDiagHessianInput)
-      end
-   end
-   return self.diagHessianInput
-end
-
-function nn.ConcatTable.initDiagHessianParameters(self)
-   for i=1,#self.modules do
-      self.modules[i]:initDiagHessianParameters()
-   end
-end
-
-function nn.ConcatTable.accDiagHessianParameters(self, input, diagHessianOutput, scale)
-   scale = scale or 1
-   for i,module in ipairs(self.modules) do
-      module:accDiagHessianParameters(input, diagHessianOutput[i], scale)
-   end
 end

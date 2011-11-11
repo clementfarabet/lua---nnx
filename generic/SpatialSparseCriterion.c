@@ -2,7 +2,7 @@
 #define TH_GENERIC_FILE "generic/SpatialSparseCriterion.c"
 #else
 
-static int nn_(SpatialSparseCriterion_forward)(lua_State *L)
+static int nn_(SpatialSparseCriterion_updateOutput)(lua_State *L)
 {
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));  
   int sizeAverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
@@ -23,7 +23,7 @@ static int nn_(SpatialSparseCriterion_forward)(lua_State *L)
   return 0;
 }
 
-static int nn_(SpatialSparseCriterion_backward)(lua_State *L)
+static int nn_(SpatialSparseCriterion_updateGradInput)(lua_State *L)
 {
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));
   THTensor *gradInput = luaT_checkudata(L, 3, torch_(Tensor_id));
@@ -45,8 +45,8 @@ static int nn_(SpatialSparseCriterion_backward)(lua_State *L)
 }
 
 static const struct luaL_Reg nn_(SpatialSparseCriterion__) [] = {
-  {"SpatialSparseCriterion_forward", nn_(SpatialSparseCriterion_forward)},
-  {"SpatialSparseCriterion_backward", nn_(SpatialSparseCriterion_backward)},
+  {"SpatialSparseCriterion_updateOutput", nn_(SpatialSparseCriterion_updateOutput)},
+  {"SpatialSparseCriterion_updateGradInput", nn_(SpatialSparseCriterion_updateGradInput)},
   {NULL, NULL}
 };
 

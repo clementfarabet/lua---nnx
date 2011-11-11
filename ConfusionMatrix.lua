@@ -92,21 +92,3 @@ function ConfusionMatrix:__tostring__()
    str = str .. ' + global correct: ' .. (self.totalValid*100) .. '%'
    return str
 end
-
-function ConfusionMatrix:write(file)
-   file:writeObject(self.mat)
-   file:writeObject(self.valids)
-   file:writeInt(self.nclasses)
-   file:writeInt(self.totalValid)
-   file:writeInt(self.averageValid)
-   file:writeObject(self.classes)
-end
-
-function ConfusionMatrix:read(file)
-   self.mat = file:readObject()
-   self.valids = file:readObject()
-   self.nclasses = file:readInt()
-   self.totalValid = file:readInt()
-   self.averageValid = file:readInt()
-   self.classes = file:readObject()
-end

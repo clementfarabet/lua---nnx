@@ -22,7 +22,7 @@ function Classifier:add(module)
    self.classifier:add(module)
 end
 
-function Classifier:forward(input)
+function Classifier:updateOutput(input)
    -- get dims:
    if input:nDimension() ~= 3 then
       error('<nn.SpatialClassifier> input should be 3D: KxHxW')
@@ -37,7 +37,7 @@ function Classifier:forward(input)
    self.inputT:resize(HW, K):copy(self.inputF:t())
 
    -- classify all locations:
-   self.outputT = self.classifier:forward(self.inputT)
+   self.outputT = self.classifier:updateOutput(self.inputT)
 
    if self.spatialOutput then
       -- transpose output:
@@ -51,7 +51,7 @@ function Classifier:forward(input)
    return self.output
 end
 
-function Classifier:backward(input, gradOutput)
+function Classifier:updateGradInput(input, gradOutput)
    -- get dims:
    local K = input:size(1)
    local H = input:size(2)
@@ -72,7 +72,7 @@ function Classifier:backward(input, gradOutput)
    end
 
    -- backward through classifier:
-   self.gradInputT = self.classifier:backward(self.inputT, self.gradOutputT)
+   self.gradInputT = self.classifier:updateGradInput(self.inputT, self.gradOutputT)
 
    -- transpose gradInput
    self.gradInputF:resize(K, HW):copy(self.gradInputT:t())
