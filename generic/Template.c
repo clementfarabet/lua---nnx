@@ -2,19 +2,19 @@
 #define TH_GENERIC_FILE "generic/Template.c"
 #else
 
-static int nn_(Template_forward)(lua_State *L)
+static int nn_(Template_updateOutput)(lua_State *L)
 {
 
 }
 
-static int nn_(Template_backward)(lua_State *L)
+static int nn_(Template_updateGradInput)(lua_State *L)
 {
 
 }
 
 static const struct luaL_Reg nn_(Template__) [] = {
-  {"Template_forward", nn_(Template_forward)},
-  {"Template_backward", nn_(Template_backward)},
+  {"Template_updateOutput", nn_(Template_updateOutput)},
+  {"Template_updateGradInput", nn_(Template_updateGradInput)},
   {NULL, NULL}
 };
 

@@ -42,28 +42,14 @@ function SpatialGraph:__init(...)
    end
 end
 
-function SpatialGraph:forward(input)
+function SpatialGraph:updateOutput(input)
    self.output:resize(self.connex / 2, input:size(2), input:size(3))
-   input.nn.SpatialGraph_forward(self, input)
+   input.nn.SpatialGraph_updateOutput(self, input)
    return self.output
 end
 
-function SpatialGraph:backward(input, gradOutput)
+function SpatialGraph:updateGradInput(input, gradOutput)
    self.gradInput:resizeAs(input)
-   input.nn.SpatialGraph_backward(self, input, gradOutput)
+   input.nn.SpatialGraph_updateGradInput(self, input, gradOutput)
    return self.gradInput
-end
-
-function SpatialGraph:write(file)
-   parent.write(self, file)
-   file:writeInt(self.connex)
-   file:writeInt(self.dist)
-   file:writeInt(self.normalize)
-end
-
-function SpatialGraph:read(file)
-   parent.read(self, file)
-   self.connex = file:readInt()
-   self.dist = file:readInt()
-   self.normalize = file:readInt()
 end

@@ -19,7 +19,7 @@ function SpatialPadding:__init(pad_l, pad_r, pad_t, pad_b)
    self.pad_b = pad_b or self.pad_l
 end
 
-function SpatialPadding:forward(input)
+function SpatialPadding:updateOutput(input)
    if input:dim() ~= 3 then error('input must be 3-dimensional') end
    local h = input:size(2) + self.pad_t + self.pad_b
    local w = input:size(3) + self.pad_l + self.pad_r
@@ -43,7 +43,7 @@ function SpatialPadding:forward(input)
    return self.output
 end
 
-function SpatialPadding:backward(input, gradOutput)
+function SpatialPadding:updateGradInput(input, gradOutput)
    if input:dim() ~= 3 then error('input must be 3-dimensional') end
    self.gradInput:resizeAs(input):zero()
    -- crop gradInput if necessary
@@ -62,20 +62,3 @@ function SpatialPadding:backward(input, gradOutput)
    cg_input:copy(cg_output)
    return self.gradInput
 end
-
-function SpatialPadding:write(file)
-   parent.write(self, file)
-   file:writeInt(self.pad_l)
-   file:writeInt(self.pad_r)
-   file:writeInt(self.pad_t)
-   file:writeInt(self.pad_b)
-end
-
-function SpatialPadding:read(file)
-   parent.read(self, file)
-   self.pad_l = file:readInt()  
-   self.pad_r = file:readInt()  
-   self.pad_t = file:readInt()  
-   self.pad_b = file:readInt()  
-end
-

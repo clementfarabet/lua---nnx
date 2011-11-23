@@ -7,7 +7,7 @@
 #endif
 #define square(x) ((x)*(x))
 
-static int nn_(SpatialGraph_forward)(lua_State *L)
+static int nn_(SpatialGraph_updateOutput)(lua_State *L)
 {
   // get all params
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));
@@ -109,7 +109,7 @@ static int nn_(SpatialGraph_forward)(lua_State *L)
   return 1;
 }
 
-static int nn_(SpatialGraph_backward)(lua_State *L)
+static int nn_(SpatialGraph_updateGradInput)(lua_State *L)
 {
   // get all params
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));
@@ -245,8 +245,8 @@ static int nn_(SpatialGraph_backward)(lua_State *L)
 }
 
 static const struct luaL_Reg nn_(SpatialGraph__) [] = {
-  {"SpatialGraph_forward", nn_(SpatialGraph_forward)},
-  {"SpatialGraph_backward", nn_(SpatialGraph_backward)},
+  {"SpatialGraph_updateOutput", nn_(SpatialGraph_updateOutput)},
+  {"SpatialGraph_updateGradInput", nn_(SpatialGraph_updateGradInput)},
   {NULL, NULL}
 };
 

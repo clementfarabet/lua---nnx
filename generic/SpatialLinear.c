@@ -2,7 +2,7 @@
 #define TH_GENERIC_FILE "generic/SpatialLinear.c"
 #else
 
-static int nn_(SpatialLinear_forward)(lua_State *L)
+static int nn_(SpatialLinear_updateOutput)(lua_State *L)
 {
   // get all params
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));
@@ -43,7 +43,7 @@ static int nn_(SpatialLinear_forward)(lua_State *L)
   return 1;
 }
 
-static int nn_(SpatialLinear_backward)(lua_State *L)
+static int nn_(SpatialLinear_updateGradInput)(lua_State *L)
 {
   // get all params
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));
@@ -118,8 +118,8 @@ static int nn_(SpatialLinear_backward)(lua_State *L)
 }
 
 static const struct luaL_Reg nn_(SpatialLinear__) [] = {
-  {"SpatialLinear_forward", nn_(SpatialLinear_forward)},
-  {"SpatialLinear_backward", nn_(SpatialLinear_backward)},
+  {"SpatialLinear_updateOutput", nn_(SpatialLinear_updateOutput)},
+  {"SpatialLinear_updateGradInput", nn_(SpatialLinear_updateGradInput)},
   {NULL, NULL}
 };
 

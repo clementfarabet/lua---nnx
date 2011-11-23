@@ -49,9 +49,7 @@ function OnlineTrainer:log()
       end
    end
    print('<trainer> saving network to '..filename)
-   local file = torch.DiskFile(filename,'w')
-   self.module:write(file)
-   file:close()
+   torch.save(filename, self.module)
 end
 
 function OnlineTrainer:train(dataset)
@@ -172,16 +170,4 @@ function OnlineTrainer:test(dataset)
    end
 
    return self.currentError
-end
-
-function OnlineTrainer:write(file)
-   parent.write(self,file)
-   file:writeObject(self.module)
-   file:writeObject(self.criterion)
-end
-
-function OnlineTrainer:read(file)
-   parent.read(self,file)
-   self.module = file:readObject()
-   self.criterion = file:readObject()
 end

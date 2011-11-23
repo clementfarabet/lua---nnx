@@ -2,7 +2,7 @@
 #define TH_GENERIC_FILE "generic/SparseCriterion.c"
 #else
 
-static int nn_(SparseCriterion_forward)(lua_State *L)
+static int nn_(SparseCriterion_updateOutput)(lua_State *L)
 {
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));  
   int sizeAverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
@@ -19,7 +19,7 @@ static int nn_(SparseCriterion_forward)(lua_State *L)
   return 1;
 }
 
-static int nn_(SparseCriterion_backward)(lua_State *L)
+static int nn_(SparseCriterion_updateGradInput)(lua_State *L)
 {
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));
   int sizeAverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
@@ -34,8 +34,8 @@ static int nn_(SparseCriterion_backward)(lua_State *L)
 }
 
 static const struct luaL_Reg nn_(SparseCriterion__) [] = {
-  {"SparseCriterion_forward", nn_(SparseCriterion_forward)},
-  {"SparseCriterion_backward", nn_(SparseCriterion_backward)},
+  {"SparseCriterion_updateOutput", nn_(SparseCriterion_updateOutput)},
+  {"SparseCriterion_updateGradInput", nn_(SparseCriterion_updateGradInput)},
   {NULL, NULL}
 };
 

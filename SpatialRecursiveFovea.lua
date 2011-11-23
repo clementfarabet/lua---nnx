@@ -275,7 +275,7 @@ function SpatialRecursiveFovea:focus(x,y)
    self.corners = corners
 end
 
-function SpatialRecursiveFovea:forward(input,target,x,y)
+function SpatialRecursiveFovea:updateOutput(input,target,x,y)
    -- input must be 3D
    if input:nDimension() ~= 3 or input:size(1) ~= self.nInputPlane then
       xerror('input must be 3d and have ' .. self.nInputPlane .. ' input planes','nn.SpatialRecursiveFovea')
@@ -299,11 +299,11 @@ function SpatialRecursiveFovea:forward(input,target,x,y)
    -- (1-2) create preprocessed pyramid
    for idx = 1,nscales do
       -- (1) generate pyramid
-      self.pyramid[idx] = self.downsamplers[idx]:forward(input)
+      self.pyramid[idx] = self.downsamplers[idx]:updateOutput(input)
 
       -- (2) preprocess
       if self.preProcessors[idx] then
-         self.preProcessed[idx] = self.preProcessors[idx]:forward(self.pyramid[idx])
+         self.preProcessed[idx] = self.preProcessors[idx]:updateOutput(self.pyramid[idx])
       else
          self.preProcessed[idx] = self.pyramid[idx]
       end
@@ -312,7 +312,7 @@ function SpatialRecursiveFovea:forward(input,target,x,y)
    -- (3-7) walk through recursion
    for idx = 1,nscales do
       -- (3) pad inputs
-      self.padded[idx] = self.padders[idx]:forward(self.preProcessed[idx])
+      self.padded[idx] = self.padders[idx]:updateOutput(self.preProcessed[idx])
 
       -- (4) is fovea focused ?
       self.narrowed[idx]
@@ -336,15 +336,15 @@ function SpatialRecursiveFovea:forward(input,target,x,y)
       end
 
       -- (6) apply processors to pyramid
-      self.processed[idx] = self.processors[idx]:forward(self.concatenated[idx])
+      self.processed[idx] = self.processors[idx]:updateOutput(self.concatenated[idx])
 
       -- (7) upsample, pad and narrow, for next stage
       if idx < nscales then
          -- (7.a)
-         self.upsampled[idx] = self.upsamplers[idx]:forward(self.processed[idx])
+         self.upsampled[idx] = self.upsamplers[idx]:updateOutput(self.processed[idx])
 
          -- (7.b)
-         self.upsampledPadded[idx] = self.upsampledPadders[idx]:forward(self.upsampled[idx])
+         self.upsampledPadded[idx] = self.upsampledPadders[idx]:updateOutput(self.upsampled[idx])
 
          -- (7.c)
          self.upsampledNarrowed[idx]
@@ -355,7 +355,7 @@ function SpatialRecursiveFovea:forward(input,target,x,y)
    -- (8) optional post processors
    for idx = 1,nscales do
       if self.postProcessors[idx] then
-         self.postProcessed[idx] = self.postProcessors[idx]:forward(self.processed[idx])
+         self.postProcessed[idx] = self.postProcessors[idx]:updateOutput(self.processed[idx])
       else
          self.postProcessed[idx] = self.processed[idx]
       end
@@ -410,7 +410,7 @@ function SpatialRecursiveFovea:forward(input,target,x,y)
             self.targets[idx] = self.targets_scaled[idx]
          end
          -- then evaluate the criterion's error
-         error = error + self.criterions[idx]:forward(self.predicted[idx], self.targets[idx])
+         error = error + self.criterions[idx]:updateOutput(self.predicted[idx], self.targets[idx])
       end
 
       -- normalize error
@@ -434,17 +434,17 @@ function SpatialRecursiveFovea:forward(input,target,x,y)
    return self.output, error
 end
 
-function SpatialRecursiveFovea:backward(input)
+function SpatialRecursiveFovea:updateGradInput(input)
    -- local params
    local nscales = #self.ratios
    local fov = self.fov
    local sub = self.sub
    local corners = self.corners
 
-   -- (9) backprop through criterions using generated targets (from prev forward call)
+   -- (9) backprop through criterions using generated targets (from prev updateOutput call)
    for idx = 1,nscales do
       -- bprop through criterion
-      self.gradPredicted[idx] = self.criterions[idx]:backward(self.predicted[idx], self.targets[idx])
+      self.gradPredicted[idx] = self.criterions[idx]:updateGradInput(self.predicted[idx], self.targets[idx])
 
       -- then remap partial grad vector
       self.gradPostProcessed[idx] = self.gradPostProcessed[idx] or torch.Tensor()
@@ -460,7 +460,7 @@ function SpatialRecursiveFovea:backward(input)
    -- (8) backprop through post processors
    for idx = 1,nscales do
       if self.postProcessors[idx] then
-         self.gradProcessed[idx] = self.postProcessors[idx]:backward(self.processed[idx], self.gradPostProcessed[idx])
+         self.gradProcessed[idx] = self.postProcessors[idx]:updateGradInput(self.processed[idx], self.gradPostProcessed[idx])
       else
          self.gradProcessed[idx] = self.gradPostProcessed[idx]
       end
@@ -471,7 +471,7 @@ function SpatialRecursiveFovea:backward(input)
 
    -- (6) backprop through processors
    for idx = 1,nscales do
-      self.gradConcatenated[idx] = self.processors[idx]:backward(self.concatenated[idx], self.gradProcessed[idx])
+      self.gradConcatenated[idx] = self.processors[idx]:updateGradInput(self.concatenated[idx], self.gradProcessed[idx])
    end
 
    -- (5) bprop through concatenators
@@ -488,13 +488,13 @@ function SpatialRecursiveFovea:backward(input)
 
    -- (3) bprop through padders
    for idx = 1,nscales do
-      self.gradPreProcessed[idx] = self.padders[idx]:backward(self.preProcessed[idx], self.gradPadded[idx])
+      self.gradPreProcessed[idx] = self.padders[idx]:updateGradInput(self.preProcessed[idx], self.gradPadded[idx])
    end
 
    -- (2) bprop through preProcessors
    for idx = 1,nscales do
       if self.preProcessors[idx] then
-         self.gradPyramid[idx] = self.preProcessors[idx]:backward(self.pyramid[idx], self.gradPreProcessed[idx])
+         self.gradPyramid[idx] = self.preProcessors[idx]:updateGradInput(self.pyramid[idx], self.gradPreProcessed[idx])
       else
          self.gradPyramid[idx] = self.gradPreProcessed[idx]
       end
@@ -503,7 +503,7 @@ function SpatialRecursiveFovea:backward(input)
    -- (1) bprop through pyramid
    self.gradInput:resizeAs(input):zero()
    for idx = 1,nscales do
-      local partialGrad = self.downsamplers[idx]:backward(input, self.gradPyramid[idx])
+      local partialGrad = self.downsamplers[idx]:updateGradInput(input, self.gradPyramid[idx])
       self.gradInput:add(partialGrad)
    end
    return self.gradInput
@@ -533,81 +533,4 @@ function SpatialRecursiveFovea:decayParameters(decay)
          self.processors[idx]:decayParameters(decay)
       end
    end
-end
-
-function SpatialRecursiveFovea:write(file)
-   parent.write(self, file)
-   -- params
-   file:writeInt(self.nInputPlane)
-   file:writeInt(self.nRecursivePlane)
-   file:writeInt(self.fov)
-   file:writeInt(self.sub)
-   file:writeObject(self.ratios)
-   -- modules
-   file:writeObject(self.downsamplers)
-   file:writeObject(self.padders)
-   file:writeObject(self.upsamplers)
-   file:writeObject(self.upsampledPadders)
-   file:writeObject(self.processors)
-   file:writeObject(self.preProcessors)
-   file:writeObject(self.postProcessors)
-   file:writeObject(self.criterions)
-   -- states
-   file:writeObject(self.pyramid)
-   file:writeObject(self.preProcessed)
-   file:writeObject(self.padded)
-   file:writeObject(self.narrowed)
-   file:writeObject(self.concatenated)
-   file:writeObject(self.processed)
-   file:writeObject(self.upsampled)
-   file:writeObject(self.upsampledPadded)
-   file:writeObject(self.upsampledNarrowed)
-   file:writeObject(self.postProcessed)
-   file:writeObject(self.predicted)
-end
-
-function SpatialRecursiveFovea:read(file)
-   parent.read(self, file)
-   -- params
-   self.nInputPlane = file:readInt()
-   self.nRecursivePlane = file:readInt()
-   self.fov = file:readInt()
-   self.sub = file:readInt()
-   self.ratios = file:readObject()
-   self.batchSize = self.fov
-   -- modules
-   self.downsamplers = file:readObject()
-   self.padders = file:readObject()
-   self.upsamplers = file:readObject()
-   self.upsampledPadders = file:readObject()
-   self.processors = file:readObject()
-   self.preProcessors = file:readObject()
-   self.postProcessors = file:readObject()
-   self.criterions = file:readObject()
-   -- states
-   self.pyramid = file:readObject()
-   self.preProcessed = file:readObject()
-   self.padded = file:readObject()
-   self.narrowed = file:readObject()
-   self.concatenated = file:readObject()
-   self.processed = file:readObject()
-   self.upsampled = file:readObject()
-   self.upsampledPadded = file:readObject()
-   self.upsampledNarrowed = file:readObject()
-   self.postProcessed = file:readObject()
-   self.predicted = file:readObject()
-   -- grad states
-   self.gradPostProcessed = {}
-   self.gradUpsampledNarrowed = {}
-   self.gradUpsampledPadded = {}
-   self.gradUpsampled = {}
-   self.gradProcessed = {}
-   self.gradConcatenated = {}
-   self.gradNarrowed = {}
-   self.gradPadded = {}
-   self.gradPreProcessed = {}
-   self.gradPyramid = {}
-   self.gradPredicted = {}
-   self.targets_scaled = {}
-   self.targets = {}
 end

@@ -12,10 +12,10 @@ function SpatialSparseCriterion:__init(...)
    )
 end
 
-function SpatialSparseCriterion:forward(input)
+function SpatialSparseCriterion:updateOutput(input)
    self.fullOutput = self.fullOutput or torch.Tensor()
    self.fullOutput:resize(input:size(2), input:size(3))
-   input.nn.SpatialSparseCriterion_forward(self, input)
+   input.nn.SpatialSparseCriterion_updateOutput(self, input)
    if self.sizeAverage then
       self.output = self.fullOutput:mean()
    else
@@ -24,7 +24,7 @@ function SpatialSparseCriterion:forward(input)
    return self.output
 end
 
-function SpatialSparseCriterion:backward(input,target)
+function SpatialSparseCriterion:updateGradInput(input,target)
    -- (1) retrieve adjusted target
    target = self.target
    -- (2) resize input gradient map
@@ -32,12 +32,12 @@ function SpatialSparseCriterion:backward(input,target)
    -- (3) compute input gradients, based on the nbGradients param
    if self.nbGradients == -1 then
       -- dense gradients
-      input.nn.SpatialSparseCriterion_backward(self, input, self.gradInput)
+      input.nn.SpatialSparseCriterion_updateGradInput(self, input, self.gradInput)
    elseif self.nbGradients == 1 then
       -- only 1 gradient is computed, sampled in the center
       self.fullGradInput = torch.Tensor() or self.fullGradInput
       self.fullGradInput:resizeAs(input):zero()
-      input.nn.SpatialSparseCriterion_backward(self, input, self.fullGradInput)
+      input.nn.SpatialSparseCriterion_updateGradInput(self, input, self.fullGradInput)
       local y = math.ceil(self.gradInput:size(2)/2)
       local x = math.ceil(self.gradInput:size(3)/2)
       self.gradInput:select(3,x):select(2,y):copy(self.fullGradInput:select(3,x):select(2,y))
@@ -45,7 +45,7 @@ function SpatialSparseCriterion:backward(input,target)
       -- only N gradients are computed, sampled in random locations
       self.fullGradInput = torch.Tensor() or self.fullGradInput
       self.fullGradInput:resizeAs(input):zero()
-      input.nn.SpatialSparseCriterion_backward(self, input, self.fullGradInput)
+      input.nn.SpatialSparseCriterion_updateGradInput(self, input, self.fullGradInput)
       for i = 1,self.nbGradients do
          local x = math.random(1,self.gradInput:size(1))
          local y = math.random(1,self.gradInput:size(2))
@@ -53,16 +53,4 @@ function SpatialSparseCriterion:backward(input,target)
       end
    end
    return self.gradInput
-end
-
-function SpatialSparseCriterion:write(file)
-   parent.write(self, file)
-   file:writeDouble(self.resampleTarget)
-   file:writeInt(self.nbGradients)
-end
-
-function SpatialSparseCriterion:read(file)
-   parent.read(self, file)
-   self.resampleTarget= file:readDouble()
-   self.nbGradients = file:readInt()
 end

@@ -58,7 +58,7 @@ function SpatialMSECriterion:adjustTarget(input, target)
    return target
 end
 
-function SpatialMSECriterion:forward(input,target)
+function SpatialMSECriterion:updateOutput(input,target)
    -- (1) adjust target: class -> distributions of classes
    --                    compensate for convolution losses
    --                    compensate for striding effects
@@ -70,7 +70,7 @@ function SpatialMSECriterion:forward(input,target)
    self.fullOutput = self.fullOutput or torch.Tensor()
    self.fullOutput:resizeAs(input)
    -- (3) compute the dense errors:
-   input.nn.SpatialMSECriterion_forward(self, input, target)
+   input.nn.SpatialMSECriterion_updateOutput(self, input, target)
    -- (4) prune the errors, either by averaging, or accumulation:
    if self.sizeAverage then
       self.output = self.fullOutput:mean()
@@ -80,7 +80,7 @@ function SpatialMSECriterion:forward(input,target)
    return self.output
 end
 
-function SpatialMSECriterion:backward(input,target)
+function SpatialMSECriterion:updateGradInput(input,target)
    -- (1) retrieve adjusted target
    target = self.target
    -- (2) resize input gradient map
@@ -88,12 +88,12 @@ function SpatialMSECriterion:backward(input,target)
    -- (3) compute input gradients, based on the nbGradients param
    if self.nbGradients == -1 then
       -- dense gradients
-      input.nn.SpatialMSECriterion_backward(self, input, target, self.gradInput)
+      input.nn.SpatialMSECriterion_updateGradInput(self, input, target, self.gradInput)
    elseif self.nbGradients == 1 then
       -- only 1 gradient is computed, sampled in the center
       self.fullGradInput = torch.Tensor() or self.fullGradInput
       self.fullGradInput:resizeAs(input):zero()
-      input.nn.SpatialMSECriterion_backward(self, input, target, self.fullGradInput)
+      input.nn.SpatialMSECriterion_updateGradInput(self, input, target, self.fullGradInput)
       local y = math.ceil(self.gradInput:size(2)/2)
       local x = math.ceil(self.gradInput:size(3)/2)
       self.gradInput:select(3,x):select(2,y):copy(self.fullGradInput:select(3,x):select(2,y))
@@ -101,7 +101,7 @@ function SpatialMSECriterion:backward(input,target)
       -- only N gradients are computed, sampled in random locations
       self.fullGradInput = torch.Tensor() or self.fullGradInput
       self.fullGradInput:resizeAs(input):zero()
-      input.nn.SpatialMSECriterion_backward(self, input, target, self.fullGradInput)
+      input.nn.SpatialMSECriterion_updateGradInput(self, input, target, self.fullGradInput)
       for i = 1,self.nbGradients do
          local x = math.random(1,self.gradInput:size(1))
          local y = math.random(1,self.gradInput:size(2))
@@ -109,24 +109,4 @@ function SpatialMSECriterion:backward(input,target)
       end
    end
    return self.gradInput
-end
-
-function SpatialMSECriterion:write(file)
-   parent.write(self, file)
-   file:writeDouble(self.resampleTarget)
-   file:writeInt(self.nbGradients)
-   if not self.ignoreClass then
-      file:writeInt(-1)
-   end
-end
-
-function SpatialMSECriterion:read(file)
-   parent.read(self, file)
-   self.resampleTarget= file:readDouble()
-   self.nbGradients = file:readInt()
-   self.ignoreClass = file:readInt()
-   if self.ignoreClass == -1 then
-      self.ignoreClass = false
-   end
-   self.fullOutput = torch.Tensor()
 end

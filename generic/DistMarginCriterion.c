@@ -2,7 +2,7 @@
 #define TH_GENERIC_FILE "generic/DistMarginCriterion.c"
 #else
 
-static int nn_(DistMarginCriterion_forward)(lua_State *L)
+static int nn_(DistMarginCriterion_updateOutput)(lua_State *L)
 {
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));
   int sizeAverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
@@ -82,7 +82,7 @@ static int nn_(DistMarginCriterion_forward)(lua_State *L)
   return 1;
 }
 
-static int nn_(DistMarginCriterion_backward)(lua_State *L)
+static int nn_(DistMarginCriterion_updateGradInput)(lua_State *L)
 {
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));
   int sizeAverage = luaT_getfieldcheckboolean(L, 1, "sizeAverage");
@@ -172,8 +172,8 @@ static int nn_(DistMarginCriterion_backward)(lua_State *L)
 }
 
 static const struct luaL_Reg nn_(DistMarginCriterion__) [] = {
-  {"DistMarginCriterion_forward", nn_(DistMarginCriterion_forward)},
-  {"DistMarginCriterion_backward", nn_(DistMarginCriterion_backward)},
+  {"DistMarginCriterion_updateOutput", nn_(DistMarginCriterion_updateOutput)},
+  {"DistMarginCriterion_updateGradInput", nn_(DistMarginCriterion_updateGradInput)},
   {NULL, NULL}
 };
 

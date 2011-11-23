@@ -54,28 +54,6 @@ torch.include('nnx', 'Probe.lua')
 -- OpenMP module:
 torch.include('nnx', 'OmpModule.lua')
 
--- those packages are available in a beta branch of Torch7,
--- and will soon disapear from here
-if not nn.Abs then
-   -- pointwise modules:
-   torch.include('nnx', 'Abs.lua')
-   torch.include('nnx', 'Power.lua')
-   torch.include('nnx', 'Square.lua')
-   torch.include('nnx', 'Sqrt.lua')
-   torch.include('nnx', 'HardShrink.lua')
-   torch.include('nnx', 'Threshold.lua')
-
-   -- table-based modules:
-   torch.include('nnx', 'CMulTable.lua')
-   torch.include('nnx', 'CAddTable.lua')
-   torch.include('nnx', 'CDivTable.lua')
-   torch.include('nnx', 'CSubTable.lua')
-
-   -- reshapers:
-   torch.include('nnx', 'Narrow.lua')
-   torch.include('nnx', 'Replicate.lua')
-end
-
 -- pointwise modules:
 torch.include('nnx', 'Minus.lua')
 
@@ -127,24 +105,6 @@ torch.include('nnx', 'Type.lua')
 torch.include('nnx', 'DataSet.lua')
 torch.include('nnx', 'DataList.lua')
 torch.include('nnx', 'DataSetLabelMe.lua')
-
--- torch helpers (should not be here):
-function torch.save(filename, object, mode)
-   mode = mode or 'binary'
-   local file = torch.DiskFile(filename, 'w')
-   file[mode](file)
-   file:writeObject(object)
-   file:close()
-end
-
-function torch.load(filename, mode)
-   mode = mode or 'binary'
-   local file = torch.DiskFile(filename, 'r')
-   file[mode](file)
-   local object = file:readObject()
-   file:close()
-   return object
-end
 
 -- nn helpers:
 function nnx.empty(module)

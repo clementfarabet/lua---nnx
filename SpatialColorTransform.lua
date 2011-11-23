@@ -89,9 +89,9 @@ function SpatialColorTransform:__init(type)
    end      
 end
 
-function SpatialColorTransform:forward(input)
+function SpatialColorTransform:updateOutput(input)
    if self.islinear then
-      self.output = self.linear:forward(input)
+      self.output = self.linear:updateOutput(input)
    else
       if self.transform == 'rgb2hsl' then
          self.output = image.rgb2hsl(input, self.output)
@@ -112,12 +112,12 @@ function SpatialColorTransform:forward(input)
    return self.output
 end
 
-function SpatialColorTransform:backward(input, gradOutput)
+function SpatialColorTransform:updateGradInput(input, gradOutput)
    if self.islinear then
-      self.gradInput = self.linear:backward(input, gradOutput)
+      self.gradInput = self.linear:updateGradInput(input, gradOutput)
    else
-      xlua.error('backward not implemented for non-linear transforms',
-                 'SpatialColorTransform.backward')
+      xlua.error('updateGradInput not implemented for non-linear transforms',
+                 'SpatialColorTransform.updateGradInput')
    end
    return self.gradInput
 end
@@ -127,23 +127,4 @@ function SpatialColorTransform:type(type)
    if self.islinear then
       self.linear:type(type)
    end
-end
-
-function SpatialColorTransform:write(file)
-   parent.write(self, file)
-   file:writeObject(self.transform)
-   file:writeBool(self.islinear)
-   if self.islinear then
-      file:writeObject(self.linear)
-   end
-end
-
-function SpatialColorTransform:read(file)
-   parent.read(self, file)
-   self.transform = file:readObject()
-   self.islinear = file:readBool()
-   if self.islinear then
-      self.linear = file:readObject()
-   end
-   self.type = nil
 end

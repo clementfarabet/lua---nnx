@@ -18,24 +18,24 @@ function Type:add(module)
    return self
 end
 
-function Type:forward(input)
-   input = self.convert_input:forward(input)
-   local output = parent.forward(self, input)
-   self.output = self.convert_output:forward(output)
+function Type:updateOutput(input)
+   input = self.convert_input:updateOutput(input)
+   local output = parent.updateOutput(self, input)
+   self.output = self.convert_output:updateOutput(output)
    return self.output
 end
 
-function Type:backward(input, gradOutput)
-   input = self.convert_input:forward(input)
-   gradOutput = self.convert_gradOutput:forward(gradOutput)
-   local gradInput = parent.backward(self, input, gradOutput)
-   self.gradInput = self.convert_gradInput:forward(gradInput)
+function Type:updateGradInput(input, gradOutput)
+   input = self.convert_input:updateOutput(input)
+   gradOutput = self.convert_gradOutput:updateOutput(gradOutput)
+   local gradInput = parent.updateGradInput(self, input, gradOutput)
+   self.gradInput = self.convert_gradInput:updateOutput(gradInput)
    return self.gradInput
 end
 
 function Type:accGradParameters(input, gradOutput)
-   input = self.convert_input:forward(input)
-   gradOutput = self.convert_gradOutput:forward(gradOutput)
+   input = self.convert_input:updateOutput(input)
+   gradOutput = self.convert_gradOutput:updateOutput(gradOutput)
    parent.accGradParameters(self, input, gradOutput)
 end
 

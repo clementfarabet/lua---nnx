@@ -2,7 +2,7 @@
 #define TH_GENERIC_FILE "generic/Abs.c"
 #else
 
-static int nn_(Abs_forward)(lua_State *L)
+static int nn_(Abs_updateOutput)(lua_State *L)
 {
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));
   THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_(Tensor_id));
@@ -14,7 +14,7 @@ static int nn_(Abs_forward)(lua_State *L)
   return 1;
 }
 
-static int nn_(Abs_backward)(lua_State *L)
+static int nn_(Abs_updateGradInput)(lua_State *L)
 {
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));
   THTensor *gradOutput = luaT_checkudata(L, 3, torch_(Tensor_id));
@@ -28,8 +28,8 @@ static int nn_(Abs_backward)(lua_State *L)
 }
 
 static const struct luaL_Reg nn_(Abs__) [] = {
-  {"Abs_forward", nn_(Abs_forward)},
-  {"Abs_backward", nn_(Abs_backward)},
+  {"Abs_updateOutput", nn_(Abs_updateOutput)},
+  {"Abs_updateGradInput", nn_(Abs_updateGradInput)},
   {NULL, NULL}
 };
 

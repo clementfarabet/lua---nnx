@@ -124,7 +124,7 @@ function SpatialFovea:configure(width,height)
    end
 end
 
-function SpatialFovea:forward(input)
+function SpatialFovea:updateOutput(input)
    -- input must be 3D
    if input:nDimension() ~= 3 then
       xerror('input must be 3d','nn.SpatialFovea')
@@ -163,13 +163,13 @@ function SpatialFovea:forward(input)
    if not retrieved then
       -- (1) generate pyramid
       for idx = 1,nscales do
-         self.pyramid[idx] = self.downsamplers[idx]:forward(input)
+         self.pyramid[idx] = self.downsamplers[idx]:updateOutput(input)
       end
 
       -- (2) preprocess
       for idx = 1,nscales do
          if self.preProcessors[idx] then
-            self.preProcessed[idx] = self.preProcessors[idx]:forward(self.pyramid[idx])
+            self.preProcessed[idx] = self.preProcessors[idx]:updateOutput(self.pyramid[idx])
          else
             self.preProcessed[idx] = self.pyramid[idx]
          end
@@ -177,7 +177,7 @@ function SpatialFovea:forward(input)
 
       -- (3) pad inputs
       for idx = 1,nscales do
-         self.padded[idx] = self.padders[idx]:forward(self.preProcessed[idx])
+         self.padded[idx] = self.padders[idx]:updateOutput(self.preProcessed[idx])
       end
 
       -- store preprocessed input for future use
@@ -205,7 +205,7 @@ function SpatialFovea:forward(input)
 
    -- (5) apply processors to pyramid
    for idx = 1,nscales do
-      self.processed[idx] = self.processors[idx]:forward(self.narrowed[idx])
+      self.processed[idx] = self.processors[idx]:updateOutput(self.narrowed[idx])
    end
 
    -- (6) upscale, only if fovea is not focused
@@ -215,7 +215,7 @@ function SpatialFovea:forward(input)
       end
    else
       for idx = 1,nscales do
-         self.upsampled[idx] = self.upsamplers[idx]:forward(self.processed[idx])
+         self.upsampled[idx] = self.upsamplers[idx]:updateOutput(self.processed[idx])
       end
    end
 
@@ -234,7 +234,7 @@ function SpatialFovea:forward(input)
    return self.output
 end
 
-function SpatialFovea:backward(input, gradOutput)
+function SpatialFovea:updateGradInput(input, gradOutput)
    -- nb of scales
    local nscales = #self.ratios
 
@@ -252,13 +252,13 @@ function SpatialFovea:backward(input, gradOutput)
       end
    else
       for idx = 1,nscales do
-         self.gradProcessed[idx] = self.upsamplers[idx]:backward(self.processed[idx], self.gradUpsampled[idx])
+         self.gradProcessed[idx] = self.upsamplers[idx]:updateGradInput(self.processed[idx], self.gradUpsampled[idx])
       end
    end
 
    -- (5) bprop through processors
    for idx = 1,nscales do
-      self.gradNarrowed[idx] = self.processors[idx]:backward(self.narrowed[idx], self.gradProcessed[idx])
+      self.gradNarrowed[idx] = self.processors[idx]:updateGradInput(self.narrowed[idx], self.gradProcessed[idx])
    end
 
    -- (beta) if caching preprocessed input, no need to compute
@@ -285,13 +285,13 @@ function SpatialFovea:backward(input, gradOutput)
 
    -- (3) bprop through padders
    for idx = 1,nscales do
-      self.gradPreProcessed[idx] = self.padders[idx]:backward(self.preProcessed[idx], self.gradPadded[idx])
+      self.gradPreProcessed[idx] = self.padders[idx]:updateGradInput(self.preProcessed[idx], self.gradPadded[idx])
    end
 
    -- (2) bprop through preProcessors
    for idx = 1,nscales do
       if self.preProcessors[idx] then
-         self.gradPyramid[idx] = self.preProcessors[idx]:backward(self.pyramid[idx], self.gradPreProcessed[idx])
+         self.gradPyramid[idx] = self.preProcessors[idx]:updateGradInput(self.pyramid[idx], self.gradPreProcessed[idx])
       else
          self.gradPyramid[idx] = self.gradPreProcessed[idx]
       end
@@ -300,7 +300,7 @@ function SpatialFovea:backward(input, gradOutput)
    -- (1) bprop through pyramid
    self.gradInput:resizeAs(self.gradPyramid[1]):zero()
    for idx = 1,nscales do
-      self.gradInput:add( self.downsamplers[idx]:backward(input, self.gradPyramid[idx]) )
+      self.gradInput:add( self.downsamplers[idx]:updateGradInput(input, self.gradPyramid[idx]) )
    end
    return self.gradInput
 end
@@ -344,53 +344,4 @@ function SpatialFovea:type(type)
       self.preProcessors[idx]:type(type)
    end
    return self
-end
-
-function SpatialFovea:write(file)
-   parent.write(self, file)
-   file:writeInt(self.nInputPlane)
-   file:writeInt(self.padding)
-   file:writeInt(self.fov)
-   file:writeInt(self.sub)
-   file:writeBool(self.bilinear)
-   file:writeObject(self.ratios)
-   file:writeObject(self.downsamplers)
-   file:writeObject(self.padders)
-   file:writeObject(self.upsamplers)
-   file:writeObject(self.processors)
-   file:writeObject(self.preProcessors)
-   file:writeObject(self.pyramid)
-   file:writeObject(self.preProcessed)
-   file:writeObject(self.padded)
-   file:writeObject(self.narrowed)
-   file:writeObject(self.processed)
-   file:writeObject(self.upsampled)
-end
-
-function SpatialFovea:read(file)
-   parent.read(self, file)
-   self.nInputPlane = file:readInt()
-   self.padding = file:readInt()
-   self.fov = file:readInt()
-   self.sub = file:readInt()
-   self.bilinear = file:readBool()
-   self.ratios = file:readObject()
-   self.downsamplers = file:readObject()
-   self.padders = file:readObject()
-   self.upsamplers = file:readObject()
-   self.processors = file:readObject()
-   self.preProcessors  = file:readObject()
-   self.pyramid = file:readObject()
-   self.preProcessed = file:readObject()
-   self.padded = file:readObject()
-   self.narrowed = file:readObject()
-   self.processed = file:readObject()
-   self.upsampled = file:readObject()
-   self.gradUpsampled = {}
-   self.gradProcessed = {}
-   self.gradNarrowed = {}
-   self.gradPadded = {}
-   self.gradPreProcessed = {}
-   self.gradPyramid = {}
-   self.modules = self.processors
 end

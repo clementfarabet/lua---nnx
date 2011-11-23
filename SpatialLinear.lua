@@ -52,36 +52,14 @@ function SpatialLinear:decayParameters(decay)
    self.bias:add(-decay, self.bias)
 end
 
-function SpatialLinear:forward(input)
+function SpatialLinear:updateOutput(input)
    self.output:resize(self.fanout, input:size(2), input:size(3))
-   input.nn.SpatialLinear_forward(self, input)
+   input.nn.SpatialLinear_updateOutput(self, input)
    return self.output
 end
 
-function SpatialLinear:backward(input, gradOutput)
+function SpatialLinear:updateGradInput(input, gradOutput)
    self.gradInput:resize(self.fanin, input:size(2), input:size(3))
-   input.nn.SpatialLinear_backward(self, input, gradOutput)
+   input.nn.SpatialLinear_updateGradInput(self, input, gradOutput)
    return self.gradInput
-end
-
-function SpatialLinear:write(file)
-   parent.write(self, file)
-   file:writeInt(self.fanin)
-   file:writeInt(self.fanout)
-   file:writeDouble(self.weightDecay)
-   file:writeObject(self.weight)
-   file:writeObject(self.bias)
-   file:writeObject(self.gradWeight)
-   file:writeObject(self.gradBias)
-end
-
-function SpatialLinear:read(file)
-   parent.read(self, file)
-   self.fanin = file:readInt()
-   self.fanout = file:readInt()
-   self.weightDecay = file:readDouble()
-   self.weight = file:readObject()
-   self.bias = file:readObject()
-   self.gradWeight = file:readObject()
-   self.gradBias = file:readObject()
 end

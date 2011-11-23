@@ -2,7 +2,7 @@
 #define TH_GENERIC_FILE "generic/SpatialMSECriterion.c"
 #else
 
-static int nn_(SpatialMSECriterion_forward)(lua_State *L)
+static int nn_(SpatialMSECriterion_updateOutput)(lua_State *L)
 {
   THTensor *input  = luaT_checkudata(L, 2, torch_(Tensor_id));
   THTensor *target  = luaT_checkudata(L, 3, torch_(Tensor_id));
@@ -14,7 +14,7 @@ static int nn_(SpatialMSECriterion_forward)(lua_State *L)
     return 1;
 }
 
-static int nn_(SpatialMSECriterion_backward)(lua_State *L)
+static int nn_(SpatialMSECriterion_updateGradInput)(lua_State *L)
 {
   THTensor *input  = luaT_checkudata(L, 2, torch_(Tensor_id));
   THTensor *target  = luaT_checkudata(L, 3, torch_(Tensor_id));
@@ -40,8 +40,8 @@ static int nn_(SpatialMSECriterion_retarget)(lua_State *L)
 }
 
 static const struct luaL_Reg nn_(SpatialMSECriterion__) [] = {
-  {"SpatialMSECriterion_forward", nn_(SpatialMSECriterion_forward)},
-  {"SpatialMSECriterion_backward", nn_(SpatialMSECriterion_backward)},
+  {"SpatialMSECriterion_updateOutput", nn_(SpatialMSECriterion_updateOutput)},
+  {"SpatialMSECriterion_updateGradInput", nn_(SpatialMSECriterion_updateGradInput)},
   {"SpatialMSECriterion_retarget", nn_(SpatialMSECriterion_retarget)},
   {NULL, NULL}
 };

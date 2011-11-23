@@ -11,12 +11,12 @@ function SpatialMaxSampling:__init(...)
    self.indices = torch.Tensor()
 end
 
-function SpatialMaxSampling:forward(input)
-   input.nn.SpatialMaxSampling_forward(self, input)
+function SpatialMaxSampling:updateOutput(input)
+   input.nn.SpatialMaxSampling_updateOutput(self, input)
    return self.output
 end
 
-function SpatialMaxSampling:backward(input, gradOutput)
-   input.nn.SpatialMaxSampling_backward(self, input, gradOutput)
+function SpatialMaxSampling:updateGradInput(input, gradOutput)
+   input.nn.SpatialMaxSampling_updateGradInput(self, input, gradOutput)
    return self.gradInput
 end

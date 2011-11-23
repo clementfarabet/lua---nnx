@@ -14,14 +14,14 @@ end
 function KLDivCriterion:normalize(input, target)
    -- normalize target
    if not self.targetIsProbability then
-      self.probTarget = self.targetSoftMax:forward(target)
+      self.probTarget = self.targetSoftMax:updateOutput(target)
    else
       self.probTarget = target
    end
 
    -- normalize input
    if not self.inputIsProbability then
-      self.probInput = self.inputSoftMax:forward(input)
+      self.probInput = self.inputSoftMax:updateOutput(input)
    else
       self.probInput = input
    end
@@ -30,13 +30,13 @@ end
 function KLDivCriterion:denormalize(input)
    -- denormalize gradients
    if not self.inputIsProbability then
-      self.gradInput = self.inputSoftMax:backward(input, self.gradProbInput)
+      self.gradInput = self.inputSoftMax:updateGradInput(input, self.gradProbInput)
    else
       self.gradInput = self.gradProbInput
    end
 end
 
-function KLDivCriterion:forward(input, target)
+function KLDivCriterion:updateOutput(input, target)
    self:normalize(input, target)
    self.output = 0
    for i = 1,input:size(1) do
@@ -49,7 +49,7 @@ function KLDivCriterion:forward(input, target)
    return self.output
 end
 
-function KLDivCriterion:backward(input, target)
+function KLDivCriterion:updateGradInput(input, target)
    self:normalize(input, target)
    self.gradProbInput:resizeAs(input)
    for i = 1,input:size(1) do

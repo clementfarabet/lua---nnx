@@ -30,26 +30,14 @@ function SpatialReSampling:__init(...)
    )
 end
 
-function SpatialReSampling:forward(input)
+function SpatialReSampling:updateOutput(input)
    self.oheight = self.oheight or self.rheight*input:size(2)
    self.owidth = self.owidth or self.rwidth*input:size(3)
-   input.nn.SpatialReSampling_forward(self, input)
+   input.nn.SpatialReSampling_updateOutput(self, input)
    return self.output
 end
 
-function SpatialReSampling:backward(input, gradOutput)
-   input.nn.SpatialReSampling_backward(self, input, gradOutput)
+function SpatialReSampling:updateGradInput(input, gradOutput)
+   input.nn.SpatialReSampling_updateGradInput(self, input, gradOutput)
    return self.gradInput
-end
-
-function SpatialReSampling:write(file)
-   parent.write(self, file)
-   file:writeInt(self.owidth)
-   file:writeInt(self.oheight)
-end
-
-function SpatialReSampling:read(file)
-   parent.read(self, file)
-   self.owidth = file:readInt()
-   self.oheight = file:readInt()
 end

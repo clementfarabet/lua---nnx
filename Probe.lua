@@ -11,11 +11,11 @@ function Probe:__init(...)
                      {arg='backw', type='boolean', help='activates probe for backward()', default=false})
 end
 
-function Probe:forward(input)
+function Probe:updateOutput(input)
    self.output = input
    if self.size or self.content then
       print('')
-      print('<probe::' .. self.name .. '> forward()')
+      print('<probe::' .. self.name .. '> updateOutput()')
       if self.content then print(input)
       elseif self.size then print(#input)
       end
@@ -26,12 +26,12 @@ function Probe:forward(input)
    return self.output
 end
 
-function Probe:backward(input, gradOutput)
+function Probe:updateGradInput(input, gradOutput)
    self.gradInput = gradOutput
    if self.backw then
       if self.size or self.content then
          print('')
-         print('<probe::' .. self.name .. '> backward()')
+         print('<probe::' .. self.name .. '> updateGradInput()')
          if self.content then print(gradOutput)
          elseif self.size then print(#gradOutput)
          end
@@ -41,22 +41,4 @@ function Probe:backward(input, gradOutput)
       end
    end
    return self.gradInput
-end
-
-function Probe:write(file)
-   parent.write(self, file)
-   file:writeObject(self.name)
-   file:writeBool(self.content)
-   file:writeBool(self.display)
-   file:writeBool(self.size)
-   file:writeBool(self.backw)
-end
-
-function Probe:read(file)
-   parent.read(self, file)
-   self.name = file:readObject()
-   self.content = file:readBool()
-   self.display = file:readBool()
-   self.size = file:readBool()
-   self.backw = file:readBool()
 end

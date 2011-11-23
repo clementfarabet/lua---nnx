@@ -25,26 +25,14 @@ function SpatialUpSampling:__init(...)
                      {arg='dH', type='number', help='stride height', req=true})
 end
 
-function SpatialUpSampling:forward(input)
+function SpatialUpSampling:updateOutput(input)
    self.output:resize(input:size(1), input:size(2) * self.dH, input:size(3) * self.dW)
-   input.nn.SpatialUpSampling_forward(self, input)
+   input.nn.SpatialUpSampling_updateOutput(self, input)
    return self.output
 end
 
-function SpatialUpSampling:backward(input, gradOutput)
+function SpatialUpSampling:updateGradInput(input, gradOutput)
    self.gradInput:resizeAs(input)
-   input.nn.SpatialUpSampling_backward(self, input, gradOutput)
+   input.nn.SpatialUpSampling_updateGradInput(self, input, gradOutput)
    return self.gradInput
-end
-
-function SpatialUpSampling:write(file)
-   parent.write(self, file)
-   file:writeInt(self.dW)
-   file:writeInt(self.dH)
-end
-
-function SpatialUpSampling:read(file)
-   parent.read(self, file)
-   self.dW = file:readInt()
-   self.dH = file:readInt()
 end

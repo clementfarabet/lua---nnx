@@ -267,7 +267,6 @@ function GenSGD:setup_mapreduce ()
                   -- estimate df/dW
                   local df_do = criterion:backward(output, targets[i])
                   module:backward(inputs[i], df_do)
-                  module:accGradParameters(inputs[i], df_do)
                   optimizer(module,opt_param)
                   if opt_param.adaptive_batchSize and
                      not opt_param.exact_batchSize then
@@ -290,7 +289,6 @@ function GenSGD:setup_mapreduce ()
                      if opt_param.adaptive_batchSize and opt_param.exact_batchsize then
                         local df_do = criterion:backward(output, targets[i])
                         module:backward(inputs[i], df_do)
-                        module:accGradParameters(inputs[i], df_do)
                         partialGrads[i]:copy(gradParameters)
                      end
                   end

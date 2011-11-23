@@ -2,7 +2,7 @@
 #define TH_GENERIC_FILE "generic/SpatialUpSampling.c"
 #else
 
-static int nn_(SpatialUpSampling_forward)(lua_State *L)
+static int nn_(SpatialUpSampling_updateOutput)(lua_State *L)
 {
   // get all params
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));
@@ -44,7 +44,7 @@ static int nn_(SpatialUpSampling_forward)(lua_State *L)
   return 1;
 }
 
-static int nn_(SpatialUpSampling_backward)(lua_State *L)
+static int nn_(SpatialUpSampling_updateGradInput)(lua_State *L)
 {
   // get all params
   THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));
@@ -92,8 +92,8 @@ static int nn_(SpatialUpSampling_backward)(lua_State *L)
 }
 
 static const struct luaL_Reg nn_(SpatialUpSampling__) [] = {
-  {"SpatialUpSampling_forward", nn_(SpatialUpSampling_forward)},
-  {"SpatialUpSampling_backward", nn_(SpatialUpSampling_backward)},
+  {"SpatialUpSampling_updateOutput", nn_(SpatialUpSampling_updateOutput)},
+  {"SpatialUpSampling_updateGradInput", nn_(SpatialUpSampling_updateGradInput)},
   {NULL, NULL}
 };
 
