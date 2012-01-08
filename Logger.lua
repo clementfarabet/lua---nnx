@@ -65,7 +65,7 @@ function Logger:style(symbols)
 end
 
 function Logger:plot(...)
-   if not xlua.require('plot') then
+   if not xlua.require('gnuplot') then
       if not self.warned then 
          print('<Logger> warning: cannot plot with this version of Torch') 
          self.warned = true
@@ -99,15 +99,15 @@ function Logger:plot(...)
       end
    end
    if plotit then
-      self.figure = plot.figure(self.figure)
-      plot.plot(plots)
-      plot.title('<Logger::' .. self.name .. '>')
+      self.figure = gnuplot.figure(self.figure)
+      gnuplot.plot(plots)
+      gnuplot.title('<Logger::' .. self.name .. '>')
       if self.epsfile then
          os.execute('rm -f ' .. self.epsfile)
-         plot.epsfigure(self.epsfile)
-         plot.plot(plots)
-         plot.title('<Logger::' .. self.name .. '>')
-         plot.plotflush()
+         gnuplot.epsfigure(self.epsfile)
+         gnuplot.plot(plots)
+         gnuplot.title('<Logger::' .. self.name .. '>')
+         gnuplot.plotflush()
       end
    end
 end
