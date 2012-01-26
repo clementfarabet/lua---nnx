@@ -373,16 +373,16 @@ function SpatialFovea:__tostring__()
    local line = '\n'
    local next = '  |`-> '
    local ext = '  |    '
-   local extlast = '       '
    local last = '   ... -> '
    local str = 'nn.SpatialFovea'
    str = str .. ' {' .. line .. tab .. 'input'
    for i=1,#self.processors do
-      if i == self.processors then
-         str = str .. line .. tab .. next .. '(' .. i .. '): ' .. tostring(self.processors[i]):gsub(line, line .. tab .. extlast)
-      else
-         str = str .. line .. tab .. next .. '(' .. i .. '): ' .. tostring(self.processors[i]):gsub(line, line .. tab .. ext)
+      local pipeline = nn.Sequential()
+      if self.preProcessors[i] then
+         pipeline:add(self.preProcessors[i])
       end
+      pipeline:add(self.processors[i])
+      str = str .. line .. tab .. next .. '(' .. i .. '): ' .. tostring(pipeline):gsub(line, line .. tab .. ext)
    end
    str = str .. line .. tab .. last .. 'output'
    str = str .. line .. '}'
