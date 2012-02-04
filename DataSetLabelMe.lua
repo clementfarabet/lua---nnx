@@ -221,7 +221,7 @@ function DataSetLabelMe:__index__(key)
          ctr_target = ((key-1) % (self.nbClasses)) + 1
          while self.tags[ctr_target].size == 0 or ctr_target == self.classToSkip do
             -- no sample in that class, replacing with random patch
-            ctr_target = math.floor(random.uniform(1,self.nbClasses))
+            ctr_target = math.floor(torch.uniform(1,self.nbClasses))
          end
          local nbSamplesPerClass = math.ceil(self.nbSamples / self.nbClasses)
          if self.infiniteSet then
