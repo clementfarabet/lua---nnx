@@ -32,7 +32,7 @@ static int nn_(SpatialLinear_updateOutput)(lua_State *L)
     for (ik=0; ik<ichannels; ik++) {
       // get input plane
       THTensor_(select)(inputPlane, input, 0, ik);
-      THTensor_(cadd)(outputPlane, THTensor_(get2d)(weight,ok,ik), inputPlane);
+      THTensor_(cadd)(outputPlane, outputPlane, THTensor_(get2d)(weight,ok,ik), inputPlane);
     }
   }
 
@@ -94,16 +94,16 @@ static int nn_(SpatialLinear_updateGradInput)(lua_State *L)
       THTensor_(select)(input_xy, input_y, 1, x);
 
       // compute dE/dW and dE/dB
-      THTensor_(addr)(gradWeight, 1, gradOutput_xy, input_xy);
-      THTensor_(cadd)(gradBias, 1, gradOutput_xy);
+      THTensor_(addr)(gradWeight, 1, gradWeight, 1, gradOutput_xy, input_xy);
+      THTensor_(cadd)(gradBias, gradBias, 1, gradOutput_xy);
 
       // weight decay
       if (weightDecay != 0) {
-        THTensor_(cadd)(gradWeight, 1, weight);
+        THTensor_(cadd)(gradWeight, gradWeight, 1, weight);
       }
 
       // compute dE/dI
-      THTensor_(addmv)(gradInput_xy, 1, 1, weight_t, gradOutput_xy);
+      THTensor_(addmv)(gradInput_xy, 1, gradInput_xy, 1, weight_t, gradOutput_xy);
     }
   }
 

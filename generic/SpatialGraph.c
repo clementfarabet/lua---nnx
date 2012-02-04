@@ -63,7 +63,7 @@ static int nn_(SpatialGraph_updateOutput)(lua_State *L)
     // add epsilon to input (to get rid of 0s)
     THTensor *inputb = THTensor_(newWithSize3d)(input->size[0], input->size[1], input->size[2]);
     THTensor_(copy)(inputb, input);
-    THTensor_(add)(inputb, 1e-12);
+    THTensor_(add)(inputb, inputb, 1e-12);
 
     // Sum[ (Xi * Xi+1) ]
     int x,y,k;
