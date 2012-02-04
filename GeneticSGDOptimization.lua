@@ -40,7 +40,6 @@ function GenSGD:__init(...)
                       help='recompute gradParameters on batch using final parameters',
                       default=false}
                   )
-   require 'lab'
    if self.parallelize < 2 then
       xerror('GenSGD needs to work on several processors: set parallelize',
              'nn.GenSGDOptimization')
@@ -68,7 +67,7 @@ end
 function lognormal(n,mean,sigma)
    -- pdf = lambda s,m,x: exp(-(log(x)-m)**2 / (2.*s**2)) / ( x*sqrt(2.*pi*s**2) )
    local u = -1 * (math.log(mean) - (sigma * sigma * 0.5))
-   local x = lab.rand(n)
+   local x = torch.rand(n)
    local y = torch.Tensor():resizeAs(x):copy(x)
    y:log():add(u)
    y:cmul(y):mul(-1):div(2*sigma*sigma):exp()
@@ -81,7 +80,7 @@ end
 function loguniform (n,rate,octaves)
    local a = math.log(rate/octaves)
    local b = math.log(rate*octaves)-a
-   return lab.rand(n):mul(b):add(a):exp()
+   return torch.rand(n):mul(b):add(a):exp()
 end
 
 -- we are changing the way we map and reduce.  It would be nice to

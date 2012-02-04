@@ -66,7 +66,7 @@ function SNES:optimize(inputs, targets)
    -- draw samples
    for i = 1,self.lambda do
       -- random distribution
-      local s_k = lab.randn(self.sigma:size())
+      local s_k = torch.randn(self.sigma:size())
       local z_k = self.sigma:clone():cmul(s_k):add(self.mu)
 
       -- evaluate fitness of f(X)
@@ -87,13 +87,13 @@ function SNES:optimize(inputs, targets)
    self.gradsigma:zero()
    for i = 1,self.lambda do
       self.gradmu:add(self.u[i], fitness[i].s)
-      self.gradsigma:add(self.u[i], lab.pow(fitness[i].s,2):add(-1))
+      self.gradsigma:add(self.u[i], torch.pow(fitness[i].s,2):add(-1))
    end
 
    -- update parameters
    for i = 1,self.lambda do
       self.mu:add(self.eta_mu, self.sigma:clone():cmul(self.gradmu))
-      self.sigma:cmul(lab.exp(self.gradsigma:clone():mul(self.eta_sigma/2)))
+      self.sigma:cmul(torch.exp(self.gradsigma:clone():mul(self.eta_sigma/2)))
    end
 
    -- optimization done, copy back best parameter vector

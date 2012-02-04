@@ -19,7 +19,7 @@ local help_example =
 -- create a spatial normalizer, with a 9x9 gaussian kernel
 -- works on 8 input feature maps, therefore the mean+dev will
 -- be estimated on 8x9x9 cubes
-stimulus = lab.randn(8,500,500)
+stimulus = torch.randn(8,500,500)
 gaussian = image.gaussian(9)
 mod = nn.SpatialNormalization(gaussian, 8)
 result = mod:forward(stimulus)]]

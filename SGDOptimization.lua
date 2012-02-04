@@ -164,7 +164,7 @@ function SGD:optimalLearningRate(inputs, targets)
       if (old_type == 'torch.CudaTensor') then
 	 torch.setdefaulttensortype('torch.FloatTensor')
       end
-      local r = lab.randn(self.gradParameters:size())
+      local r = torch.randn(self.gradParameters:size())
       r:div(r:norm()) -- norm 2
       if (old_type == 'torch.CudaTensor') then
 	 torch.setdefaulttensortype(old_type)
