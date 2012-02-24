@@ -59,7 +59,7 @@ function ConfusionMatrix:updateValids()
          self.averageValid = self.averageValid + self.valids[t]
          nvalids = nvalids + 1
       end
-      if not sys.isNaN(self.unionvalids[t]) then
+      if not sys.isNaN(self.valids[t]) and not sys.isNaN(self.unionvalids[t]) then
          self.averageUnionValid = self.averageUnionValid + self.unionvalids[t]
          nunionvalids = nunionvalids + 1
       end
