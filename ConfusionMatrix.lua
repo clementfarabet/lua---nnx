@@ -8,6 +8,7 @@ function ConfusionMatrix:__init(nclasses, classes)
    end
    self.mat = torch.FloatTensor(nclasses,nclasses):zero()
    self.valids = torch.FloatTensor(nclasses):zero()
+   self.unionvalids = torch.FloatTensor(nclasses):zero()
    self.nclasses = nclasses
    self.totalValid = 0
    self.averageValid = 0
@@ -36,6 +37,7 @@ end
 function ConfusionMatrix:zero()
    self.mat:zero()
    self.valids:zero()
+   self.unionvalids:zero()
    self.totalValid = 0
    self.averageValid = 0
 end
@@ -44,18 +46,26 @@ function ConfusionMatrix:updateValids()
    local total = 0
    for t = 1,self.nclasses do
       self.valids[t] = self.mat[t][t] / self.mat:select(1,t):sum()
+      self.unionvalids[t] = self.mat[t][t] / (self.mat:select(1,t):sum()+self.mat:select(2,t):sum()-self.mat[t][t])
       total = total + self.mat[t][t]
    end
    self.totalValid = total / self.mat:sum()
    self.averageValid = 0
+   self.averageUnionValid = 0
    local nvalids = 0
+   local nunionvalids = 0
    for t = 1,self.nclasses do
       if not sys.isNaN(self.valids[t]) then
          self.averageValid = self.averageValid + self.valids[t]
          nvalids = nvalids + 1
       end
+      if not sys.isNaN(self.unionvalids[t]) then
+         self.averageUnionValid = self.averageUnionValid + self.unionvalids[t]
+         nunionvalids = nunionvalids + 1
+      end
    end
    self.averageValid = self.averageValid / nvalids
+   self.averageUnionValid = self.averageUnionValid / nunionvalids
 end
 
 function ConfusionMatrix:__tostring__()
@@ -89,6 +99,7 @@ function ConfusionMatrix:__tostring__()
       end
    end
    str = str .. ' + average row correct: ' .. (self.averageValid*100) .. '% \n'
+   str = str .. ' + average rowUcol correct (VOC measure): ' .. (self.averageUnionValid*100) .. '% \n'
    str = str .. ' + global correct: ' .. (self.totalValid*100) .. '%'
    return str
 end
