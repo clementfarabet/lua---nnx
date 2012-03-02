@@ -22,14 +22,14 @@ function ConfusionMatrix:add(prediction, target)
    elseif type(target) == 'number' then
       -- prediction is a vector, then target assumed to be an index
       local prediction_1d = torch.FloatTensor(self.nclasses):copy(prediction)
-      local _,prediction = lab.max(prediction_1d)
+      local _,prediction = prediction_1d:max(1)
       self.mat[target][prediction[1]] = self.mat[target][prediction[1]] + 1
    else
       -- both prediction and target are vectors
       local prediction_1d = torch.FloatTensor(self.nclasses):copy(prediction)
       local target_1d = torch.FloatTensor(self.nclasses):copy(target)
-      local _,prediction = lab.max(prediction_1d)
-      local _,target = lab.max(target_1d)
+      local _,prediction = prediction_1d:max(1)
+      local _,target = target_1d:max(1)
       self.mat[target[1]][prediction[1]] = self.mat[target[1]][prediction[1]] + 1
    end
 end
@@ -59,7 +59,7 @@ function ConfusionMatrix:updateValids()
          self.averageValid = self.averageValid + self.valids[t]
          nvalids = nvalids + 1
       end
-      if not sys.isNaN(self.unionvalids[t]) then
+      if not sys.isNaN(self.valids[t]) and not sys.isNaN(self.unionvalids[t]) then
          self.averageUnionValid = self.averageUnionValid + self.unionvalids[t]
          nunionvalids = nunionvalids + 1
       end

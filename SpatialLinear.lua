@@ -26,9 +26,9 @@ function SpatialLinear:reset(stdv)
    end
    for i=1,self.weight:size(1) do
       self.weight:select(1, i):apply(function()
-                                        return random.uniform(-stdv, stdv)
+                                        return torch.uniform(-stdv, stdv)
                                      end)
-      self.bias[i] = random.uniform(-stdv, stdv)
+      self.bias[i] = torch.uniform(-stdv, stdv)
    end
 end
 

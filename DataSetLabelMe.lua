@@ -49,6 +49,7 @@ function DataSetLabelMe:__init(...)
    --location of the patch in the img
    self.currentX = 0
    self.currentY = 0
+   self.realIndex = -1
 
    -- parse dir structure
    print('<DataSetLabelMe> loading LabelMe dataset from '..self.path)
@@ -60,6 +61,7 @@ function DataSetLabelMe:__init(...)
 	 else
 	    -- loop though nested folders
 	    for file in paths.files(paths.concat(self.path,path_images,folder)) do
+
 	       if file ~= '.' and file ~= '..' then
 		  self:getsizes(folder,file)
 	       end
@@ -67,6 +69,8 @@ function DataSetLabelMe:__init(...)
 	 end
       end
    end
+
+
    -- nb samples: user defined or max
    self.nbRawSamples = self.nbRawSamples or #self.rawdata
    -- extract some info (max sizes)
@@ -102,6 +106,7 @@ function DataSetLabelMe:__init(...)
       print(self)
    end
 
+
    -- sampling mode
    if self.samplingMode == 'equal' or self.samplingMode == 'random' then
       self:parseAllMasks()
@@ -126,6 +131,8 @@ function DataSetLabelMe:__init(...)
    else
       error('ERROR <DataSetLabelMe> unknown sampling mode')
    end
+
+
 
    -- preload ?
    if self.preloadSamples then
@@ -158,6 +165,7 @@ function DataSetLabelMe:getsizes(folder,file)
    else
       xerror('images must either be JPG, PNG or MAT files', 'DataSetLabelMe')
    end
+
    table.insert(self.rawdata, {imgfile=imgf,
 			       maskfile=maskf,
 			       annotfile=annotf,
@@ -221,7 +229,7 @@ function DataSetLabelMe:__index__(key)
          ctr_target = ((key-1) % (self.nbClasses)) + 1
          while self.tags[ctr_target].size == 0 or ctr_target == self.classToSkip do
             -- no sample in that class, replacing with random patch
-            ctr_target = math.floor(random.uniform(1,self.nbClasses))
+            ctr_target = math.floor(torch.uniform(1,self.nbClasses))
          end
          local nbSamplesPerClass = math.ceil(self.nbSamples / self.nbClasses)
          if self.infiniteSet then
@@ -273,6 +281,7 @@ function DataSetLabelMe:__index__(key)
 end
 
 function DataSetLabelMe:loadSample(index)
+
    if self.preloadedDone then
       if index ~= self.currentIndex then
          -- load new sample
@@ -282,6 +291,11 @@ function DataSetLabelMe:loadSample(index)
          self.currentIndex = index
       end
    elseif index ~= self.currentIndex then
+
+--print(imgfile)
+   self.realIndex = self.rawdata[index].imgfile:gsub('.jpg$','')
+--print(self.realIndex)
+--print(self.currentIndex)
       -- clean up
       self.currentSample = nil
       self.currentMask = nil
@@ -320,6 +334,13 @@ function DataSetLabelMe:loadSample(index)
          local h = self.rawSampleSize.h
          self.currentSample = torch.Tensor(img_loaded:size(1),h,w)
          image.scale(img_loaded, self.currentSample, 'bilinear')
+
+	 --Camille Save rescaled images
+	 --if (img_loaded:size(2) ~= 240) or (img_loaded:size(3)~= 320) then
+	 -- imagename = sys.concat(self.realIndex,'.png')
+         --imagename =  imagename :gsub('/.png$','.png')
+	 --image.savePNG(imagename , self.currentSample)
+	 --end
          self.currentMask = torch.Tensor(h,w)
          image.scale(mask_loaded, self.currentMask, 'simple')
 
