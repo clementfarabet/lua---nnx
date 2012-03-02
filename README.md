@@ -5,44 +5,45 @@ used modules. 'nnx' contains more experimental, unproven modules, and
 optimizations. Eventually, modules that become stable enough will make 
 their way into 'nn' (some already have).
 
-## Install dependencies 
+## Install 
 
-1/ third-party libraries:
+1/ Torch7 is required:
 
-On Linux (Ubuntu > 9.04):
+Dependencies, on Linux (Ubuntu > 9.04):
 
 ``` sh
-$ apt-get install gcc g++ git libreadline5-dev cmake wget
+$ apt-get install gcc g++ git libreadline5-dev cmake wget libqt4-core libqt4-gui libqt4-dev
 ```
 
-On Mac OS (Leopard, or more), using [Homebrew](http://mxcl.github.com/homebrew/):
+Dependencies, on Mac OS (Leopard, or more), using [Homebrew](http://mxcl.github.com/homebrew/):
 
 ``` sh
-$ brew install git readline cmake wget
+$ brew install git readline cmake wget qt
 ```
 
-2/ Lua 5.1 + Luarocks + xLua:
+Then on both platforms:
 
 ``` sh
-$ git clone https://github.com/clementfarabet/lua4torch
-$ cd lua4torch
-$ make install PREFIX=/usr/local
+$ git clone https://github.com/andresy/torch
+$ cd torch
+$ mkdir build; cd build
+$ cmake ..
+$ make
+$ [sudo] make install
 ```
 
-3/ nnx:
-
-Note: this automatically installs Torch7+nn, and other Lua dependencies.
+2/ Once Torch7 is available, install this package:
 
 ``` sh
-$ luarocks install nnx
+$ [sudo] torch-pkg install nnx
 ```
 
 ## Use the library
 
-First run xlua, and load nnx:
+First run torch, and load nnx:
 
 ``` sh
-$ xlua
+$ torch
 ``` 
 
 ``` lua
