@@ -37,6 +37,7 @@ static int nn_(SpatialMatching_updateOutput)(lua_State *L)
 
   // compute output
   int x1,y1,x2,y2,k;
+#pragma omp parallel for private(x1,y1,x2,y2,k)
   for (y1=0; y1<oheight; y1++) {
     for (x1=0; x1<owidth; x1++) {
       for (y2=max(0,(y1-ceil(maxh/2))); y2<min(oheight,y1+floor(maxh/2)+1); y2++) {
