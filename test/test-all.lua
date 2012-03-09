@@ -299,6 +299,25 @@ function nnxtest.SpatialGraph_3() template_SpatialGraph(256, 2, 2, 'euclid', fal
 function nnxtest.SpatialGraph_4() template_SpatialGraph(2, 16, 16, 'cosine', false) end
 function nnxtest.SpatialGraph_5() template_SpatialGraph(64, 3, 3, 'cosine', false) end
 
+local function template_SpatialMatching(channels, iwidth, iheight, maxw, maxh, full_output)
+   local module = nn.Sequential()
+   module:add(nn.SplitTable(1))
+   module:add(nn.SpatialMatching(maxh, maxw, 1))
+   local input = torch.rand(2, channels, iheight, iwidth)
+   local err = nn.Jacobian.testJacobian(module, input)
+   mytester:assertlt(err, precision, 'error on state ')
+   
+   local ferr, berr = nn.Jacobian.testIO(module, input)
+   mytester:asserteq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
+   mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
+end
+function nnxtest.SpatialMatching_1() template_SpatialMatching(4, 16, 16, 5, 5, true) end
+function nnxtest.SpatialMatching_2() template_SpatialMatching(4, 16, 16, 5, 5, false) end
+function nnxtest.SpatialMatching_3() template_SpatialMatching(3, 16, 16, 6, 6, true) end
+function nnxtest.SpatialMatching_4() template_SpatialMatching(3, 20, 20, 4, 4, false) end
+function nnxtest.SpatialMatching_5() template_SpatialMatching(3, 12, 16, 5, 7, true) end
+function nnxtest.SpatialMatching_6() template_SpatialMatching(4, 16, 32, 9, 5, false) end
+
 function nnx.test()
    xlua.require('image',true)
    mytester = torch.Tester()
