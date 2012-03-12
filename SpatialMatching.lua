@@ -11,8 +11,12 @@ function SpatialMatching:__init(maxw, maxh, full_output)
    parent.__init(self)
    self.maxw = maxw or 11
    self.maxh = maxh or 11
-   full_output = full_output or true
-   if full_output then self.full_output = 1 else self.full_output = 0 end
+   if full_output == nil then
+      full_output = false
+   end
+   self.full_output = full_output
+   self.gradInput1 = torch.Tensor()
+   self.gradInput2 = torch.Tensor()
 end
 
 function SpatialMatching:updateOutput(input)
@@ -24,9 +28,8 @@ function SpatialMatching:updateOutput(input)
 end
 
 function SpatialMatching:updateGradInput(input, gradOutput)
-   -- TODO this is probably the wrong way
-   self.gradInput1 = torch.Tensor(input[1]:size()):zero()
-   self.gradInput2 = torch.Tensor(input[2]:size()):zero()
+   self.gradInput1:resize(input[1]:size()):zero()
+   self.gradInput2:resize(input[2]:size()):zero()
    input[1].nn.SpatialMatching_updateGradInput(self, input[1], input[2], gradOutput)
    self.gradInput = {self.gradInput1, self.gradInput2}
    return self.gradInput

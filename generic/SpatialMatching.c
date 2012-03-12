@@ -13,7 +13,7 @@ static int nn_(SpatialMatching_updateOutput)(lua_State *L)
   THTensor *input2 = luaT_checkudata(L, 3, torch_(Tensor_id));
   int maxw = luaT_getfieldcheckint(L, 1, "maxw");
   int maxh = luaT_getfieldcheckint(L, 1, "maxh");
-  int full_output = luaT_getfieldcheckint(L, 1, "full_output");
+  int full_output = luaT_getfieldcheckboolean(L, 1, "full_output");
   THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_(Tensor_id));
 
   // dims
@@ -94,7 +94,7 @@ static int nn_(SpatialMatching_updateGradInput)(lua_State *L)
   THTensor *gradInput2 = luaT_getfieldcheckudata(L, 1, "gradInput2", torch_(Tensor_id));
   THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_(Tensor_id));
   THTensor *gradOutput = luaT_checkudata(L, 4, torch_(Tensor_id));
-  int full_output = luaT_getfieldcheckint(L, 1, "full_output");
+  int full_output = luaT_getfieldcheckboolean(L, 1, "full_output");
   int maxw = luaT_getfieldcheckint(L, 1, "maxw");
   int maxh = luaT_getfieldcheckint(L, 1, "maxh");
 
@@ -132,7 +132,7 @@ static int nn_(SpatialMatching_updateGradInput)(lua_State *L)
     int halfw1 = ceil((real)maxw/2)-1;
     int halfw2 = floor((real)maxw/2)+1;
 
-#pragma omp parallel for private(x1,y1,x2,y2,k)
+    //#pragma omp parallel for private(x1,y1,x2,y2,k)
     for (y1 = 0; y1 < iheight; y1++) {
       for (x1 = 0; x1 < iwidth; x1++) {
 	for (y2 = max(0,y1-halfh1); y2 < min(iheight,y1+halfh2); y2++) {
