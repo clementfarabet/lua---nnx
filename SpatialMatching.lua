@@ -11,7 +11,9 @@ function SpatialMatching:__init(maxw, maxh, full_output)
    parent.__init(self)
    self.maxw = maxw or 11
    self.maxh = maxh or 11
-   full_output = full_output or true
+   if full_output == nil then
+      full_output = false
+   end
    if full_output then self.full_output = 1 else self.full_output = 0 end
 end
 
