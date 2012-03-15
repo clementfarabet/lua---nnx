@@ -36,6 +36,7 @@ static int nn_(SpatialMatching_updateOutput)(lua_State *L)
 
   // compute output
   int x1,y1,x2,y2,k;
+  real dist;
   if (full_output) {
     // get halves of window size
     int halfh1 = ceil((real)maxh/2)-1;
@@ -43,29 +44,30 @@ static int nn_(SpatialMatching_updateOutput)(lua_State *L)
     int halfw1 = ceil((real)maxw/2)-1;
     int halfw2 = floor((real)maxw/2)+1;
 
-    //#pragma omp parallel for private(x1,y1,x2,y2,k)
+    long dy, dx;
+#pragma omp parallel for private(x1,x2,y2,k,dist,dy,dx)
     for (y1 = 0; y1 < iheight; y1++) {
       for (x1 = 0; x1 < iwidth; x1++) {
 	for (y2 = max(0,y1-halfh1); y2 < min(iheight,y1+halfh2); y2++) {
 	  for (x2 = max(0,(x1-halfw1)); x2 < min(iwidth,x1+halfw2); x2++) {
-	    real dist = 0;
+	    dist = 0;
 	    for (k=0; k<ichannels; k++) {
 	      dist += square(input1_p[k*i1s[0] + y1*i1s[1] + x1*i1s[2]] - input2_p[k*i2s[0] + y2*i2s[1] + x2*i2s[2]]);
 	    }
-	    long dy = y2-y1 + halfh1;
-	    long dx = x2-x1 + halfw1;
+	    dy = y2-y1 + halfh1;
+	    dx = x2-x1 + halfw1;
 	    output_p[dy*os[0] + dx*os[1] + y1*os[2] + x1*os[3]] = dist;
 	  }
 	}
       }
     }
   } else {
-    //#pragma omp parallel for private(x1,y1,x2,y2,k)
+#pragma omp parallel for private(x1,x2,y2,k,dist)
     for (y1 = 0; y1 < iheight; y1++) {
       for (x1 = 0; x1 < iwidth; x1++) {
 	for (y2 = y1; y2 < y1+maxh; y2++) {
 	  for (x2 = x1; x2 < x1+maxw; x2++) {
-	    real dist = 0;
+	    dist = 0;
 	    for (k = 0; k < ichannels; k++) {
 	      dist += square(input1_p[k*i1s[0] + y1*i1s[1] + x1*i1s[2]] - input2_p[k*i2s[0] + y2*i2s[1] + x2*i2s[2]]);
 	    }
@@ -114,6 +116,7 @@ static int nn_(SpatialMatching_updateGradInput)(lua_State *L)
   
   // compute gradients
   int x1, y1, x2, y2, k;
+  real partial_d;
   if (full_output) {
     // get halves of window size
     int halfh1 = ceil((real)maxh/2)-1;
@@ -121,15 +124,16 @@ static int nn_(SpatialMatching_updateGradInput)(lua_State *L)
     int halfw1 = ceil((real)maxw/2)-1;
     int halfw2 = floor((real)maxw/2)+1;
 
-    //#pragma omp parallel for private(x1,y1,x2,y2,k)
+    long dy, dx;
+    //#pragma omp parallel for private(x1,x2,y2,k,dy,dx,partial_d) NO! gradInput has +=
     for (y1 = 0; y1 < iheight; y1++) {
       for (x1 = 0; x1 < iwidth; x1++) {
 	for (y2 = max(0,y1-halfh1); y2 < min(iheight,y1+halfh2); y2++) {
 	  for (x2 = max(0,(x1-halfw1)); x2 < min(iwidth,x1+halfw2); x2++) {
-	    long dy = y2-y1 + halfh1;
-	    long dx = x2-x1 + halfw1;
+	    dy = y2-y1 + halfh1;
+	    dx = x2-x1 + halfw1;
 	    for (k=0; k<ichannels; k++) {
-	      real partial_d = 2*(input1_p[k*i1s[0] + y1*i1s[1] + x1*i1s[2]] - input2_p[k*i2s[0] + y2*i2s[1] + x2*i2s[2]]);
+	      partial_d = 2*(input1_p[k*i1s[0] + y1*i1s[1] + x1*i1s[2]] - input2_p[k*i2s[0] + y2*i2s[1] + x2*i2s[2]]);
 	      partial_d *= gradOutput_p[dy*gos[0] + dx*gos[1] + y1*gos[2] + x1*gos[3]];
 	      gradInput1_p[k*gi1s[0] + y1*gi1s[1] + x1*gi1s[2]] += partial_d;
 	      gradInput2_p[k*gi2s[0] + y2*gi2s[1] + x2*gi2s[2]] -= partial_d;
@@ -139,13 +143,13 @@ static int nn_(SpatialMatching_updateGradInput)(lua_State *L)
       }
     }
   } else {
-    //#pragma omp parallel for private(x1,y1,x2,y2,k)
+    //#pragma omp parallel for private(x1,x2,y2,k,partial_d)
     for (y1 = 0; y1 < iheight; y1++) {
       for (x1 = 0; x1 < iwidth; x1++) {
 	for (y2 = y1; y2 < y1+maxh; y2++) {
 	  for (x2 = x1; x2 < x1+maxw; x2++) {
 	    for (k = 0; k < ichannels; k++) {
-	      real partial_d = 2*(input1_p[k*i1s[0] + y1*i1s[1] + x1*i1s[2]] - input2_p[k*i2s[0] + y2*i2s[1] + x2*i2s[2]]);
+	      partial_d = 2*(input1_p[k*i1s[0] + y1*i1s[1] + x1*i1s[2]] - input2_p[k*i2s[0] + y2*i2s[1] + x2*i2s[2]]);
 	      partial_d *= gradOutput_p[(y2-y1)*gos[0]+(x2-x1)*gos[1]+y1*gos[2]+x1*gos[3]];
 	      gradInput1_p[k*gi1s[0] + y1*gi1s[1] + x1*gi1s[2]] += partial_d;
 	      gradInput2_p[k*gi2s[0] + y2*gi2s[1] + x2*gi2s[2]] -= partial_d;
