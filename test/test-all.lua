@@ -92,6 +92,23 @@ function nnxtest.SpatialUpSampling()
    mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
 
+function nnxtest.SpatialDownSampling()
+   local fanin = math.random(1,4)
+   local sizex = math.random(1,4)
+   local sizey = math.random(1,4)
+   local mx = math.random(2,6)
+   local my = math.random(2,6)
+   local module = nn.SpatialDownSampling(mx,my)
+   local input = torch.rand(fanin,sizey,sizex)
+
+   local err = nn.Jacobian.testJacobian(module, input)
+   mytester:assertlt(err, precision, 'error on state ')
+
+   local ferr, berr = nn.Jacobian.testIO(module, input)
+   mytester:asserteq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
+   mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
+end
+
 function nnxtest.SpatialReSampling_1()
    local fanin = math.random(1,4)
    local sizex = math.random(4,8)
