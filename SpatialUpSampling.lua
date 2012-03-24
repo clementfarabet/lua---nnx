@@ -3,15 +3,15 @@ local SpatialUpSampling, parent = torch.class('nn.SpatialUpSampling', 'nn.Module
 local help_desc = [[
 Applies a 2D up-sampling over an input image composed of
 several input planes. The input tensor in forward(input) is
-expected to be a 3D tensor (width x height x nInputPlane).
+expected to be a 3D tensor (nInputPlane x width x height).
 The number of output planes will be the same as nInputPlane.
 
 The upsampling is done using the simple nearest neighbor
 technique. For interpolated (bicubic) upsampling, use 
 nn.SpatialReSampling().
 
-If the input image is a 3D tensor width x height x nInputPlane,
-the output image size will be owidth x oheight x nInputPlane where
+If the input image is a 3D tensor nInputPlane x width x height,
+the output image size will be nInputPlane x owidth x oheight where
 
 owidth  = width*dW
 oheight  = height*dH ]]
