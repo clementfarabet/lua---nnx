@@ -21,6 +21,11 @@ static int nn_(SpatialMatching_updateOutput)(lua_State *L)
   int iheight = input1->size[1];
   int ichannels = input1->size[0];
 
+  // make contiguous
+  //input1 = THTensor_(newContiguous)(input1);
+  //input2 = THTensor_(newContiguous)(input2);
+  //output = THTensor_(newContiguous)(output);
+
   // zero output
   THTensor_(fill)(output, 1e30);
 
@@ -45,13 +50,14 @@ static int nn_(SpatialMatching_updateOutput)(lua_State *L)
     int halfw2 = floor((real)maxw/2)+1;
 
     long dy, dx;
-#pragma omp parallel for private(x1,x2,y2,k,dist,dy,dx)
+    
+    #pragma omp parallel for private(x1,x2,y2,k,dist,dy,dx)
     for (y1 = 0; y1 < iheight; y1++) {
       for (x1 = 0; x1 < iwidth; x1++) {
 	for (y2 = max(0,y1-halfh1); y2 < min(iheight,y1+halfh2); y2++) {
 	  for (x2 = max(0,(x1-halfw1)); x2 < min(iwidth,x1+halfw2); x2++) {
 	    dist = 0;
-	    for (k=0; k<ichannels; k++) {
+	    for (k = 0; k < ichannels; k++) {
 	      dist += square(input1_p[k*i1s[0] + y1*i1s[1] + x1*i1s[2]] - input2_p[k*i2s[0] + y2*i2s[1] + x2*i2s[2]]);
 	    }
 	    dy = y2-y1 + halfh1;
@@ -61,6 +67,27 @@ static int nn_(SpatialMatching_updateOutput)(lua_State *L)
 	}
       }
     }
+    /*
+    real *input1_p_it_start = input1_p, *input1_p_it_end = input1_p+ichannels*i1s[0];
+    real *input1_p_it, *input2_p_it;
+    for (y1 = 0; y1 < iheight; y1++) {
+      for (x1 = 0; x1 < iwidth; x1++, ++input1_p_it_start, ++input1_p_it_end) {
+	for (y2 = max(0,y1-halfh1); y2 < min(iheight,y1+halfh2); y2++) {
+	  for (x2 = max(0,(x1-halfw1)); x2 < min(iwidth,x1+halfw2); x2++) {
+	    dist = 0;
+	    for (input1_p_it = input1_p_it_start, input2_p_it=input2_p+y2*i2s[1]+x2*i2s[2];
+		 input1_p_it != input1_p_it_end;
+		 input1_p_it += i1s[0], input2_p_it += i2s[0]) {
+	      dist += square(*input1_p_it - *input2_p_it);
+	    }
+	    dy = y2-y1 + halfh1;
+	    dx = x2-x1 + halfw1;
+	    output_p[dy*os[0] + dx*os[1] + y1*os[2] + x1*os[3]] = dist;
+	  }
+	}
+      }
+    }
+    */
   } else {
 #pragma omp parallel for private(x1,x2,y2,k,dist)
     for (y1 = 0; y1 < iheight; y1++) {

@@ -12,7 +12,7 @@ input  ->  pyramid{ratios}  ->  preProcessors  ->  padding  ->  processors  ->  
 There are two operating modes: focused [training], and global [inference]. 
 
 In inference mode,
-the entire input is processed, and and alignment step is performed at the end of 
+the entire input is processed, and an alignment step is performed at the end of 
 the pipeline, to be fed directly to a SpatialLinear module.
 
 In sampling mode, the fovea is first focused on a particular (x,y) point, and no
@@ -64,7 +64,7 @@ function SpatialFovea:__init(...)
 
    -- check processors
    if #self.processors ~= #self.ratios then
-      xlua.error('the number of processors provided should == the number of ratiios (scales): ' 
+      xlua.error('the number of processors provided should == the number of ratios (scales): ' 
                  .. #self.ratios, 'nn.SpatialFovea')
    end
 
