@@ -48,14 +48,9 @@ function SpatialPyramid:__init(ratios, processors, kW, kH, dW, dH)
    local focused_parallel = nn.ParallelTable()
    self.focused_pipeline:add(focused_parallel)
    self.focused_pipeline:add(nn.JoinTable(1))
-   self.focused_narrows1 = {}
-   self.focused_narrows2 = {}
-   self.focused_paddings = {}
    for i = 1,#self.ratios do
       local seq = nn.Sequential()
-      seq:add(nn.Identity())
-      seq:add(nn.Identity())
-      seq:add(nn.Identity())
+      seq:add(nn.SpatialPadding(0,0,0,0))
       seq:add(nn.SpatialDownSampling(self.ratios[i], self.ratios[i]))
       seq:add(processors[i])
       focused_parallel:add(seq)
@@ -82,18 +77,14 @@ function SpatialPyramid:focus(x, y, w, h)
    w = w or 1
    h = h or 1
    if x and y then
+      self.x = x
+      self.y = y
       self.focused = true
-      self.x1 = {}
-      self.x2 = {}
-      self.y1 = {}
-      self.y2 = {}
+      self.winWidth = {}
+      self.winHeight = {}
       for i = 1,#self.ratios do
-	 local winWidth  = self.ratios[i] * ((w-1) * self.dW + self.kW)
-	 local winHeight = self.ratios[i] * ((h-1) * self.dH + self.kH)
-	 self.x1[i] = x-math.ceil (winWidth /2)+1
-	 self.x2[i] = x+math.floor(winWidth /2)
-	 self.y1[i] = y-math.ceil (winHeight/2)+1
-	 self.y2[i] = y+math.floor(winHeight/2)
+	 self.winWidth[i]  = self.ratios[i] * ((w-1) * self.dW + self.kW)
+	 self.winHeight[i] = self.ratios[i] * ((h-1) * self.dH + self.kH)
       end
    else
       self.focused = false
@@ -102,36 +93,13 @@ end
 
 function SpatialPyramid:configureFocus(wImg, hImg)
    for i = 1,#self.ratios do
-      local x1 = self.x1[i]
-      local x2 = self.x2[i]
-      local y1 = self.y1[i]
-      local y2 = self.y2[i]
-      local px1 = 0
-      local px2 = 0
-      local py1 = 0
-      local py2 = 0
-      if x1 < 1 then
-	 px1 = 1-x1
-	 x1 = 1
-      end
-      if y1 < 1 then
-	 py1 = 1-y1
-	 y1 = 1
-      end
-      if x2 > wImg then
-	 px2 = x2-wImg
-	 x2 = wImg
-      end
-      if y2 > hImg then
-	 py2 = y2-hImg
-	 y2 = hImg
-      end
       local focused_parallel = self.focused_pipeline.modules[3].modules[i]
-      focused_parallel.modules[1] = nn.Narrow(2, y1, y2-y1+1)
-      focused_parallel.modules[2] = nn.Narrow(3, x1, x2-x1+1)
-      focused_parallel.modules[3] = nn.SpatialPadding(px1, px2, py1, py2)
+      focused_parallel.modules[1].pad_l = -self.x + math.ceil (self.winWidth[i] /2)
+      focused_parallel.modules[1].pad_r =  self.x + math.floor(self.winWidth[i] /2) - wImg
+      focused_parallel.modules[1].pad_t = -self.y + math.ceil (self.winHeight[i]/2)
+      focused_parallel.modules[1].pad_b =  self.y + math.floor(self.winHeight[i]/2) - hImg
    end
-end
+end   
 
 function SpatialPyramid:checkSize(input)
    for i = 1,#self.ratios do
