@@ -305,17 +305,20 @@ local function template_SpatialPyramid(fx,fy)
    local iwidth = 16
    local iheight = 16
 
-   local module = nn.SpatialPyramid({1,2},{nn.SpatialConvolution(channels,4,3,3),
-					   nn.SpatialConvolution(channels,4,3,3)},
-				    3, 3, 1, 1)
+   local pyr = nn.SpatialPyramid({1,2},{nn.SpatialConvolution(channels,4,3,3),
+				       nn.SpatialConvolution(channels,4,3,3)},
+				 3, 3, 1, 1)
+   local module = nn.Sequential()
+   module:add(pyr)
+   module:add(nn.JoinTable(1))
 
    input = torch.rand(channels, iheight, iwidth)
 
-   module:focus(fx,fy,3,3)
+   pyr:focus(fx,fy,3,3)
    local err = nn.Jacobian.testJacobian(module, input)
    mytester:assertlt(err, precision, 'error on state ')
 
-   module:focus()
+   pyr:focus()
    local ferr, berr = nn.Jacobian.testIO(module, input)
    mytester:asserteq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
    mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')

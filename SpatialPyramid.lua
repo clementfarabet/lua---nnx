@@ -5,7 +5,8 @@ Simplified (and more flexible regarding sizes) fovea:
 From a given image, generates a pyramid of scales, and process each scale
 with the given list of processors. 
 The result of each module/scale is then
-upsampled to produce a homogenous list of 3D feature maps grouping the different scales.
+upsampled to produce a homogenous list of 3D feature maps (a table of 3D tensors)
+grouping the different scales.
 
 There are two operating modes: focused [mostly training], and global [inference]. 
 
@@ -42,34 +43,24 @@ function SpatialPyramid:__init(ratios, processors, kW, kH, dW, dH)
    local padBottom = math.ceil (hPad/2)
 
    -- focused
-   self.focused_pipeline = nn.Sequential()
-   self.focused_pipeline:add(nn.Replicate(#self.ratios))
-   self.focused_pipeline:add(nn.SplitTable(1))
-   local focused_parallel = nn.ParallelTable()
-   self.focused_pipeline:add(focused_parallel)
-   self.focused_pipeline:add(nn.JoinTable(1))
+   self.focused_pipeline = nn.ConcatTable()
    for i = 1,#self.ratios do
       local seq = nn.Sequential()
       seq:add(nn.SpatialZeroPadding(0,0,0,0))
       seq:add(nn.SpatialDownSampling(self.ratios[i], self.ratios[i]))
       seq:add(processors[i])
-      focused_parallel:add(seq)
+      self.focused_pipeline:add(seq)
    end
 
    -- unfocused
-   self.unfocused_pipeline = nn.Sequential()
-   self.unfocused_pipeline:add(nn.Replicate(#self.ratios))
-   self.unfocused_pipeline:add(nn.SplitTable(1))
-   local unfocused_parallel = nn.ParallelTable()
-   self.unfocused_pipeline:add(unfocused_parallel)
-   self.unfocused_pipeline:add(nn.JoinTable(1))
+   self.unfocused_pipeline = nn.ConcatTable()
    for i = 1,#self.ratios do
       local seq = nn.Sequential()
       seq:add(nn.SpatialDownSampling(self.ratios[i], self.ratios[i]))
       seq:add(nn.SpatialZeroPadding(padLeft, padRight, padTop, padBottom))
       seq:add(processors[i])
       seq:add(nn.SpatialUpSampling(self.ratios[i], self.ratios[i]))
-      unfocused_parallel:add(seq)
+      self.unfocused_pipeline:add(seq)
    end
 end
 
@@ -93,11 +84,11 @@ end
 
 function SpatialPyramid:configureFocus(wImg, hImg)
    for i = 1,#self.ratios do
-      local focused_parallel = self.focused_pipeline.modules[3].modules[i]
-      focused_parallel.modules[1].pad_l = -self.x + math.ceil (self.winWidth[i] /2)
-      focused_parallel.modules[1].pad_r =  self.x + math.floor(self.winWidth[i] /2) - wImg
-      focused_parallel.modules[1].pad_t = -self.y + math.ceil (self.winHeight[i]/2)
-      focused_parallel.modules[1].pad_b =  self.y + math.floor(self.winHeight[i]/2) - hImg
+      local padder = self.focused_pipeline.modules[i].modules[1]
+      padder.pad_l = -self.x + math.ceil (self.winWidth[i] /2)
+      padder.pad_r =  self.x + math.floor(self.winWidth[i] /2) - wImg
+      padder.pad_t = -self.y + math.ceil (self.winHeight[i]/2)
+      padder.pad_b =  self.y + math.floor(self.winHeight[i]/2) - hImg
    end
 end   
 
