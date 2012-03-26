@@ -36,10 +36,10 @@ function SpatialPyramid:__init(ratios, processors, kW, kH, dW, dH)
 
    local wPad = kW-dW
    local hPad = kH-dH
-   self.padLeft   = math.floor(wPad/2)
-   self.padRight  = math.ceil (wPad/2)
-   self.padTop    = math.floor(hPad/2)
-   self.padBottom = math.ceil (hPad/2)
+   local padLeft   = math.floor(wPad/2)
+   local padRight  = math.ceil (wPad/2)
+   local padTop    = math.floor(hPad/2)
+   local padBottom = math.ceil (hPad/2)
 
    -- focused
    self.focused_pipeline = nn.Sequential()
@@ -50,7 +50,7 @@ function SpatialPyramid:__init(ratios, processors, kW, kH, dW, dH)
    self.focused_pipeline:add(nn.JoinTable(1))
    for i = 1,#self.ratios do
       local seq = nn.Sequential()
-      seq:add(nn.SpatialPadding(0,0,0,0))
+      seq:add(nn.SpatialZeroPadding(0,0,0,0))
       seq:add(nn.SpatialDownSampling(self.ratios[i], self.ratios[i]))
       seq:add(processors[i])
       focused_parallel:add(seq)
@@ -66,7 +66,7 @@ function SpatialPyramid:__init(ratios, processors, kW, kH, dW, dH)
    for i = 1,#self.ratios do
       local seq = nn.Sequential()
       seq:add(nn.SpatialDownSampling(self.ratios[i], self.ratios[i]))
-      seq:add(nn.SpatialPadding(self.padLeft, self.padRight, self.padTop, self.padBottom))
+      seq:add(nn.SpatialZeroPadding(padLeft, padRight, padTop, padBottom))
       seq:add(processors[i])
       seq:add(nn.SpatialUpSampling(self.ratios[i], self.ratios[i]))
       unfocused_parallel:add(seq)
