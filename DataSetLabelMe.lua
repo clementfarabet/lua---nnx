@@ -55,18 +55,18 @@ function DataSetLabelMe:__init(...)
    print('<DataSetLabelMe> loading LabelMe dataset from '..self.path)
    for folder in paths.files(paths.concat(self.path,path_images)) do
       if folder ~= '.' and folder ~= '..' then
-	 -- allowing for less nesting in the data set preparation [MS]
-	 if sys.filep(paths.concat(self.path,path_images,folder)) then 
-	    self:getsizes('./',folder)
-	 else
-	    -- loop though nested folders
-	    for file in paths.files(paths.concat(self.path,path_images,folder)) do
+    -- allowing for less nesting in the data set preparation [MS]
+    if sys.filep(paths.concat(self.path,path_images,folder)) then 
+       self:getsizes('./',folder)
+    else
+       -- loop though nested folders
+       for file in paths.files(paths.concat(self.path,path_images,folder)) do
 
-	       if file ~= '.' and file ~= '..' then
-		  self:getsizes(folder,file)
-	       end
-	    end
-	 end
+          if file ~= '.' and file ~= '..' then
+        self:getsizes(folder,file)
+          end
+       end
+    end
       end
    end
 
@@ -91,10 +91,10 @@ function DataSetLabelMe:__init(...)
    local maxXY = math.max(self.maxX, self.maxY)
    if not self.rawSampleMaxSize then
       if self.rawSampleSize then
-	 self.rawSampleMaxSize = 
-	    math.max(self.rawSampleSize.w,self.rawSampleSize.h)
+    self.rawSampleMaxSize = 
+       math.max(self.rawSampleSize.w,self.rawSampleSize.h)
       else
-	 self.rawSampleMaxSize = maxXY
+    self.rawSampleMaxSize = maxXY
       end
    end
    if maxXY < self.rawSampleMaxSize then
@@ -153,7 +153,7 @@ function DataSetLabelMe:getsizes(folder,file)
       size_c, size_y, size_x = image.getPNGsize(imgf)
    elseif file:find('.mat$') then
       if not xrequire 'mattorch' then 
-	 xerror('<DataSetLabelMe> mattorch package required to handle MAT files')
+    xerror('<DataSetLabelMe> mattorch package required to handle MAT files')
       end
       local loaded = mattorch.load(imgf)
       for _,matrix in pairs(loaded) do loaded = matrix; break end
@@ -167,9 +167,9 @@ function DataSetLabelMe:getsizes(folder,file)
    end
 
    table.insert(self.rawdata, {imgfile=imgf,
-			       maskfile=maskf,
-			       annotfile=annotf,
-			       size={size_c, size_y, size_x}})
+                maskfile=maskf,
+                annotfile=annotf,
+                size={size_c, size_y, size_x}})
 end
 
 function DataSetLabelMe:size()
@@ -292,10 +292,7 @@ function DataSetLabelMe:loadSample(index)
       end
    elseif index ~= self.currentIndex then
 
---print(imgfile)
-   self.realIndex = self.rawdata[index].imgfile:gsub('.jpg$','')
---print(self.realIndex)
---print(self.currentIndex)
+      self.realIndex = self.rawdata[index].imgfile:gsub('.jpg$','')
       -- clean up
       self.currentSample = nil
       self.currentMask = nil
@@ -334,13 +331,6 @@ function DataSetLabelMe:loadSample(index)
          local h = self.rawSampleSize.h
          self.currentSample = torch.Tensor(img_loaded:size(1),h,w)
          image.scale(img_loaded, self.currentSample, 'bilinear')
-
-	 --Camille Save rescaled images
-	 --if (img_loaded:size(2) ~= 240) or (img_loaded:size(3)~= 320) then
-	 -- imagename = sys.concat(self.realIndex,'.png')
-         --imagename =  imagename :gsub('/.png$','.png')
-	 --image.savePNG(imagename , self.currentSample)
-	 --end
          self.currentMask = torch.Tensor(h,w)
          image.scale(mask_loaded, self.currentMask, 'simple')
 
@@ -369,12 +359,12 @@ function DataSetLabelMe:loadSample(index)
             self.currentMask:add(1)
          end
       elseif self.rawMaskRescale then
-	 -- stanford dataset style (png contains 0 and 255)
+         -- stanford dataset style (png contains 0 and 255)
          self.currentMask:mul(self.nbClasses-1):add(0.5):floor():add(1)
       else
-	 -- PNG already stores values at the correct classes
-	 -- only holds values from 0 to nclasses
-	 self.currentMask:mul(255):add(1)
+         -- PNG already stores values at the correct classes
+         -- only holds values from 0 to nclasses
+         self.currentMask:mul(255):add(1)
       end
       self.currentIndex = index
    end
@@ -442,8 +432,7 @@ function DataSetLabelMe:parseMask(existing_tags)
       end
    end
    -- use filter
-   local filter = self.samplingFilter or 
-      {ratio=0, size=self.patchSize, step=4}
+   local filter = self.samplingFilter or {ratio=0, size=self.patchSize, step=4}
    -- extract labels
    local mask = self.currentMask
    local x_start = math.ceil(self.patchSize/2)
@@ -451,8 +440,8 @@ function DataSetLabelMe:parseMask(existing_tags)
    local y_start = math.ceil(self.patchSize/2)
    local y_end = mask:size(1) - math.ceil(self.patchSize/2)
    mask.nn.DataSetLabelMe_extract(tags, mask, 
-				  x_start, x_end, 
-				  y_start, y_end, self.currentIndex,
+                                  x_start, x_end, 
+                                  y_start, y_end, self.currentIndex,
                                   filter.ratio, filter.size, filter.step)
    return tags
 end

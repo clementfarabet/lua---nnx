@@ -146,7 +146,7 @@ function SpatialFovea:updateOutput(input)
       self.cachedPreProcessed = self.cachedPreProcessed or {}
 
       -- compute an abritrary hash, should be strong enough
-      tohash = input:narrow(2,1,math.min(input:size(2),32)):narrow(3,1,math.min(input:size(3),32))
+      local tohash = input
       hash = tostring(tohash:sum())
       hash = hash .. tostring(tohash:std())
 
