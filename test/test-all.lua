@@ -92,6 +92,23 @@ function nnxtest.SpatialUpSampling()
    mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
 
+function nnxtest.SpatialDownSampling()
+   local fanin = math.random(1,4)
+   local sizex = math.random(1,4)
+   local sizey = math.random(1,4)
+   local mx = math.random(2,6)
+   local my = math.random(2,6)
+   local module = nn.SpatialDownSampling(mx,my)
+   local input = torch.rand(fanin,sizey,sizex)
+
+   local err = nn.Jacobian.testJacobian(module, input)
+   mytester:assertlt(err, precision, 'error on state ')
+
+   local ferr, berr = nn.Jacobian.testIO(module, input)
+   mytester:asserteq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
+   mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
+end
+
 function nnxtest.SpatialReSampling_1()
    local fanin = math.random(1,4)
    local sizex = math.random(4,8)
@@ -283,6 +300,33 @@ function nnxtest.SpatialFovea_focused() template_SpatialFovea(4,7) end
 function nnxtest.SpatialFovea_unfocused() template_SpatialFovea() end
 function nnxtest.SpatialFovea_bilinear() template_SpatialFovea(nil,nil,true) end
 
+local function template_SpatialPyramid(fx,fy)
+   local channels = math.random(1,4)
+   local iwidth = 16
+   local iheight = 16
+
+   local pyr = nn.SpatialPyramid({1,2},{nn.SpatialConvolution(channels,4,3,3),
+				       nn.SpatialConvolution(channels,4,3,3)},
+				 3, 3, 1, 1)
+   local module = nn.Sequential()
+   module:add(pyr)
+   module:add(nn.JoinTable(1))
+
+   input = torch.rand(channels, iheight, iwidth)
+
+   pyr:focus(fx,fy,3,3)
+   local err = nn.Jacobian.testJacobian(module, input)
+   mytester:assertlt(err, precision, 'error on state ')
+
+   pyr:focus()
+   local ferr, berr = nn.Jacobian.testIO(module, input)
+   mytester:asserteq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
+   mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
+end
+
+function nnxtest.SpatialPyramid_focused() template_SpatialPyramid(5,3) end
+function nnxtest.SpatialPyramid_unfocused() template_SpatialPyramid() end
+
 local function template_SpatialGraph(channels, iwidth, iheight, dist, norm)
    local module = nn.SpatialGraph{normalize=norm, dist=dist}
    local input = torch.rand(iwidth, iheight, channels)
@@ -302,6 +346,13 @@ function nnxtest.SpatialGraph_5() template_SpatialGraph(64, 3, 3, 'cosine', fals
 local function template_SpatialMatching(channels, iwidth, iheight, maxw, maxh, full_output)
    local module = nn.Sequential()
    module:add(nn.SplitTable(1))
+   local parallel = nn.ParallelTable()
+   local seq1 = nn.Sequential()
+   seq1:add(nn.Narrow(2, math.floor(maxh/2), iheight-maxh+1))
+   seq1:add(nn.Narrow(3, math.floor(maxw/2), iwidth -maxw+1))
+   parallel:add(seq1)
+   parallel:add(nn.Identity())
+   module:add(parallel)
    module:add(nn.SpatialMatching(maxh, maxw, full_output))
    local input = torch.rand(2, channels, iheight, iwidth)
    local err = nn.Jacobian.testJacobian(module, input)

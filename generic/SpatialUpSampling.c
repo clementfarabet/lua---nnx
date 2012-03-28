@@ -17,6 +17,10 @@ static int nn_(SpatialUpSampling_updateOutput)(lua_State *L)
   int owidth = iwidth * dW;
   int oheight = iheight * dH;
 
+  // get strides
+  long *is = input->stride;
+  long *os = output->stride;
+
   // get raw pointers
   real *input_data = THTensor_(data)(input);
   real *output_data = THTensor_(data)(output);
@@ -25,8 +29,8 @@ static int nn_(SpatialUpSampling_updateOutput)(lua_State *L)
   int k;
   for (k=0; k<ochannels; k++) {
     // get planes
-    real *input_p = input_data + k*iwidth*iheight;
-    real *output_p = output_data + k*owidth*oheight;
+    real *input_p = input_data + k*is[0];
+    real *output_p = output_data + k*os[0];
 
     // for each plane, resample
     int x,y;
@@ -37,7 +41,7 @@ static int nn_(SpatialUpSampling_updateOutput)(lua_State *L)
         int iy = y/dH;
 
         // set output
-        output_p[y*owidth + x] = input_p[iy*iwidth + ix];
+        output_p[y*os[1] + x*os[2]] = input_p[iy*is[1] + ix*is[2]];
       }
     }
   }
@@ -64,6 +68,11 @@ static int nn_(SpatialUpSampling_updateGradInput)(lua_State *L)
   // resize gradInput
   THTensor_(zero)(gradInput);
 
+  // get strides
+  long *gis = gradInput->stride;
+  long *gos = gradOutput->stride;
+
+
   // get raw pointers
   real *gradInput_data = THTensor_(data)(gradInput);
   real *gradOutput_data = THTensor_(data)(gradOutput);
@@ -72,8 +81,8 @@ static int nn_(SpatialUpSampling_updateGradInput)(lua_State *L)
   int k;
   for (k=0; k<ochannels; k++) {
     // get planes
-    real *gradInput_p = gradInput_data + k*iwidth*iheight;
-    real *gradOutput_p = gradOutput_data + k*owidth*oheight;
+    real *gradInput_p = gradInput_data + k*gis[0];
+    real *gradOutput_p = gradOutput_data + k*gos[0];
 
     // for each plane, resample
     int x,y;
@@ -84,7 +93,7 @@ static int nn_(SpatialUpSampling_updateGradInput)(lua_State *L)
         int iy = y/dH;
 
         // accumulate gradient
-        gradInput_p[iy*iwidth + ix] += gradOutput_p[y*owidth + x];
+        gradInput_p[iy*gis[1] + ix*gis[2]] += gradOutput_p[y*gos[1] + x*gos[2]];
       }
     }
   }
