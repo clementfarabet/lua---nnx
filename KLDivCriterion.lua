@@ -1,10 +1,12 @@
 local KLDivCriterion, parent = torch.class('nn.KLDivCriterion', 'nn.Criterion')
 
-function KLDivCriterion:__init()
+function KLDivCriterion:__init(opts)
    parent.__init(self)
    -- user options
-   self.inputIsProbability = false
-   self.targetIsProbability = false
+   opts = opts or {}
+   self.inputIsProbability = opts.inputIsProbability or false
+   self.targetIsProbability = opts.targetIsProbability
+   if self.targetIsProbability == nil then self.targetIsProbability = true end
    -- internal
    self.targetSoftMax = nn.SoftMax()
    self.inputSoftMax = nn.SoftMax()

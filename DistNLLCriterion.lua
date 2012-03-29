@@ -1,12 +1,14 @@
 local DistNLLCriterion, parent = torch.class('nn.DistNLLCriterion', 'nn.Criterion')
 
-function DistNLLCriterion:__init()
+function DistNLLCriterion:__init(opts)
    parent.__init(self)
    -- user options
-   self.inputIsADistance = false
-   self.inputIsProbability = false
-   self.inputIsLogProbability = false
-   self.targetIsProbability = false
+   opts = opts or {}
+   self.inputIsADistance = opts.inputIsADistance or false
+   self.inputIsProbability = opts.inputIsProbability or false
+   self.inputIsLogProbability = opts.inputIsLogProbability or false
+   self.targetIsProbability = opts.targetIsProbability
+   if self.targetIsProbability == nil then self.targetIsProbability = true end
    -- internal
    self.targetSoftMax = nn.SoftMax()
    self.inputLogSoftMax = nn.LogSoftMax()
