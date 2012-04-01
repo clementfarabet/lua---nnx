@@ -12,6 +12,7 @@ function DistNLLCriterion:__init(opts)
    -- internal
    self.targetSoftMax = nn.SoftMax()
    self.inputLogSoftMax = nn.LogSoftMax()
+   self.inputLog = nn.Log()
    self.gradLogInput = torch.Tensor()
    self.input = torch.Tensor()
 end
@@ -35,7 +36,7 @@ function DistNLLCriterion:normalize(input, target)
    if not self.inputIsLogProbability and not self.inputIsProbability then
       self.logProbInput = self.inputLogSoftMax:updateOutput(self.input)
    elseif not self.inputIsLogProbability then
-      print('TODO: implement nn.Log()')
+      self.logProbInput = self.inputLog:updateOutput(self.input)
    else
       self.logProbInput = self.input
    end
@@ -46,7 +47,7 @@ function DistNLLCriterion:denormalize()
    if not self.inputIsLogProbability and not self.inputIsProbability then
       self.gradInput = self.inputLogSoftMax:updateGradInput(self.input, self.gradLogInput)
    elseif not self.inputIsLogProbability then
-      print('TODO: implement nn.Log()')
+      self.gradInput = self.inputLog:updateGradInput(self.input, self.gradLogInput)
    else
       self.gradInput = self.gradLogInput
    end
