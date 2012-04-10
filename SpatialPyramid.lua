@@ -17,10 +17,15 @@ In focused mode, the fovea is first focused on a particular (x,y) point.
 This function has two additional parameters, w and h, that represent the size
 of the OUTPUT of the processors.
 To focus the fovea, simply call fovea:focus(x,y,w,h) before doing a forward.
-A call to fovea:focus(nil) makes it unfocus (go back to global mode). ]]
+A call to fovea:focus(nil) makes it unfocus (go back to global mode).
 
-function SpatialPyramid:__init(ratios, processors, kW, kH, dW, dH)
+If prescaled_input is true, then the input has to be a table of pre-downscaled
+3D tensors. It does not work in focus mode.
+]]
+
+function SpatialPyramid:__init(ratios, processors, kW, kH, dW, dH, prescaled_input)
    parent.__init(self)
+   self.prescaled_input = prescaled_input or false
    assert(#ratios == #processors)
    
    self.ratios = ratios
@@ -53,11 +58,17 @@ function SpatialPyramid:__init(ratios, processors, kW, kH, dW, dH)
    end
 
    -- unfocused
-   self.unfocused_pipeline = nn.ConcatTable()
+   if prescaled_input then
+      self.unfocused_pipeline = nn.ParallelTable()
+   else
+      self.unfocused_pipeline = nn.ConcatTable()
+   end
    for i = 1,#self.ratios do
       local seq = nn.Sequential()
-      seq:add(nn.SpatialDownSampling(self.ratios[i], self.ratios[i]))
-      seq:add(nn.SpatialZeroPadding(padLeft, padRight, padTop, padBottom))
+      if not prescaled_input then
+	 seq:add(nn.SpatialDownSampling(self.ratios[i], self.ratios[i]))
+	 seq:add(nn.SpatialZeroPadding(padLeft, padRight, padTop, padBottom))
+      end
       seq:add(processors[i])
       seq:add(nn.SpatialUpSampling(self.ratios[i], self.ratios[i]))
       self.unfocused_pipeline:add(seq)
@@ -96,14 +107,15 @@ function SpatialPyramid:checkSize(input)
    for i = 1,#self.ratios do
       if (math.mod(input:size(2), self.ratios[i]) ~= 0) or
          (math.mod(input:size(3), self.ratios[i]) ~= 0) then
-         print('SpatialPyramid: input sizes must be multiple of ratios')
-	 assert(false)
+         error('SpatialPyramid: input sizes must be multiple of ratios')
       end
    end
 end
  
 function SpatialPyramid:updateOutput(input)
-   self:checkSize(input)
+   if not self.prescaled_input then
+      self:checkSize(input)
+   end
    if self.focused then
       self:configureFocus(input:size(3), input:size(2))
       self.output = self.focused_pipeline:updateOutput(input)
