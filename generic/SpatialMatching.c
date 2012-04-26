@@ -62,7 +62,7 @@ static int nn_(SpatialMatching_updateOutput)(lua_State *L)
 	    }
 	    dy = y2-y1 + halfh1;
 	    dx = x2-x1 + halfw1;
-	    output_p[dy*os[0] + dx*os[1] + y1*os[2] + x1*os[3]] = dist;
+	    output_p[dy*os[2] + dx*os[3] + y1*os[0] + x1*os[1]] = dist;
 	  }
 	}
       }
@@ -98,7 +98,7 @@ static int nn_(SpatialMatching_updateOutput)(lua_State *L)
 	    for (k = 0; k < ichannels; k++) {
 	      dist += square(input1_p[k*i1s[0] + y1*i1s[1] + x1*i1s[2]] - input2_p[k*i2s[0] + y2*i2s[1] + x2*i2s[2]]);
 	    }
-	    output_p[(y2-y1)*os[0] + (x2-x1)*os[1] + y1*os[2] + x1*os[3]] = dist;
+	    output_p[(y2-y1)*os[2] + (x2-x1)*os[3] + y1*os[0] + x1*os[1]] = dist;
 	  }
 	}
       }
@@ -161,7 +161,7 @@ static int nn_(SpatialMatching_updateGradInput)(lua_State *L)
 	    dx = x2-x1 + halfw1;
 	    for (k=0; k<ichannels; k++) {
 	      partial_d = 2*(input1_p[k*i1s[0] + y1*i1s[1] + x1*i1s[2]] - input2_p[k*i2s[0] + y2*i2s[1] + x2*i2s[2]]);
-	      partial_d *= gradOutput_p[dy*gos[0] + dx*gos[1] + y1*gos[2] + x1*gos[3]];
+	      partial_d *= gradOutput_p[dy*gos[2] + dx*gos[3] + y1*gos[0] + x1*gos[1]];
 	      gradInput1_p[k*gi1s[0] + y1*gi1s[1] + x1*gi1s[2]] += partial_d;
 	      gradInput2_p[k*gi2s[0] + y2*gi2s[1] + x2*gi2s[2]] -= partial_d;
 	    }
@@ -177,7 +177,7 @@ static int nn_(SpatialMatching_updateGradInput)(lua_State *L)
 	  for (x2 = x1; x2 < x1+maxw; x2++) {
 	    for (k = 0; k < ichannels; k++) {
 	      partial_d = 2*(input1_p[k*i1s[0] + y1*i1s[1] + x1*i1s[2]] - input2_p[k*i2s[0] + y2*i2s[1] + x2*i2s[2]]);
-	      partial_d *= gradOutput_p[(y2-y1)*gos[0]+(x2-x1)*gos[1]+y1*gos[2]+x1*gos[3]];
+	      partial_d *= gradOutput_p[(y2-y1)*gos[2]+(x2-x1)*gos[3]+y1*gos[0]+x1*gos[1]];
 	      gradInput1_p[k*gi1s[0] + y1*gi1s[1] + x1*gi1s[2]] += partial_d;
 	      gradInput2_p[k*gi2s[0] + y2*gi2s[1] + x2*gi2s[2]] -= partial_d;
 	      
