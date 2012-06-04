@@ -163,7 +163,6 @@ static int nn_(SpatialReSamplingEx_updateOutput)(lua_State *L)
     } // upsampling / downsampling
     
   } // mode = bilinear ?
-    
   return 1;
 }
 
@@ -319,7 +318,6 @@ static int nn_(SpatialReSamplingEx_updateGradInput)(lua_State *L)
     } // upsampling / downsampling
     
   } // mode = bilinear ?
-  
   return 1;
 }
 

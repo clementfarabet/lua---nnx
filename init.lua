@@ -77,6 +77,9 @@ torch.include('nnx', 'SpatialMaxSampling.lua')
 torch.include('nnx', 'SpatialColorTransform.lua')
 torch.include('nnx', 'SpatialConvolutionSparse.lua')
 
+-- other modules
+torch.include('nnx', 'FunctionWrapper.lua')
+
 -- criterions:
 torch.include('nnx', 'SuperCriterion.lua')
 torch.include('nnx', 'SparseCriterion.lua')

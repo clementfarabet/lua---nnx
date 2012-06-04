@@ -80,15 +80,15 @@ local function template_SpatialReSamplingEx(up, mode)
       local nDims = math.random(2,6)
       local dims = torch.LongStorage(nDims)
       for i = 1,nDims do
-	 dims[i] = math.random(3,20/nDims)
+	 dims[i] = math.random(5,20/nDims)
       end
       local xratio, yratio
       if up then
 	 xratio = torch.uniform(1.5, 10)
 	 yratio = torch.uniform(1.5, 10)
       else
-	 xratio = torch.uniform(0.4, 0.7)
-	 yratio = torch.uniform(0.4, 0.7)
+	 xratio = torch.uniform(0.41, 0.7)
+	 yratio = torch.uniform(0.41, 0.7)
       end
       local ydim = math.random(1,nDims-1)
       local xdim = ydim+1
