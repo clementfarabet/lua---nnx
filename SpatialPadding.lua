@@ -24,8 +24,8 @@ function SpatialPadding:__init(pad_l, pad_r, pad_t, pad_b, y_dim, x_dim)
 end
 
 function SpatialPadding:updateOutput(input)
-   self.x_dim = x_dim or 3
-   self.y_dim = y_dim or 2
+   self.x_dim = self.x_dim or 3
+   self.y_dim = self.y_dim or 2
    local h = input:size(self.y_dim) + self.pad_t + self.pad_b
    local w = input:size(self.x_dim) + self.pad_l + self.pad_r
    if w < 1 or h < 1 then error('input is too small') end
