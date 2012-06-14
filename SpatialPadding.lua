@@ -24,6 +24,9 @@ function SpatialPadding:__init(pad_l, pad_r, pad_t, pad_b, y_dim, x_dim)
 end
 
 function SpatialPadding:updateOutput(input)
+   if self.output:type() ~= input:type() then
+      self.output = input.new()
+   end
    self.x_dim = self.x_dim or 3
    self.y_dim = self.y_dim or 2
    local h = input:size(self.y_dim) + self.pad_t + self.pad_b
