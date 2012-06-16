@@ -57,6 +57,9 @@ static const void* torch_DoubleTensor_id = NULL;
 #include "generic/SpatialMatching.c"
 #include "THGenerateFloatTypes.h"
 
+#include "generic/SpatialRadialMatching.c"
+#include "THGenerateFloatTypes.h"
+
 #include "generic/DataSetLabelMe.c"
 #include "THGenerateFloatTypes.h"
 
@@ -81,6 +84,7 @@ DLL_EXPORT int luaopen_libnnx(lua_State *L)
   nn_FloatSpatialClassNLLCriterion_init(L);
   nn_FloatSpatialGraph_init(L);
   nn_FloatSpatialMatching_init(L);
+  nn_FloatSpatialRadialMatching_init(L);
   nn_FloatDataSetLabelMe_init(L);
 
   nn_DoubleSpatialLinear_init(L);
@@ -99,6 +103,7 @@ DLL_EXPORT int luaopen_libnnx(lua_State *L)
   nn_DoubleSpatialClassNLLCriterion_init(L);
   nn_DoubleSpatialGraph_init(L);
   nn_DoubleSpatialMatching_init(L);
+  nn_DoubleSpatialRadialMatching_init(L);
   nn_DoubleDataSetLabelMe_init(L);
 
   return 1;

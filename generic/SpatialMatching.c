@@ -89,7 +89,7 @@ static int nn_(SpatialMatching_updateOutput)(lua_State *L)
     }
     */
   } else {
-#pragma omp parallel for private(x1,x2,y2,k,dist)
+#pragma omp parallel for private(y1,x1,x2,y2,k,dist)
     for (y1 = 0; y1 < iheight; y1++) {
       for (x1 = 0; x1 < iwidth; x1++) {
 	for (y2 = y1; y2 < y1+maxh; y2++) {
