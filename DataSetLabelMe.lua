@@ -365,6 +365,11 @@ function DataSetLabelMe:loadSample(index)
          -- PNG already stores values at the correct classes
          -- only holds values from 0 to nclasses
          self.currentMask:mul(255):add(1):add(0.5):floor()
+
+         local window_pixels = self.currentMask:eq(38):sum()
+         if window_pixels > 0 then
+            print('found ' .. window_pixels .. ' pixels')
+         end
       end
       self.currentIndex = index
    end
