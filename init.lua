@@ -115,6 +115,7 @@ torch.include('nnx', 'Type.lua')
 torch.include('nnx', 'DataSet.lua')
 torch.include('nnx', 'DataList.lua')
 torch.include('nnx', 'DataSetLabelMe.lua')
+torch.include('nnx', 'DataSetSamplingPascal.lua')
 
 -- nn helpers:
 function nnx.empty(module)
