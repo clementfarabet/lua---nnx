@@ -16,6 +16,31 @@ local path_annotations = 'Annotations'
 local path_masks = 'Masks'
 
 
+colorobject={
+[1]={224,224,192},-- unknown
+[2]={0, 0, 0},-- background
+[3]={128, 0, 0},
+[4]={0, 128, 0},
+[5]={128, 128, 0},
+[6]={0, 0, 128},
+[7]={128, 0, 128},
+[8]={0, 128, 128},
+[9]={128, 128, 128},
+[10]={64, 0, 0}, 
+[11]={192, 0, 0}, 
+[12]={64, 128, 0},
+[13]={192, 128, 0},
+[14]={64, 0, 128},
+[15]={192, 0, 128},
+[16]={64, 128, 128},
+[17]={192, 128, 128},
+[18]={0, 64, 0}, 
+[19]={128, 64, 0},
+[20]={0, 192, 0}, 
+[21]={128, 192, 0},
+[22]={0, 64, 128}}
+
+
 --$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
 
 function DataSetSamplingPascal:__init(...)
@@ -27,7 +52,7 @@ function DataSetSamplingPascal:__init(...)
       'Creates a DataSet from standard Pascal directories (Images+Annotations)',
       {arg='path', type='string', help='path to Pascal directory', req=true},
       {arg='nbClasses', type='number', help='number of classes in dataset', default=1},
-      {arg='nbSegments', type='number', help='number of segment per image in dataset', default=10},
+      {arg='nbSegments', type='number', help='number of segment per image in dataset', default=100},
       {arg='classNames', type='table', help='list of class names', default={'no name'}},
       {arg='nbRawSamples', type='number', help='number of images'},
       {arg='rawSampleMaxSize', type='number', help='resize all images to fit in a MxM window'},
@@ -37,7 +62,7 @@ function DataSetSamplingPascal:__init(...)
       {arg='labelType', type='string', help='type of label returned: center | pixelwise', default='center'},
       {arg='infiniteSet', type='boolean', help='if true, the set can be indexed to infinity, looping around samples', default=false},
       {arg='classToSkip', type='number', help='index of class to skip during sampling', default=1},
-      {arg='ScClassToSkip', type='number', help='index of class to skip during sampling', default=2},
+      {arg='ScClassToSkip', type='number', help='index of class to skip during sampling', default=1},
       {arg='preloadSamples', type='boolean', help='if true, all samples are preloaded in memory', default=false},
       {arg='cacheFile', type='string', help='path to cache file (once cached, loading is much faster)'},
       {arg='verbose', type='boolean', help='dumps information', default=false}
@@ -50,7 +75,7 @@ function DataSetSamplingPascal:__init(...)
    self.realIndex = -1
 
    self.ctr_segment_index = 0
-   self.dummy = 0
+   self.ctr_gt_index = 0
 
    -- parse dir structure
    print('<DataSetSamplingPascal> loading Pascal dataset from '..self.path)
@@ -249,9 +274,10 @@ function DataSetSamplingPascal:__index__(key)
       local sample = self.currentSample
       local mask = self.currentMask
       self.ctr_segment_index = self.tags[ctr_target].data[tag_idx]
-      self.dummy = self.tags[ctr_target].data[tag_idx+1]
+      self.ctr_gt_index = self.tags[ctr_target].data[tag_idx+1]
+
       -- Ce serait bien de rajouter le vecteur overlap pour ne pas le recalculer
-      return {sample,mask,self.ctr_segment_index}, true
+      return {sample,mask,self.ctr_segment_index, self.ctr_gt_index}, true
     end
    return rawget(self,key)
 end
@@ -440,18 +466,64 @@ function DataSetSamplingPascal:parseMask(existing_tags)
 
    	 -- (2) If overlap score ok, add the segment index to tags
       	 for i = 1,self.nbClasses do
-      	     if overlap[i]>0.5 then
+      	    if overlap[i]>0.2 and overlap[i]<0.999 then
        	     	tags[i].data[tags[i].size+1] = k
-	     	tags[i].data[tags[i].size+2] = 0 -- useless 
+		if overlap[i]>0.5 then
+	     	tags[i].data[tags[i].size+2] = i+100 -- this tag corresponds to a real segmentation
+		else 
+		tags[i].data[tags[i].size+2] = i
+		end
 		tags[i].data[tags[i].size+3] = self.currentIndex
 		tags[i].size = tags[i].size+3
 	       -- print('insert '..k..'; '..tags[i].size )
-    	     end
+    	    end
       	 end
-
-
-
    end
+
+   -- (2) load the object ground truth image
+
+   file = sys.concat(self.realIndex:gsub('Images','Objects'),'.png')
+   local mask_path = file:gsub('/.png$','.png')
+
+   maskobject = image.load(mask_path)
+   maskobject= maskobject:mul(255)
+   smallmaskobject = torch.Tensor(3,height,width)
+   image.scale(maskobject, smallmaskobject, 'simple')
+   maskobject = smallmaskobject:floor()
+
+   -- extracting segments from ground truth
+
+i= 3
+still_run = 1
+while still_run~=0 and i <=21 do -- 21 nb max of different objects
+  still_run = 0
+  ii=1 
+  already_taged = 0
+  while ii<=height do
+   jj=1     
+   while jj<=width do
+    if maskobject[1][ii][jj] == colorobject[i][1] and  maskobject[2][ii][jj] == colorobject[i][2] 
+      and maskobject[3][ii][jj] == colorobject[i][3] and already_taged == 0 then 
+      	  k = mask[ii][jj]
+	  tags[k].data[tags[k].size+1] = 0 --this tag corresponds to a ground truth object
+	  tags[k].data[tags[k].size+2] = i-- index of a ground truth object
+	  tags[k].data[tags[k].size+3] = self.currentIndex
+	  tags[k].size = tags[k].size+3
+	  already_taged = 1
+	 -- print('classe'..k..'objet'..i )
+      end
+      if maskobject[1][ii][jj] == colorobject[i+1][1] and  maskobject[2][ii][jj] == colorobject[i+1][2] 
+      and maskobject[3][ii][jj] == colorobject[i+1][3] then
+	  still_run = still_run+1
+      end 
+      jj=jj+1
+    end
+    ii=ii+1
+  end
+  i=i+1
+end
+
+
    return tags
 end
 
