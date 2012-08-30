@@ -443,7 +443,11 @@ function DataSetSamplingPascal:parseMask(existing_tags)
    end
    -- extract labels
    local mask = self.currentMask
-  
+
+   -- we dont need much precison for what follows to we downsample images to get faster results 
+   smallmask = torch.Tensor(100,100)
+   image.scale(mask, smallmask, 'simple')  
+
    -- (1) Compute overlap score for each segment given the image
 
    local file = sys.concat(self.realIndex:gsub('Images','Segments'),'.mat')
@@ -453,20 +457,21 @@ function DataSetSamplingPascal:parseMask(existing_tags)
    local segment1, segmenttmp
    nb_segments = self.nbSegments
    if self.nbSegments > loaded:size(1) then nb_segments = loaded:size(1) end
+
    for k=1,nb_segments do
 
          -- (a) load one segment mask 
  	 segment1 = loaded[k]:t()	 
 	
 	 -- (b) resize the segment mask
-	 segmenttmp = image.scale(segment1, self.rawSampleSize.w,self.rawSampleSize.h)
+	 segmenttmp = image.scale(segment1, 100,100)
 
 	 -- (c) compute overlap
-	 local overlap = imgraph.overlap(segmenttmp, mask,#classes_pascal)
+	 local overlap = imgraph.overlap(segmenttmp, smallmask,#classes_pascal)
 
    	 -- (2) If overlap score ok, add the segment index to tags
       	 for i = 1,self.nbClasses do
-      	    if overlap[i]>0.2 and overlap[i]<0.999 then
+      	    if overlap[i]>0.2 and overlap[i]<0.99 then
        	     	tags[i].data[tags[i].size+1] = k
 		if overlap[i]>0.5 then
 	     	tags[i].data[tags[i].size+2] = i+100 -- this tag corresponds to a real segmentation
@@ -478,6 +483,8 @@ function DataSetSamplingPascal:parseMask(existing_tags)
 	       -- print('insert '..k..'; '..tags[i].size )
     	    end
       	 end
+
+
    end
 
    -- (2) load the object ground truth image
@@ -487,8 +494,9 @@ function DataSetSamplingPascal:parseMask(existing_tags)
 
    maskobject = image.load(mask_path)
    maskobject= maskobject:mul(255)
-   smallmaskobject = torch.Tensor(3,height,width)
+   smallmaskobject = torch.Tensor(3,100,100)
    image.scale(maskobject, smallmaskobject, 'simple')
+  
    maskobject = smallmaskobject:floor()
 
    -- extracting segments from ground truth
@@ -499,12 +507,13 @@ while still_run~=0 and i <=21 do -- 21 nb max of different objects
   still_run = 0
   ii=1 
   already_taged = 0
-  while ii<=height do
+  while ii<=100 do
    jj=1     
-   while jj<=width do
+   while jj<=100 do
+if already_taged == 0 then 
     if maskobject[1][ii][jj] == colorobject[i][1] and  maskobject[2][ii][jj] == colorobject[i][2] 
-      and maskobject[3][ii][jj] == colorobject[i][3] and already_taged == 0 then 
-      	  k = mask[ii][jj]
+      and maskobject[3][ii][jj] == colorobject[i][3] then
+      	  k = smallmask[ii][jj]
 	  tags[k].data[tags[k].size+1] = 0 --this tag corresponds to a ground truth object
 	  tags[k].data[tags[k].size+2] = i-- index of a ground truth object
 	  tags[k].data[tags[k].size+3] = self.currentIndex
@@ -512,9 +521,14 @@ while still_run~=0 and i <=21 do -- 21 nb max of different objects
 	  already_taged = 1
 	 -- print('classe'..k..'objet'..i )
       end
-      if maskobject[1][ii][jj] == colorobject[i+1][1] and  maskobject[2][ii][jj] == colorobject[i+1][2] 
+end  
+    if maskobject[1][ii][jj] == colorobject[i+1][1] and  maskobject[2][ii][jj] == colorobject[i+1][2] 
       and maskobject[3][ii][jj] == colorobject[i+1][3] then
 	  still_run = still_run+1
+	  if already_taged == 1 then
+	     ii = 100 
+	     jj= 100
+	  end
       end 
       jj=jj+1
     end
@@ -522,7 +536,6 @@ while still_run~=0 and i <=21 do -- 21 nb max of different objects
   end
   i=i+1
 end
-
 
    return tags
 end
