@@ -116,17 +116,17 @@ static int nn_(SpatialGraph_updateGradInput)(lua_State *L)
   THTensor *gradInput = luaT_getfieldcheckudata(L, 1, "gradInput", torch_(Tensor_id));
   THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_(Tensor_id));
   THTensor *gradOutput = luaT_checkudata(L, 3, torch_(Tensor_id));
-  int connex = luaT_getfieldcheckint(L, 1, "connex");
+  //int connex = luaT_getfieldcheckint(L, 1, "connex");
   int dist = luaT_getfieldcheckint(L, 1, "dist");
   int norm = luaT_getfieldcheckint(L, 1, "normalize");
 
   // dims
-  int iwidth = input->size[2];
-  int iheight = input->size[1];
+  //int iwidth = input->size[2];
+  //int iheight = input->size[1];
   int ichannels = input->size[0];
   int owidth = gradOutput->size[2];
   int oheight = gradOutput->size[1];
-  int ochannels = gradOutput->size[0];
+  //int ochannels = gradOutput->size[0];
 
   // norm ?
   double normer = (norm == 1) ? 1/sqrt(ichannels)/sqrt(ichannels) : 1;

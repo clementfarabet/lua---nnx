@@ -95,7 +95,6 @@ static int nn_(DistMarginCriterion_updateGradInput)(lua_State *L)
   long nframe, dim;
   long t, d, m;
   real g;
-  real sum;
 
   THArgCheck((input->nDimension == 1) || (input->nDimension == 2), 2, "vector or matrix expected");
 
