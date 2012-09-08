@@ -54,6 +54,7 @@ torch.include('nnx', 'Toc.lua')
 -- spatial (images) operators:
 torch.include('nnx', 'SpatialLinear.lua')
 torch.include('nnx', 'SpatialClassifier.lua')
+torch.include('nnx', 'SpatialNormalization.lua')
 torch.include('nnx', 'SpatialPadding.lua')
 torch.include('nnx', 'SpatialReSamplingEx.lua')
 torch.include('nnx', 'SpatialUpSampling.lua')
