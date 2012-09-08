@@ -12,6 +12,9 @@ static const void* torch_DoubleTensor_id = NULL;
 #include "generic/SpatialReSamplingEx.c"
 #include "THGenerateFloatTypes.h"
 
+#include "generic/SpatialLinear.c"
+#include "THGenerateFloatTypes.h"
+
 #include "generic/SpatialUpSampling.c"
 #include "THGenerateFloatTypes.h"
 
@@ -44,6 +47,7 @@ DLL_EXPORT int luaopen_libnnx(lua_State *L)
   torch_FloatTensor_id = luaT_checktypename2id(L, "torch.FloatTensor");
   torch_DoubleTensor_id = luaT_checktypename2id(L, "torch.DoubleTensor");
 
+  nn_FloatSpatialLinear_init(L);
   nn_FloatSpatialReSamplingEx_init(L);
   nn_FloatSpatialUpSampling_init(L);
   nn_FloatSpatialDownSampling_init(L);
@@ -55,6 +59,7 @@ DLL_EXPORT int luaopen_libnnx(lua_State *L)
   nn_FloatSpatialRadialMatching_init(L);
   nn_FloatDataSetLabelMe_init(L);
 
+  nn_DoubleSpatialLinear_init(L);
   nn_DoubleSpatialReSamplingEx_init(L);
   nn_DoubleSpatialUpSampling_init(L);
   nn_DoubleSpatialDownSampling_init(L);
