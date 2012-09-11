@@ -39,7 +39,8 @@ function DataSetSamplingPascal:__init(...)
       {arg='classToSkip', type='number', help='index of class to skip during sampling', default=0},
       {arg='preloadSamples', type='boolean', help='if true, all samples are preloaded in memory', default=false},
       {arg='cacheFile', type='string', help='path to cache file (once cached, loading is much faster)'},
-      {arg='verbose', type='boolean', help='dumps information', default=false}
+      {arg='verbose', type='boolean', help='dumps information', default=false},
+      {arg='nbSegmentsToExtract', type='number', help='number of segments per image to be extracted', default=1}
    )
 
    -- fixed parameters
@@ -57,18 +58,18 @@ function DataSetSamplingPascal:__init(...)
    print('<DataSetSamplingPascal> loading LabelMe dataset from '..self.path)
    for folder in paths.files(paths.concat(self.path,path_images)) do
       if folder ~= '.' and folder ~= '..' then
-    -- allowing for less nesting in the data set preparation [MS]
-    if sys.filep(paths.concat(self.path,path_images,folder)) then 
-       self:getsizes('./',folder)
-    else
-       -- loop though nested folders
-       for file in paths.files(paths.concat(self.path,path_images,folder)) do
+	 -- allowing for less nesting in the data set preparation [MS]
+	 if sys.filep(paths.concat(self.path,path_images,folder)) then 
+	    self:getsizes('./',folder)
+	 else
+	    -- loop though nested folders
+	    for file in paths.files(paths.concat(self.path,path_images,folder)) do
 
-          if file ~= '.' and file ~= '..' then
-        self:getsizes(folder,file)
-          end
-       end
-    end
+	       if file ~= '.' and file ~= '..' then
+		  self:getsizes(folder,file)
+	       end
+	    end
+	 end
       end
    end
 
@@ -93,10 +94,10 @@ function DataSetSamplingPascal:__init(...)
    local maxXY = math.max(self.maxX, self.maxY)
    if not self.rawSampleMaxSize then
       if self.rawSampleSize then
-    self.rawSampleMaxSize = 
-       math.max(self.rawSampleSize.w,self.rawSampleSize.h)
+	 self.rawSampleMaxSize = 
+	 math.max(self.rawSampleSize.w,self.rawSampleSize.h)
       else
-    self.rawSampleMaxSize = maxXY
+	 self.rawSampleMaxSize = maxXY
       end
    end
    if maxXY < self.rawSampleMaxSize then
@@ -155,7 +156,7 @@ function DataSetSamplingPascal:getsizes(folder,file)
       size_c, size_y, size_x = image.getPNGsize(imgf)
    elseif file:find('.mat$') then
       if not xrequire 'mattorch' then 
-    xerror('<DataSetSamplingPascal> mattorch package required to handle MAT files')
+	 xerror('<DataSetSamplingPascal> mattorch package required to handle MAT files')
       end
       local loaded = mattorch.load(imgf)
       for _,matrix in pairs(loaded) do loaded = matrix; break end
@@ -169,9 +170,9 @@ function DataSetSamplingPascal:getsizes(folder,file)
    end
 
    table.insert(self.rawdata, {imgfile=imgf,
-                maskfile=maskf,
-                annotfile=annotf,
-                size={size_c, size_y, size_x}})
+			       maskfile=maskf,
+			       annotfile=annotf,
+			       size={size_c, size_y, size_x}})
 end
 
 function DataSetSamplingPascal:size()
@@ -339,7 +340,7 @@ function DataSetSamplingPascal:loadSample(index)
          image.scale(mask_loaded, self.currentMask, 'simple')
 
       elseif self.rawSampleMaxSize and (self.rawSampleMaxSize < img_loaded:size(3)
-                                     or self.rawSampleMaxSize < img_loaded:size(2)) then
+					or self.rawSampleMaxSize < img_loaded:size(2)) then
          -- resize to fit in bounding box
          local w,h
          if img_loaded:size(3) >= img_loaded:size(2) then
@@ -377,10 +378,10 @@ end
 function DataSetSamplingPascal:preload(saveFile)
    -- if cache file exists, just retrieve images from it
    if self.cacheFile
-      and paths.filep(paths.concat(self.path,self.cacheFile..'-samples')) then
+   and paths.filep(paths.concat(self.path,self.cacheFile..'-samples')) then
       print('<DataSetSamplingPascal> retrieving saved samples from :'
             .. paths.concat(self.path,self.cacheFile..'-samples')
-         .. ' [delete file to force new scan]')
+	    .. ' [delete file to force new scan]')
       local file = torch.DiskFile(paths.concat(self.path,self.cacheFile..'-samples'), 'r')
       file:binary()
       self.preloaded = file:readObject()
@@ -427,14 +428,8 @@ function DataSetSamplingPascal:parseMask(existing_tags)
       end
    else
       tags = existing_tags
-      -- make sure each tag list is large enough to hold the incoming data
-      for i = 1,self.nbClasses do
-         if ((tags[i].size + (self.rawSampleMaxSize*self.rawSampleMaxSize*4)) >
-          tags[i].data:size()) then
-            tags[i].data:resize(tags[i].size+(self.rawSampleMaxSize*self.rawSampleMaxSize*4),true)
-         end
-      end
    end
+
    -- use filter
    local filter = self.samplingFilter or {ratio=0, size=self.patchSize, step=4}
    -- extract labels
@@ -444,38 +439,52 @@ function DataSetSamplingPascal:parseMask(existing_tags)
    local y_start = math.ceil(self.patchSize/2)
    local y_end = mask:size(1) - math.ceil(self.patchSize/2)
 
+   local file = sys.concat(self.realIndex:gsub('Images','Segments'),'.mat')
+   local mat_path = file:gsub('/.mat$','.mat')
+   local loaded = mattorch.load(mat_path)
+   loaded = loaded.top_masks:float()
+   local segment1, segmenttmp
+   nb_segments = self.nbSegments
+   if self.nbSegments > loaded:size(1) then nb_segments = loaded:size(1) end
 
-     local file = sys.concat(self.realIndex:gsub('Images','Segments'),'.mat')
-     local mat_path = file:gsub('/.mat$','.mat')
-     local loaded = mattorch.load(mat_path)
-     loaded = loaded.top_masks:float()
-     local segment1, segmenttmp
-     nb_segments = self.nbSegments
-     if self.nbSegments > loaded:size(1) then nb_segments = loaded:size(1) end
-
-  -- (1) load a random segment 
-  -- for i=1,self.nbPatchPerSample do
-    
-     k = math.random(nb_segments) 
-     segment1 = loaded[k]:t()	 
-     
-     segmenttmp = image.scale(segment1, width, height)
-     -- segmenttmp = segmenttmp:narrow(2, x_start, x_end):narrow(1,y_start, y_end)
-
-     -- (2) mask the ground truth mask with the random segment. 
-     segmenttmp:cmul(mask:add(-1)):add(1)
-     
-     --print('extract labels segment '..k)
-     self.currentSegment = k
-     --print('self'..self.currentSegment)
-     
-
-     mask.nn.DataSetSegmentSampling_extract(tags, segmenttmp, 
-     x_start, x_end, 
-     y_start, y_end, self.currentIndex, self.currentSegment,
-     filter.ratio, filter.size, filter.step)
-  -- end
+   -- (1) load a random segment 
+   -- for i=1,self.nbPatchPerSample do
    
+   mask:add(-1)
+
+   local nb_segs = self.nbSegmentsToExtract
+   for ids = 1, nb_segs do
+--      print('ids = '..ids)
+
+      -- make sure each tag list is large enough to hold the incoming data
+      for i = 1,self.nbClasses do
+         if ((tags[i].size + (self.rawSampleMaxSize*self.rawSampleMaxSize*4)) >
+	     tags[i].data:size()) then
+            tags[i].data:resize(tags[i].size+(self.rawSampleMaxSize*self.rawSampleMaxSize*4))
+         end
+--	 print('size = ' .. tags[i].size)
+--	 print('data size = ' .. tags[i].data:size())
+      end
+
+      -- sample one semgment
+      k = math.random(nb_segments) 
+      segment1 = loaded[k]:t()	 
+      
+      segmenttmp = image.scale(segment1, width, height)
+
+      -- (2) mask the ground truth mask with the random segment. 
+      segmenttmp:cmul(mask):add(1)
+      
+      self.currentSegment = k    
+
+      mask.nn.DataSetSegmentSampling_extract(tags, segmenttmp, 
+					     x_start, x_end, 
+					     y_start, y_end, self.currentIndex, self.currentSegment,
+					     filter.ratio, filter.size, filter.step)
+
+--      print('delta xy size = ' .. 
+--	    ((x_end - x_start)*(y_end - y_start) - self.rawSampleMaxSize*self.rawSampleMaxSize))
+   end
 
    return tags
 end
@@ -484,7 +493,7 @@ function DataSetSamplingPascal:parseAllMasks(saveFile)
    -- if cache file exists, just retrieve tags from it
    if self.cacheFile and paths.filep(paths.concat(self.path,self.cacheFile..'-tags')) then
       print('<DataSetSamplingPascal> retrieving saved tags from :' .. paths.concat(self.path,self.cacheFile..'-tags')
-         .. ' [delete file to force new scan]')
+	    .. ' [delete file to force new scan]')
       local file = torch.DiskFile(paths.concat(self.path,self.cacheFile..'-tags'), 'r')
       file:binary()
       self.tags = file:readObject()
