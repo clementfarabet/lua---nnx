@@ -73,15 +73,15 @@ static int nn_(DataSetSegmentSampling_extract)(lua_State *L)
   float filter_ratio = lua_tonumber(L, 9);
   int filter_size = lua_tonumber(L, 10);
   int filter_step = lua_tonumber(L, 11);
-
+  int step = lua_tonumber(L, 12);
   float ratio = 1;
   int x,y,label,tag,size;
   THShortStorage *data;
-  for (x=x_start; x<=x_end; x++) {
-    for (y=y_start; y<=y_end; y++) {
+  for (x=x_start; x<=x_end; x=x+step) {
+    for (y=y_start; y<=y_end; y=y+step) {
       // label = mask[x][y]
       label = THTensor_(get2d)(mask, y-1, x-1);                                 
-
+      //  fprintf(stderr,"%d %d \n",x,y);
       // optional filter: insures that at least N% of local pixels belong to the same class
       if (filter_ratio > 0) {
         int kx,ky,count=0,good=0;

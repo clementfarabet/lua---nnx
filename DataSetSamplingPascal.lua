@@ -453,37 +453,34 @@ function DataSetSamplingPascal:parseMask(existing_tags)
    mask:add(-1)
 
    local nb_segs = self.nbSegmentsToExtract
-   for ids = 1, nb_segs do
---      print('ids = '..ids)
 
+   step = torch.ceil(math.sqrt(self.nbSegmentsToExtract)) 
+
+   for ids = 1, nb_segs do
       -- make sure each tag list is large enough to hold the incoming data
       for i = 1,self.nbClasses do
          if ((tags[i].size + (self.rawSampleMaxSize*self.rawSampleMaxSize*4)) >
 	     tags[i].data:size()) then
             tags[i].data:resize(tags[i].size+(self.rawSampleMaxSize*self.rawSampleMaxSize*4))
          end
---	 print('size = ' .. tags[i].size)
---	 print('data size = ' .. tags[i].data:size())
+
       end
 
-      -- sample one semgment
-      k = math.random(nb_segments) 
-      segment1 = loaded[k]:t()	 
-      
-      segmenttmp = image.scale(segment1, width, height)
+      -- sample one segment
+      --k = math.random(nb_segments) 
+       
+      segment1 = loaded[ids]:t()	
 
       -- (2) mask the ground truth mask with the random segment. 
-      segmenttmp:cmul(mask):add(1)
+      segment1:cmul(mask):add(1)
       
-      self.currentSegment = k    
+      self.currentSegment = ids    
 
-      mask.nn.DataSetSegmentSampling_extract(tags, segmenttmp, 
+      mask.nn.DataSetSegmentSampling_extract(tags, segment1, 
 					     x_start, x_end, 
 					     y_start, y_end, self.currentIndex, self.currentSegment,
-					     filter.ratio, filter.size, filter.step)
+					     filter.ratio, filter.size, filter.step, step)
 
---      print('delta xy size = ' .. 
---	    ((x_end - x_start)*(y_end - y_start) - self.rawSampleMaxSize*self.rawSampleMaxSize))
    end
 
    return tags
