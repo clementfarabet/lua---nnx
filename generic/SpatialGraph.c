@@ -10,11 +10,11 @@
 static int nn_(SpatialGraph_updateOutput)(lua_State *L)
 {
   // get all params
-  THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));
+  THTensor *input = luaT_checkudata(L, 2, torch_Tensor);
   int connex = luaT_getfieldcheckint(L, 1, "connex");
   int dist = luaT_getfieldcheckint(L, 1, "dist");
   int norm = luaT_getfieldcheckint(L, 1, "normalize");
-  THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_(Tensor_id));
+  THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_Tensor);
 
   // dims
   int iwidth = input->size[2];
@@ -112,10 +112,10 @@ static int nn_(SpatialGraph_updateOutput)(lua_State *L)
 static int nn_(SpatialGraph_updateGradInput)(lua_State *L)
 {
   // get all params
-  THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));
-  THTensor *gradInput = luaT_getfieldcheckudata(L, 1, "gradInput", torch_(Tensor_id));
-  THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_(Tensor_id));
-  THTensor *gradOutput = luaT_checkudata(L, 3, torch_(Tensor_id));
+  THTensor *input = luaT_checkudata(L, 2, torch_Tensor);
+  THTensor *gradInput = luaT_getfieldcheckudata(L, 1, "gradInput", torch_Tensor);
+  THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_Tensor);
+  THTensor *gradOutput = luaT_checkudata(L, 3, torch_Tensor);
   //int connex = luaT_getfieldcheckint(L, 1, "connex");
   int dist = luaT_getfieldcheckint(L, 1, "dist");
   int norm = luaT_getfieldcheckint(L, 1, "normalize");
@@ -252,7 +252,7 @@ static const struct luaL_Reg nn_(SpatialGraph__) [] = {
 
 static void nn_(SpatialGraph_init)(lua_State *L)
 {
-  luaT_pushmetaclass(L, torch_(Tensor_id));
+  luaT_pushmetatable(L, torch_Tensor);
   luaT_registeratname(L, nn_(SpatialGraph__), "nn");
   lua_pop(L,1);
 }

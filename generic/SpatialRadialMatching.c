@@ -9,11 +9,11 @@
 static int nn_(SpatialRadialMatching_updateOutput)(lua_State *L)
 {
   // get all params
-  THTensor *input1  = luaT_checkudata(L, 2, torch_(Tensor_id));
-  THTensor *input2  = luaT_checkudata(L, 3, torch_(Tensor_id));
+  THTensor *input1  = luaT_checkudata(L, 2, torch_Tensor);
+  THTensor *input2  = luaT_checkudata(L, 3, torch_Tensor);
   //THLongTensor *mask= luaT_checkudata(L, 4, luaT_checktypename2id(L, "torch.LongTensor"));
   int maxh          = luaT_getfieldcheckint(L, 1, "maxh");
-  THTensor *output  = luaT_getfieldcheckudata(L, 1, "output", torch_(Tensor_id));
+  THTensor *output  = luaT_getfieldcheckudata(L, 1, "output", torch_Tensor);
 
   // dims
   int iwidth = input1->size[2];
@@ -57,12 +57,12 @@ static int nn_(SpatialRadialMatching_updateOutput)(lua_State *L)
 static int nn_(SpatialRadialMatching_updateGradInput)(lua_State *L)
 {
   // get all params
-  THTensor*     input1 = luaT_checkudata(L, 2, torch_(Tensor_id));
-  THTensor*     input2 = luaT_checkudata(L, 3, torch_(Tensor_id));
-  THTensor* gradOutput = luaT_checkudata(L, 4, torch_(Tensor_id));
+  THTensor*     input1 = luaT_checkudata(L, 2, torch_Tensor);
+  THTensor*     input2 = luaT_checkudata(L, 3, torch_Tensor);
+  THTensor* gradOutput = luaT_checkudata(L, 4, torch_Tensor);
   //THLongTensor*   mask = luaT_checkudata(L, 5, luaT_checktypename2id(L, "torch.LongTensor"));
-  THTensor* gradInput1 = luaT_getfieldcheckudata(L, 1, "gradInput1", torch_(Tensor_id));
-  THTensor* gradInput2 = luaT_getfieldcheckudata(L, 1, "gradInput2", torch_(Tensor_id));
+  THTensor* gradInput1 = luaT_getfieldcheckudata(L, 1, "gradInput1", torch_Tensor);
+  THTensor* gradInput2 = luaT_getfieldcheckudata(L, 1, "gradInput2", torch_Tensor);
   int             maxh = luaT_getfieldcheckint(L, 1, "maxh");
 
   // dims
@@ -117,7 +117,7 @@ static const struct luaL_Reg nn_(SpatialRadialMatching__) [] = {
 
 static void nn_(SpatialRadialMatching_init)(lua_State *L)
 {
-  luaT_pushmetaclass(L, torch_(Tensor_id));
+  luaT_pushmetatable(L, torch_Tensor);
   luaT_registeratname(L, nn_(SpatialRadialMatching__), "nn");
   lua_pop(L,1);
 }

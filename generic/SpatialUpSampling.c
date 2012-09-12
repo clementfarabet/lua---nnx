@@ -5,10 +5,10 @@
 static int nn_(SpatialUpSampling_updateOutput)(lua_State *L)
 {
   // get all params
-  THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));
+  THTensor *input = luaT_checkudata(L, 2, torch_Tensor);
   int dW = luaT_getfieldcheckint(L, 1, "dW");
   int dH = luaT_getfieldcheckint(L, 1, "dH");
-  THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_(Tensor_id));
+  THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_Tensor);
 
   // dims
   int iwidth = input->size[2];
@@ -53,9 +53,9 @@ static int nn_(SpatialUpSampling_updateOutput)(lua_State *L)
 static int nn_(SpatialUpSampling_updateGradInput)(lua_State *L)
 {
   // get all params
-  //THTensor *input = luaT_checkudata(L, 2, torch_(Tensor_id));
-  THTensor *gradOutput = luaT_checkudata(L, 3, torch_(Tensor_id));
-  THTensor *gradInput = luaT_getfieldcheckudata(L, 1, "gradInput", torch_(Tensor_id));
+  //THTensor *input = luaT_checkudata(L, 2, torch_Tensor);
+  THTensor *gradOutput = luaT_checkudata(L, 3, torch_Tensor);
+  THTensor *gradInput = luaT_getfieldcheckudata(L, 1, "gradInput", torch_Tensor);
   int dW = luaT_getfieldcheckint(L, 1, "dW");
   int dH = luaT_getfieldcheckint(L, 1, "dH");
 
@@ -109,7 +109,7 @@ static const struct luaL_Reg nn_(SpatialUpSampling__) [] = {
 
 static void nn_(SpatialUpSampling_init)(lua_State *L)
 {
-  luaT_pushmetaclass(L, torch_(Tensor_id));
+  luaT_pushmetatable(L, torch_Tensor);
   luaT_registeratname(L, nn_(SpatialUpSampling__), "nn");
   lua_pop(L,1);
 }
