@@ -44,7 +44,7 @@ static int nn_(DataSetLabelMe_extract)(lua_State *L)
         size = lua_tonumber(L,-1); lua_pop(L,1);
         lua_pushstring(L, "size"); lua_pushnumber(L, size+3); lua_rawset(L, tag); // tag.size = size + 3
         lua_pushstring(L, "data"); lua_rawget(L, tag);                            // data = tag.data
-        data = luaT_checkudata(L, -1, "torch_ShortStorage"); lua_pop(L, 1);
+        data = luaT_checkudata(L, -1, "torch.ShortStorage"); lua_pop(L, 1);
         data->data[size] = x;                                                     // data[size+1] = x
         data->data[size+1] = y;                                                   // data[size+1] = y
         data->data[size+2] = idx;                                                 // data[size+1] = idx
@@ -101,7 +101,7 @@ static int nn_(DataSetSegmentSampling_extract)(lua_State *L)
         size = lua_tonumber(L,-1); lua_pop(L,1);
         lua_pushstring(L, "size"); lua_pushnumber(L, size+4); lua_rawset(L, tag); // tag.size = size + 4
         lua_pushstring(L, "data"); lua_rawget(L, tag);                            // data = tag.data
-        data = luaT_checkudata(L, -1, "torch_ShortStorage"); lua_pop(L, 1);
+        data = luaT_checkudata(L, -1, "torch.ShortStorage"); lua_pop(L, 1);
         data->data[size] = x;                                                     // data[size+1] = x
         data->data[size+1] = y;                                                   // data[size+1] = y
         data->data[size+2] = idx;                                                 // data[size+1] = idx
