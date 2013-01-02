@@ -1,6 +1,9 @@
 #include "TH.h"
 #include "luaT.h"
+
+#ifdef _OPENMP
 #include "omp.h"
+#endif
 
 #define torch_(NAME) TH_CONCAT_3(torch_, Real, NAME)
 #define torch_Tensor TH_CONCAT_STRING_3(torch., Real, Tensor)
