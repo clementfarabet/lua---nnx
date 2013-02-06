@@ -1,9 +1,9 @@
 package = "nnx"
-version = "0.1-0"
+version = "0.1-1"
 
 source = {
    url = "git://github.com/clementfarabet/lua---nnx",
-   tag = "0.1-0"
+   tag = "master"
 }
 
 description = {
