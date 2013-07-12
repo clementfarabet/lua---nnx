@@ -8,7 +8,7 @@
 -- Authors: Clement Farabet, Benoit Corda
 --------------------------------------------------------------------------------
 
-local DataSetLabelMe = torch.class('DataSetLabelMe')
+local DataSetLabelMe = torch.class('nn.DataSetLabelMe')
 
 local path_images = 'Images'
 local path_annotations = 'Annotations'
