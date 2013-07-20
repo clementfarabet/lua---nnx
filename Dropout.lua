@@ -8,13 +8,17 @@ function Dropout:__init(p)
       error('<Dropout> illegal percentage, must be 0 <= p < 1')
    end
    self.noise = torch.Tensor()
+   self.fnoise = torch.Tensor()
 end
 
 function Dropout:updateOutput(input)
+   self.fnoise = self.fnoise:float()
+   self.fnoise:resize(input:size())
    self.noise:resizeAs(input)
    self.output:resizeAs(input):copy(input)
    if self.train then
-      self.noise:bernoulli(1-self.p)
+      self.fnoise:bernoulli(1-self.p)
+      self.noise:copy(self.fnoise)
       self.output:cmul(self.noise)
    else
       self.output:mul(1-self.p)
