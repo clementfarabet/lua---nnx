@@ -12,11 +12,11 @@ function Dropout:__init(p)
 end
 
 function Dropout:updateOutput(input)
-   self.fnoise = self.fnoise:float()
-   self.fnoise:resize(input:size())
-   self.noise:resizeAs(input)
    self.output:resizeAs(input):copy(input)
    if self.train then
+      self.fnoise = self.fnoise:float()
+      self.fnoise:resize(input:size())
+      self.noise:resizeAs(input)
       self.fnoise:bernoulli(1-self.p)
       self.noise:copy(self.fnoise)
       self.output:cmul(self.noise)
