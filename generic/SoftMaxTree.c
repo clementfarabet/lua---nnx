@@ -14,10 +14,16 @@ static int nn_(SoftMaxTree_updateOutput)(lua_State *L)
   THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_Tensor);
   THTensor *childParent = luaT_getfieldcheckudata(L, 1, "childParent", torch_Tensor);
   
-  THTensor *node, *nodeWeight, *nodeBias, *nodeOutput;
+  //THTensor *nodes = luaT_getfieldcheckudata(L, 1, "_nodes", torch_Tensor);
+  THTensor *linearOutput = luaT_getfieldcheckudata(L, 1, "_linearOutput", torch_Tensor);
+  THTensor *logsoftOutput = luaT_getfieldcheckudata(L, 1, "_logSoftMaxOutput", torch_Tensor);
+  THTensor *narrowOutput = luaT_getfieldcheckudata(L, 1, "_narrowOutput", torch_Tensor);
   
+  THTensor *node, *nodeWeight, *nodeBias, *nodeOutput;
+  real *input_data, *output_data;
 
-  long k, i;
+  long i, d;
+  long n = 0;
   
   luaL_argcheck(L, input->nDimension == 2, 2, "2D(batch mode) tensor expected");
   luaL_argcheck(L, input->size[1] == inputSize, 2, "invalid input size");
@@ -26,49 +32,86 @@ static int nn_(SoftMaxTree_updateOutput)(lua_State *L)
   nodeWeight = THTensor_(new)();
   nodeBias = THTensor_(new)();
   nodeOutput = THTensor_(new)();
+  nodeInput = THTensor_(new)();
   
   THTensor_(resize1d)(output, input->size[0]);
   
-  for(i = 0; i < input->size[0], i++)
+  for(i = 0; i < input->size[0]; i++)
   {
     long childId = (long)(THTensor_(get1d)(target, i));
-    real activation = 
+    accreal narrowsum = 0;
+    THTensor_(select)(nodeInput, input, 0, i);
 
-    while (1)
+    while(1)
     {
-      long parentId = (long)(THTensor_(get1d)(childParent, childId));
-      long parentIdx, nChildren;
+      long parentId, parendIdx, childIdx, nChildren;
+      /* get next Node in Tree */
+      THIntTensor_select(node, childParent, 0, childId);
+      parentId = (long)(THIntTensor_get1d(node, 0));
+      childIdx = (long)(THIntTensor_get1d(node, 1));
       
-      THTensor_(select)(node, parentChildren, 0, parentId);
-      parentIdx = (long)(THTensor_(get1d)(node, 0));
-      nChildren = (long)(THTensor_(get1d)(node, 1));
+      luaL_argcheck(L, parentId != -1, 2, "Non-root node has no parent in tree.");
       
+      THIntTensor_select(node, parentChildren, 0, parentId);
+      parentIdx = (long)(THIntTensor_get1d(node, 0));
+      nChildren = (long)(THIntTensor_get1d(node, 1));
+      
+      // we use these to keep intermediate results for later backprop
+      if (linearOuput->size[0] < n+nChildren)
+      {
+        THTensor_(resize1d)(linearOutput, n+nChildren);
+        THTensor_(resize1d)(logsoftOutput, n+nChildren);
+      }
+      
+      /* Linear */
       THTensor_(narrow)(nodeWeight, weight, 0, parentIdx, nChildren);
       THTensor_(narrow)(nodeBias, bias, 0, parentIdx, nChildren);
-      TH_API void THTensor_(addmv)(THTensor *r_, real beta, THTensor *t, real alpha, THTensor *mat,  THTensor *vec);
+      THTensor_(narrow)(nodeOutput, linearOutput, 0, n, nChildren);
       
-      THTensor_(addmv)(nodeOutput, 1, nodeBias, 1, nodeWeight, input);
+      THTensor_(addmv)(nodeOutput, 1, nodeBias, 1, nodeWeight, nodeInput);
       
+      /* LogSoftMax */
+      THTensor_(set)(nodeInput, nodeOutput);
+      THTensor_(narrow)(nodeOutput, logsoftOutput, 0, n, nChildren);
       
+      input_data = THTensor_(data)(nodeInput);
+      output_data = THTensor_(data)(nodeOutput);
       
+      accreal logsum = 0;
+      real maxInput = -THInf;
+
+      for(d = 0; d < nChildren; d++)
+        maxInput = THMax(maxInput, input_data[d]);
+
+      for(d = 0; d < nChildren; d++)
+        logsum += THExpMinusApprox(maxInput-input_data[d]);
+      logsum = maxInput + log(logsum);
+
+      for(d = 0; d < nChildren; d++)
+        output_data[d] = input_data[d] - logsum;
+        
+      /* Narrow */
+      THTensor_(set)(nodeInput, nodeOutput);
+      THTensor_(narrow)(nodeOutput, nodeInput, 0, childIdx); //we might have to store childIdx in backprop
+        
+      /* CAddTable (without log, would have been CMulTable) */
+      narrowsum += THTensor_(get1d)(nodeOutput, 0);
+      
+      n += nChildren;
+      /* Break when root is reached */
       if parentId == rootId) 
       {
         break;
       }
       childId = parentId;
     }
-    end
-    -- sample channel (one channel per sample)
-    local channel = nn.Sequential()
-    channel:add(concat)
-    channel:add(nn.CMulTable())
-    parallel:add(channel)
-  
+    THTensor_(set1d)(output, i, narrowsum);  
   }
   THTensor_(free)(node);
   THTensor_(free)(nodeWeight);
   THTensor_(free)(nodeBias);
   THTensor_(free)(nodeOutput);
+  THTensor_(free)(nodeInput);
   return 1;
 }
 

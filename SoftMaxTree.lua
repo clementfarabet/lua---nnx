@@ -2,11 +2,14 @@ local SoftMaxTree, parent = torch.class('nn.SoftMaxTree', 'nn.Module')
 ------------------------------------------------------------------------
 --[[ SoftMaxTree ]]--
 -- Generates an output tensor of size 1D
+-- Computes the log of a product of softmaxes in a path
+-- One parent per child
 
 -- TODO: 
 -- a shareClone method to make speedier clones
 -- differ setup after init
 -- verify that each parent has a parent (except root)
+-- nodeIds - 1?
 ------------------------------------------------------------------------
 
 function SoftMaxTree:__init(inputSize, hierarchy, rootId, verbose)
@@ -76,7 +79,7 @@ function SoftMaxTree:__init(inputSize, hierarchy, rootId, verbose)
    end
    
    -- index of parent by childId
-   self.childParent = torch.IntTensor(self.maxChildId):fill(-1)
+   self.childParent = torch.IntTensor(self.maxChildId, 2):fill(-1)
    for parendIdx=1,self.parentIds:size(1) do
       local parentId = self.parentIds[parentIdx]
       local node = self.parentChildren:select(1, parentId)
@@ -85,9 +88,18 @@ function SoftMaxTree:__init(inputSize, hierarchy, rootId, verbose)
       local children = self.childIds:narrow(1, start, nChildren)
       for childIdx=1,children:size(1) do
          local childId = children[childIdx]
-         self.childParent[childId] = parentId
+         local child = self.childParent:select(1, childId)
+         child[1] = parentId
+         child[2] = childIdx
       end
    end
+   
+   -- used internally to store intermediate outputs
+   self._linearOutput = torch.Tensor()
+   self._logSoftMaxOutput = torch.Tensor()
+   self._narrowOutput = torch.Tensor()
+   -- used to store pointers to intermediate outputs
+   --self._nodes = torch.Tensor()
    
    self:reset()
 end
