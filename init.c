@@ -42,6 +42,9 @@
 #include "generic/DataSetLabelMe.c"
 #include "THGenerateFloatTypes.h"
 
+#include "generic/SoftMaxTree.c"
+#include "THGenerateFloatTypes.h"
+
 DLL_EXPORT int luaopen_libnnx(lua_State *L)
 {
   nn_FloatSpatialLinear_init(L);
@@ -55,6 +58,7 @@ DLL_EXPORT int luaopen_libnnx(lua_State *L)
   nn_FloatSpatialMatching_init(L);
   nn_FloatSpatialRadialMatching_init(L);
   nn_FloatDataSetLabelMe_init(L);
+  nn_FloatSoftMaxTree_init(L);
 
   nn_DoubleSpatialLinear_init(L);
   nn_DoubleSpatialReSamplingEx_init(L);
@@ -67,6 +71,7 @@ DLL_EXPORT int luaopen_libnnx(lua_State *L)
   nn_DoubleSpatialMatching_init(L);
   nn_DoubleSpatialRadialMatching_init(L);
   nn_DoubleDataSetLabelMe_init(L);
+  nn_DoubleSoftMaxTree_init(L);
 
   return 1;
 }
