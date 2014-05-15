@@ -1,7 +1,14 @@
 local SoftMaxTree, parent = torch.class('nn.SoftMaxTree', 'nn.Module')
+------------------------------------------------------------------------
+--[[ SoftMaxTree ]]--
+-- Generates an output tensor of size 1D
 
--- TODO: a shareClone method to make speedier clones
--- differ setup
+-- TODO: 
+-- a shareClone method to make speedier clones
+-- differ setup after init
+-- verify that each parent has a parent (except root)
+------------------------------------------------------------------------
+
 function SoftMaxTree:__init(inputSize, hierarchy, rootId, verbose)
    parent.__init(self)
    self.rootId = rootId or 0
@@ -95,17 +102,22 @@ function SoftMaxTree:reset(stdv)
    self.bias:uniform(-stdv, stdv)
 end
 
-function SoftMaxTree:updateOutput(input)
-   return input.nn.SoftMaxTree_updateOutput(self, input)
+function SoftMaxTree:updateOutput(inputTable)
+   local input, target = unpack(inputTable)
+   return input.nn.SoftMaxTree_updateOutput(self, input, target)
 end
 
-function SoftMaxTree:updateGradInput(input, gradOutput)
+function SoftMaxTree:updateGradInput(inputTable, gradOutputTable)
+   local input, target = unpack(inputTable)
+   local gradOutput, target = unpack(gradOutputTable)
    if self.gradInput then
-      return input.nn.SoftMaxTree_updateGradInput(self, input, gradOutput)
+      return input.nn.SoftMaxTree_updateGradInput(self, input, gradOutput, target)
    end
 end
 
-function SoftMaxTree:accGradParameters(input, gradOutput, scale)
+function SoftMaxTree:accGradParameters(inputTable, gradOutputTable, scale)
+   local input, target = unpack(inputTable)
+   local gradOutput, target = unpack(gradOutputTable)
    scale = scale or 1
    input.nn.SoftMaxTree_accGradParameters(self, input, gradOutput, scale)
 end
