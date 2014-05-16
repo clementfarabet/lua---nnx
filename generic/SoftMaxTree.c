@@ -5,21 +5,23 @@
 static int nn_(SoftMaxTree_updateOutput)(lua_State *L)
 {
   THTensor *input = luaT_checkudata(L, 2, torch_Tensor);  
-  THTensor *target = luaT_checkudata(L, 3, torch_Tensor);  
+  THIntTensor *target = (THIntTensor*)(luaT_checkudata(L, 3, torch_Tensor));  
   int inputSize = luaT_getfieldcheckint(L, 1, "inputSize");
   long rootId = (long)(luaT_getfieldcheckint(L, 1, "rootId"));
   
   THTensor *weight = luaT_getfieldcheckudata(L, 1, "weight", torch_Tensor);
   THTensor *bias = luaT_getfieldcheckudata(L, 1, "bias", torch_Tensor);
   THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_Tensor);
-  THTensor *childParent = luaT_getfieldcheckudata(L, 1, "childParent", torch_Tensor);
+  THIntTensor *childParent = (THIntTensor*)(luaT_getfieldcheckudata(L, 1, "childParent", torch_Tensor));
+  THIntTensor *parentChildren = (THIntTensor*)(luaT_getfieldcheckudata(L, 1, "parentChildren", torch_Tensor));
   
   //THTensor *nodes = luaT_getfieldcheckudata(L, 1, "_nodes", torch_Tensor);
   THTensor *linearOutput = luaT_getfieldcheckudata(L, 1, "_linearOutput", torch_Tensor);
   THTensor *logsoftOutput = luaT_getfieldcheckudata(L, 1, "_logSoftMaxOutput", torch_Tensor);
   THTensor *narrowOutput = luaT_getfieldcheckudata(L, 1, "_narrowOutput", torch_Tensor);
   
-  THTensor *node, *nodeWeight, *nodeBias, *nodeOutput;
+  THIntTensor *node;
+  THTensor *nodeWeight, *nodeBias, *nodeOutput, *nodeInput;
   real *input_data, *output_data;
 
   long i, d;
@@ -28,7 +30,7 @@ static int nn_(SoftMaxTree_updateOutput)(lua_State *L)
   luaL_argcheck(L, input->nDimension == 2, 2, "2D(batch mode) tensor expected");
   luaL_argcheck(L, input->size[1] == inputSize, 2, "invalid input size");
 
-  node = THTensor_(new)();
+  node = THIntTensor_new();
   nodeWeight = THTensor_(new)();
   nodeBias = THTensor_(new)();
   nodeOutput = THTensor_(new)();
@@ -38,13 +40,13 @@ static int nn_(SoftMaxTree_updateOutput)(lua_State *L)
   
   for(i = 0; i < input->size[0]; i++)
   {
-    long childId = (long)(THTensor_(get1d)(target, i));
+    long childId = (long)(THIntTensor_get1d(target, i));
     accreal narrowsum = 0;
     THTensor_(select)(nodeInput, input, 0, i);
 
     while(1)
     {
-      long parentId, parendIdx, childIdx, nChildren;
+      long parentId, parentIdx, childIdx, nChildren;
       /* get next Node in Tree */
       THIntTensor_select(node, childParent, 0, childId);
       parentId = (long)(THIntTensor_get1d(node, 0));
@@ -57,7 +59,7 @@ static int nn_(SoftMaxTree_updateOutput)(lua_State *L)
       nChildren = (long)(THIntTensor_get1d(node, 1));
       
       // we use these to keep intermediate results for later backprop
-      if (linearOuput->size[0] < n+nChildren)
+      if (linearOutput->size[0] < n+nChildren)
       {
         THTensor_(resize1d)(linearOutput, n+nChildren);
         THTensor_(resize1d)(logsoftOutput, n+nChildren);
@@ -92,14 +94,14 @@ static int nn_(SoftMaxTree_updateOutput)(lua_State *L)
         
       /* Narrow */
       THTensor_(set)(nodeInput, nodeOutput);
-      THTensor_(narrow)(nodeOutput, nodeInput, 0, childIdx); //we might have to store childIdx in backprop
+      THTensor_(narrow)(nodeOutput, nodeInput, 0, childIdx, 1); //we might have to store childIdx in backprop
         
       /* CAddTable (without log, would have been CMulTable) */
       narrowsum += THTensor_(get1d)(nodeOutput, 0);
       
       n += nChildren;
       /* Break when root is reached */
-      if parentId == rootId) 
+      if (parentId == rootId) 
       {
         break;
       }
@@ -107,7 +109,7 @@ static int nn_(SoftMaxTree_updateOutput)(lua_State *L)
     }
     THTensor_(set1d)(output, i, narrowsum);  
   }
-  THTensor_(free)(node);
+  THIntTensor_free(node);
   THTensor_(free)(nodeWeight);
   THTensor_(free)(nodeBias);
   THTensor_(free)(nodeOutput);
@@ -117,31 +119,6 @@ static int nn_(SoftMaxTree_updateOutput)(lua_State *L)
 
 static int nn_(SoftMaxTree_updateGradInput)(lua_State *L)
 {
-  THTensor *input = luaT_checkudata(L, 2, torch_Tensor);  
-  THTensor *gradOutput = luaT_checkudata(L, 3, torch_Tensor);  
-  int kW = luaT_getfieldcheckint(L, 1, "kW");
-  int dW = luaT_getfieldcheckint(L, 1, "dW");
-  long nInputFrame;
-  long nOutputFrame;
-
-  THTensor *weight = luaT_getfieldcheckudata(L, 1, "weight", torch_Tensor);
-  THTensor *gradInput = luaT_getfieldcheckudata(L, 1, "gradInput", torch_Tensor);
-
-  THTensor *gradOutputWindow;
-  THTensor *gradInputWindow;
-  long k, i;
-  
-  int dimS = 0; // sequence dimension
-  int dimF = 1; // feature dimension
-  
-  if (gradOutput->nDimension == 3) 
-  {
-    dimS = 1;
-    dimF = 2;
-  }
-  
-  nInputFrame = input->size[dimS];
-  nOutputFrame = gradOutput->size[dimS];
 
   
 

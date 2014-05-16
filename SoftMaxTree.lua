@@ -55,6 +55,7 @@ function SoftMaxTree:__init(inputSize, hierarchy, rootId, verbose)
    self.maxNodeId = maxNodeId
    self.maxParentId = maxParentId
    self.maxChildId = maxChildId
+   
    -- initialize weights and biases
    self.weight = torch.Tensor(self.nChildNode, self.inputSize)
    self.bias = torch.Tensor(self.nChildNode)
