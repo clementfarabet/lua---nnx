@@ -11,6 +11,7 @@ local SoftMaxTree, parent = torch.class('nn.SoftMaxTree', 'nn.Module')
 -- verify that each parent has a parent (except root)
 -- nodeIds - 1?
 -- types
+-- scrap narrowOutput and linearOutput
 ------------------------------------------------------------------------
 
 function SoftMaxTree:__init(inputSize, hierarchy, rootId, verbose)
@@ -97,10 +98,10 @@ function SoftMaxTree:__init(inputSize, hierarchy, rootId, verbose)
       end
    end
    
-   -- used internally to store intermediate outputs
+   -- used internally to store intermediate outputs or gradOutputs
    self._linearOutput = torch.Tensor()
+   self._linearGradOutput = torch.Tensor()
    self._logSoftMaxOutput = torch.Tensor()
-   self._narrowOutput = torch.Tensor()
    
    print("parentIds", self.parentIds)
    print("parentChildren", self.parentChildren)
@@ -145,7 +146,7 @@ function SoftMaxTree:accGradParameters(inputTable, gradOutputTable, scale)
    local input, target = unpack(inputTable)
    local gradOutput, target = unpack(gradOutputTable)
    scale = scale or 1
-   input.nn.SoftMaxTree_accGradParameters(self, input, gradOutput, scale)
+   input.nn.SoftMaxTree_accGradParameters(self, input, gradOutput, target, scale)
 end
 
 -- we do not need to accumulate parameters when sharing
