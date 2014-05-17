@@ -98,6 +98,9 @@ function SoftMaxTree:__init(inputSize, hierarchy, rootId, verbose)
       end
    end
    
+   -- stores the parentIds of nodes that have been accGradParameters
+   self.updates = {}
+   
    -- used internally to store intermediate outputs or gradOutputs
    self._linearOutput = torch.Tensor()
    self._linearGradOutput = torch.Tensor()
