@@ -440,9 +440,11 @@ function nnxtest.SoftMaxTree()
    -- forward backward
    local output = smt:forward{input, target}
    local mlp_act = mlp:forward(input[3])
-   --local mlp_grad = mlp:backward(input[3], grad[3])
+   local gradInput = smt:backward({input, target}, grad)
+   local mlp_grad = mlp:backward(input[3], grad:narrow(1,3,1))
    -- compare
    mytester:asserteq(output[3], mlp_act[1], 0.00001)
+   mytester:assertTensorEq(gradInput[3], mlp_grad, 0.00001)
    -- share
    -- update
 end

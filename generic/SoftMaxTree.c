@@ -133,7 +133,8 @@ static int nn_(SoftMaxTree_updateGradInput)(lua_State *L)
   THTensor *gradInput = luaT_getfieldcheckudata(L, 1, "gradInput", torch_Tensor);
   
   THIntTensor *node;
-  THTensor *nodeWeight, *nodeOutput *nodeGradInter, *nodeGradOutput, *weightTranspose;
+  THTensor *nodeWeight, *nodeOutput, *nodeGradInter;
+  THTensor *nodeGradInput, *nodeGradOutput, *weightTranspose;
   real *gradInput_data, *output_data;
 
   long i, d;
@@ -147,6 +148,7 @@ static int nn_(SoftMaxTree_updateGradInput)(lua_State *L)
   node = THIntTensor_new();
   nodeWeight = THTensor_(new)();
   nodeOutput = THTensor_(new)();
+  nodeGradInput = THTensor_(new)();
   nodeGradOutput = THTensor_(new)();
   nodeGradInter = THTensor_(new)();
   weightTranspose = THTensor_(new)();
@@ -162,7 +164,7 @@ static int nn_(SoftMaxTree_updateGradInput)(lua_State *L)
     
     THTensor_(select)(nodeGradInput, gradInput, 0, i);
     
-    while(n)
+    while(1)
     {
       long parentId, parentIdx, childIdx, nChildren;
       /* get next Node in Tree */
@@ -176,7 +178,7 @@ static int nn_(SoftMaxTree_updateGradInput)(lua_State *L)
       parentIdx = (long)(THIntTensor_get1d(node, 0)) - 1;
       nChildren = (long)(THIntTensor_get1d(node, 1));
       
-      luaL_argcheck(L, linearOutput->size[0] <= n+nChildren, 2, \
+      luaL_argcheck(L, logsoftOutput->size[0] >= n+nChildren, 2, \
         "Backward performed on different inputs than last forward");
         
       // we use this to keep intermediate results for later accGradParameters
@@ -189,9 +191,9 @@ static int nn_(SoftMaxTree_updateGradInput)(lua_State *L)
       output_data = THTensor_(data)(nodeOutput);
       gradInput_data = THTensor_(data)(nodeGradInter);
 
-      for(d = 0; d < dim; d++)
+      for(d = 0; d < nChildren; d++)
         gradInput_data[d] = -exp(output_data[d])*grad;
-      gradInput_data[d] += grad
+      gradInput_data[childIdx] += grad;
 
   
       /* Linear */
@@ -212,6 +214,7 @@ static int nn_(SoftMaxTree_updateGradInput)(lua_State *L)
   THIntTensor_free(node);
   THTensor_(free)(nodeWeight);
   THTensor_(free)(nodeOutput);
+  THTensor_(free)(nodeGradInput);
   THTensor_(free)(nodeGradInter);
   THTensor_(free)(nodeGradOutput);
   THTensor_(free)(weightTranspose);
@@ -225,6 +228,7 @@ static int nn_(SoftMaxTree_accGradParameters)(lua_State *L)
   THIntTensor *target = (THIntTensor*)luaT_checkudata(L, 4, "torch.IntTensor");  
   real scale = luaL_optnumber(L, 5, 1);
   
+  int inputSize = luaT_getfieldcheckint(L, 1, "inputSize");
   THIntTensor *childParent = (THIntTensor*)luaT_getfieldcheckudata(L, 1, "childParent", "torch.IntTensor");
   THIntTensor *parentChildren = (THIntTensor*)luaT_getfieldcheckudata(L, 1, "parentChildren", "torch.IntTensor");
   
@@ -234,7 +238,6 @@ static int nn_(SoftMaxTree_accGradParameters)(lua_State *L)
   THTensor *bias = luaT_getfieldcheckudata(L, 1, "bias", torch_Tensor);
   THTensor *gradWeight = luaT_getfieldcheckudata(L, 1, "gradWeight", torch_Tensor);
   THTensor *gradBias = luaT_getfieldcheckudata(L, 1, "gradBias", torch_Tensor);
-  THTensor *gradOutput = luaT_getfieldcheckudata(L, 1, "gradOutput", torch_Tensor);
   
   THIntTensor *node;
   THTensor *nodeWeight, *nodeBias, *nodeOutput, *nodeInput, *nodeGradInter, *nodeGradOutput;

@@ -134,17 +134,15 @@ function SoftMaxTree:updateOutput(inputTable)
    return input.nn.SoftMaxTree_updateOutput(self, input, target)
 end
 
-function SoftMaxTree:updateGradInput(inputTable, gradOutputTable)
+function SoftMaxTree:updateGradInput(inputTable, gradOutput)
    local input, target = unpack(inputTable)
-   local gradOutput, target = unpack(gradOutputTable)
    if self.gradInput then
       return input.nn.SoftMaxTree_updateGradInput(self, input, gradOutput, target)
    end
 end
 
-function SoftMaxTree:accGradParameters(inputTable, gradOutputTable, scale)
+function SoftMaxTree:accGradParameters(inputTable, gradOutput, scale)
    local input, target = unpack(inputTable)
-   local gradOutput, target = unpack(gradOutputTable)
    scale = scale or 1
    input.nn.SoftMaxTree_accGradParameters(self, input, gradOutput, target, scale)
 end
