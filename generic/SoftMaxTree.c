@@ -224,7 +224,6 @@ static int nn_(SoftMaxTree_updateGradInput)(lua_State *L)
 static int nn_(SoftMaxTree_accGradParameters)(lua_State *L)
 {
   THTensor *input = luaT_checkudata(L, 2, torch_Tensor);  
-  THTensor *gradOutput = luaT_checkudata(L, 3, torch_Tensor);  
   THIntTensor *target = (THIntTensor*)luaT_checkudata(L, 4, "torch.IntTensor");  
   real scale = luaL_optnumber(L, 5, 1);
   long rootId = (long)(luaT_getfieldcheckint(L, 1, "rootId") - 1);
@@ -238,7 +237,7 @@ static int nn_(SoftMaxTree_accGradParameters)(lua_State *L)
   THTensor *gradWeight = luaT_getfieldcheckudata(L, 1, "gradWeight", torch_Tensor);
   THTensor *gradBias = luaT_getfieldcheckudata(L, 1, "gradBias", torch_Tensor);
   
-  luaT_getfield(L, 1, "updates");
+  lua_getfield(L, 1, "updates");
   
   THIntTensor *node;
   THTensor *nodeGradWeight, *nodeGradBias, *nodeInput, *nodeGradOutput;
@@ -258,9 +257,7 @@ static int nn_(SoftMaxTree_accGradParameters)(lua_State *L)
   for(i = 0; i < input->size[0]; i++)
   {
     long childId = (long)(THIntTensor_get1d(target, i)) - 1;
-    real grad = THTensor_(get1d)(gradOutput, i);
-    
-    THTensor_(select)(nodeGradOutput, gradOutput, 0, i);
+    THTensor_(select)(nodeInput, input, 0, i);
     
     while(1)
     {
@@ -277,19 +274,22 @@ static int nn_(SoftMaxTree_accGradParameters)(lua_State *L)
       nChildren = (long)(THIntTensor_get1d(node, 1));
       
       THTensor_(narrow)(nodeGradOutput, linearGradOutput, 0, n, nChildren);
+      THTensor_(narrow)(nodeGradWeight, gradWeight, 0, parentIdx, nChildren);
+      THTensor_(narrow)(nodeGradBias, gradBias, 0, parentIdx, nChildren);
       
-      THTensor_(addr)(nodeGradWeight, 1, nodeGradWeight, scale, nodeInput, nodeGradOutput);
+      THTensor_(addr)(nodeGradWeight, 1, nodeGradWeight, scale, nodeGradOutput, nodeInput);
       THTensor_(cadd)(nodeGradBias, nodeGradBias, scale, nodeGradOutput);
       
       /* updates will contain parentId (key) sum of scales (value)*/
-      lua_pushinteger(L, (int)parentId);
+      lua_pushinteger(L, (int)(parentId+1));
       lua_gettable(L, -2);
       double count = lua_tonumber(L, -1) + scale;
+      lua_pop(L, 1);
       
-      lua_pushinteger(L, (int)parentId); /* key */
+      lua_pushinteger(L, (int)(parentId+1)); /* key */
       lua_pushnumber(L, count); /* value */
       lua_settable(L, -3);
-    
+      
       n += nChildren;
       /* Break when root is reached */
       if (parentId == rootId) 

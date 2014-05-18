@@ -409,7 +409,7 @@ function nnxtest.SpatialMatching_5() template_SpatialMatching(3, 12, 16, 5, 7, t
 
 function nnxtest.SoftMaxTree()
    local input = torch.randn(5,100)
-   local target = torch.IntTensor{20,24,27,10,8}
+   local target = torch.IntTensor{20,23,27,10,8}
    local grad = torch.randn(5)
    local root_id = 29
    local hierarchy={
@@ -420,15 +420,23 @@ function nnxtest.SoftMaxTree()
       [8]=torch.IntTensor{24,25,26,27,28}
    }
    local smt = nn.SoftMaxTree(100, hierarchy, root_id)
-   -- compare the inefficient version
+   -- compare to the inefficient version for example 3
    local concat = nn.ConcatTable()
    local indices = {3,3,4}
-   for i,parentId in ipairs{29,2,8} do
+   local parentIds = {29,2,8}
+   local linears = {}
+   
+   for i,parentId in ipairs(parentIds) do
       local s = nn.Sequential()
       local linear = nn.Linear(100,hierarchy[parentId]:size(1))
-      local weight, bias = smt:getNodeParameters(parentId)
-      linear.weight:set(weight)
-      linear.bias:set(bias)
+      linears[parentId] = linear
+      local param, grad = smt:getNodeParameters(parentId)
+      local weight, bias = unpack(param)
+      local gradWeight, gradBias = unpack(grad)
+      mytester:asserteq(gradWeight:sum(), 0, 0.000001)
+      mytester:asserteq(gradBias:sum(), 0, 0.000001)
+      linear.weight:set(weight:clone())
+      linear.bias:set(bias:clone())
       s:add(linear)
       s:add(nn.LogSoftMax())
       s:add(nn.Narrow(1,indices[i],1))
@@ -437,16 +445,30 @@ function nnxtest.SoftMaxTree()
    local mlp = nn.Sequential()
    mlp:add(concat)
    mlp:add(nn.CAddTable())
+   -- will fail without this:
+   smt:zeroGradParameters()
+   mlp:zeroGradParameters()
    -- forward backward
    local output = smt:forward{input, target}
    local mlp_act = mlp:forward(input[3])
    local gradInput = smt:backward({input, target}, grad)
    local mlp_grad = mlp:backward(input[3], grad:narrow(1,3,1))
    -- compare
-   mytester:asserteq(output[3], mlp_act[1], 0.00001)
+   mytester:assert(math.abs(output[3] - mlp_act[1]) < 0.00001)
    mytester:assertTensorEq(gradInput[3], mlp_grad, 0.00001)
-   -- share
    -- update
+   mytester:asserteq(smt.updates[29], 5, 0.000001)
+   smt:updateParameters(0.1)
+   mlp:updateParameters(0.1)
+   local parentId = 8
+   local param, grad = smt:getNodeParameters(parentId)
+   local weight, bias = unpack(param)
+   local gradWeight, gradBias = unpack(grad)
+   local linear = linears[parentId]
+   mytester:assertTensorEq(weight, linear.weight, 0.000001)
+   mytester:assertTensorEq(gradWeight, linear.gradWeight, 0.000001)
+   mytester:assertTensorEq(bias, linear.bias, 0.000001)
+   mytester:assertTensorEq(gradBias, linear.gradBias, 0.000001)
 end
 
 function nnx.test(tests)
