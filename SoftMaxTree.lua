@@ -31,10 +31,12 @@ function SoftMaxTree:__init(inputSize, hierarchy, rootId, verbose)
       local maxChildrenId = children:max()
       maxChildId = math.max(maxChildrenId, maxChildId)
       maxNodeId = math.max(parentId, maxNodeId, maxChildrenId)
-      minNodeId = math.max(parentId, minNodeId, children:min())
+      minNodeId = math.min(parentId, minNodeId, children:min())
       table.insert(parentIds, parentId)
    end
-   assert(minNodeId >= 0, "nodeIds must must be non-negative")
+   if minNodeId < 0 then
+      error("nodeIds must must be positive: "..minNodeId, 2) 
+   end
    if verbose then
       print("Hierachy has :")
       print(nParentNode.." parent nodes")
@@ -177,6 +179,11 @@ function SoftMaxTree:type(type)
       self.bias = self.bias:type(type)
       self.gradWeight = self.gradWeight:type(type)
       self.gradBias = self.gradBias:type(type)
+      self._linearOutput = self._linearOutput:type(type)
+      self._linearGradOutput = self._linearGradOutput:type(type)
+      self._logSoftMaxOutput = self._logSoftMaxOutput:type(type)
+      self.output = self.output:type(type)
+      self.gradInput = self.gradInput:type(type)
    end
    return self
 end
