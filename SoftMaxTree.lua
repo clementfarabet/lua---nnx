@@ -139,6 +139,7 @@ end
 -- i.e. keys that don't change from batch to batch
 function SoftMaxTree:parameters(static)
    local params, grads = {}, {}
+   local updated = false
    for parentId, scale in pairs(self.updates) do
       local node = self.parentChildren:select(1, parentId)
       local parentIdx = node[1]
@@ -155,8 +156,9 @@ function SoftMaxTree:parameters(static)
          table.insert(grads, self.gradWeight:narrow(1, parentIdx, nChildren))
          table.insert(grads, self.gradBias:narrow(1, parentIdx, nChildren))
       end
+      updated = true
    end
-   if #params == 0 then
+   if not updated then
       return {self.weight, self.bias}, {self.gradWeight, self.gradBias}
    end
    return params, grads
