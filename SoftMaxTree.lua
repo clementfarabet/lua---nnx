@@ -175,12 +175,10 @@ function SoftMaxTree:getNodeParameters(parentId)
    return {weight, bias}, {gradWeight, gradBias}
 end
 
-function SoftMaxTree:zeroGradParameters()
-   local _,gradParams = self:parameters()
-   if gradParams then
-      for i=1,#gradParams do
-         gradParams[i]:zero()
-      end
+function SoftMaxTree:zeroGradParameters(partial)
+   local _,gradParams = self:parameters(partial)
+   for k,gradParam in pairs(gradParams) do
+      gradParam:zero()
    end
    self.updates = {}
 end
