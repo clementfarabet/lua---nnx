@@ -135,16 +135,26 @@ function SoftMaxTree:accGradParameters(inputTable, gradOutput, scale)
    input.nn.SoftMaxTree_accGradParameters(self, input, gradOutput, target, scale)
 end
 
-function SoftMaxTree:parameters()
+-- when static is true, return parameters with static keys
+-- i.e. keys that don't change from batch to batch
+function SoftMaxTree:parameters(static)
    local params, grads = {}, {}
    for parentId, scale in pairs(self.updates) do
       local node = self.parentChildren:select(1, parentId)
       local parentIdx = node[1]
       local nChildren = node[2]
-      table.insert(params, self.weight:narrow(1, parentIdx, nChildren))
-      table.insert(params, self.bias:narrow(1, parentIdx, nChildren))
-      table.insert(grads, self.gradWeight:narrow(1, parentIdx, nChildren))
-      table.insert(grads, self.gradBias:narrow(1, parentIdx, nChildren))
+      if static then
+         params[parentId] = self.weight:narrow(1, parentIdx, nChildren)
+         grads[parentId] = self.gradWeight:narrow(1, parentIdx, nChildren)
+         local biasId = parentId+self.maxParentId
+         params[biasId] = self.bias:narrow(1, parentIdx, nChildren)
+         grads[biasId] = self.gradBias:narrow(1, parentIdx, nChildren)
+      else
+         table.insert(params, self.weight:narrow(1, parentIdx, nChildren))
+         table.insert(params, self.bias:narrow(1, parentIdx, nChildren))
+         table.insert(grads, self.gradWeight:narrow(1, parentIdx, nChildren))
+         table.insert(grads, self.gradBias:narrow(1, parentIdx, nChildren))
+      end
    end
    if #params == 0 then
       return {self.weight, self.bias}, {self.gradWeight, self.gradBias}
