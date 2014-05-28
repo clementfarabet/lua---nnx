@@ -194,16 +194,20 @@ function SoftMaxTree:zeroGradParameters(partial)
 end
 
 function SoftMaxTree:type(type)
-   if type and (type == 'torch.FloatTensor' or type == 'torch.DoubleTensor') then
+   if type and (type == 'torch.FloatTensor' or type == 'torch.DoubleTensor' or type == 'torch.CudaTensor') then
       self.weight = self.weight:type(type)
       self.bias = self.bias:type(type)
       self.gradWeight = self.gradWeight:type(type)
       self.gradBias = self.gradBias:type(type)
-      self._linearOutput = self._linearOutput:type(type)
-      self._linearGradOutput = self._linearGradOutput:type(type)
-      self._logSoftMaxOutput = self._logSoftMaxOutput:type(type)
+      self._nodeBuffer = self._nodeBuffer:type(type)
+      self._multiBuffer = self._multiBuffer:type(type)
       self.output = self.output:type(type)
       self.gradInput = self.gradInput:type(type)
+      if (type == 'torch.CudaTensor') then
+         -- we need these to be both on GPU and CPU
+         self.parentChildren_d = self.parentChildren:type(type)
+         self.childParent_d = self.childParent:type(type)
+      end
    end
    return self
 end
