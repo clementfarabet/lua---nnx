@@ -18,16 +18,18 @@ function SoftMaxTree:__init(inputSize, hierarchy, rootId, verbose)
    -- get the total amount of children (non-root nodes)
    local nChildNode = 0
    local nParentNode = 0
-   local maxNodeId = -99999999
+   local maxNodeId = -999999999
    local minNodeId = 999999999
-   local maxParentId = -99999999
-   local maxChildId = -9999999
+   local maxParentId = -999999999
+   local maxChildId = -999999999
+   local maxFamily = -999999999
    local parentIds = {}
    for parentId, children in pairs(hierarchy) do
       assert(children:dim() == 1, "Expecting table of 1D tensors at arg 2")
       nChildNode = nChildNode + children:size(1)
       nParentNode = nParentNode + 1
       maxParentId = math.max(parentId, maxParentId)
+      maxFamily = math.max(maxFamily, children:size(1))
       local maxChildrenId = children:max()
       maxChildId = math.max(maxChildrenId, maxChildId)
       maxNodeId = math.max(parentId, maxNodeId, maxChildrenId)
@@ -35,7 +37,7 @@ function SoftMaxTree:__init(inputSize, hierarchy, rootId, verbose)
       table.insert(parentIds, parentId)
    end
    if minNodeId < 0 then
-      error("nodeIds must must be positive: "..minNodeId, 2) 
+      error("nodeIds must must be positive: "..minNodeId, 2)
    end
    if verbose then
       print("Hierachy has :")
@@ -56,6 +58,7 @@ function SoftMaxTree:__init(inputSize, hierarchy, rootId, verbose)
    self.maxNodeId = maxNodeId
    self.maxParentId = maxParentId
    self.maxChildId = maxChildId
+   self.maxFamily = maxFamily
    
    -- initialize weights and biases
    self.weight = torch.Tensor(self.nChildNode, self.inputSize)
@@ -100,9 +103,10 @@ function SoftMaxTree:__init(inputSize, hierarchy, rootId, verbose)
    self.updates = {}
    
    -- used internally to store intermediate outputs or gradOutputs
-   self._linearOutput = torch.Tensor()
-   self._linearGradOutput = torch.Tensor()
-   self._logSoftMaxOutput = torch.Tensor()
+   self._nodeBuffer = torch.Tensor()
+   self._multiBuffer = torch.Tensor()
+   
+   self.batchSize = 0
    
    self:reset()
 end
@@ -119,6 +123,12 @@ end
 
 function SoftMaxTree:updateOutput(inputTable)
    local input, target = unpack(inputTable)
+   -- buffers:
+   if self.batchSize ~= input:size(1) then
+      self._nodeBuffer:resize(self.maxFamily)
+      self._multiBuffer:resize(input:size(1)*self.maxFamily)
+      self.batchSize = input:size(1)
+   end
    return input.nn.SoftMaxTree_updateOutput(self, input, target)
 end
 
