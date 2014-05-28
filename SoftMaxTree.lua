@@ -99,6 +99,26 @@ function SoftMaxTree:__init(inputSize, hierarchy, rootId, verbose)
       end
    end
    
+   -- used to allocate buffers (get maximum nChildren in family path)
+   local maxFamilyPath = -999999999
+   local treeSize = {[rootId] = self.parentChildren[rootId][2]}
+   local function getSize(nodeId) 
+      local size = treeSize[nodeId]
+      if not size then
+         local parentId = self.childParent[nodeId][1]
+         local nChildren = self.parentChildren[nodeId][2]
+         size = getSize(parentId) + nChildren
+         treeSize[parentId] = size
+      end
+      return size
+   end
+   for parentIdx=1,self.parentIds:size(1) do
+      local parentId = self.parentIds[parentIdx]
+      local size = getSize(parentId)
+      maxFamilyPath = math.max(size, maxFamilyPath)
+   end
+   self.maxFamilyPath = maxFamilyPath
+   
    -- stores the parentIds of nodes that have been accGradParameters
    self.updates = {}
    
@@ -126,7 +146,7 @@ function SoftMaxTree:updateOutput(inputTable)
    -- buffers:
    if self.batchSize ~= input:size(1) then
       self._nodeBuffer:resize(self.maxFamily)
-      self._multiBuffer:resize(input:size(1)*self.maxFamily)
+      self._multiBuffer:resize(input:size(1)*self.maxFamilyPath)
       self.batchSize = input:size(1)
    end
    return input.nn.SoftMaxTree_updateOutput(self, input, target)
