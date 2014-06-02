@@ -99,25 +99,32 @@ function SoftMaxTree:__init(inputSize, hierarchy, rootId, verbose)
       end
    end
    
-   -- used to allocate buffers (get maximum nChildren in family path)
+   -- used to allocate buffers 
+   -- max nChildren in family path
    local maxFamilyPath = -999999999
-   local treeSize = {[rootId] = self.parentChildren[rootId][2]}
+   -- max number of parents
+   local maxDept = -999999999
+   local treeSizes = {[rootId] = self.parentChildren[rootId][2]}
+   local pathSizes = {[rootId] = 1}
    local function getSize(nodeId) 
-      local size = treeSize[nodeId]
-      if not size then
+      local treeSize, pathSize = treeSizes[nodeId], pathSizes[nodeId]
+      if not treeSize then
          local parentId = self.childParent[nodeId][1]
          local nChildren = self.parentChildren[nodeId][2]
-         size = getSize(parentId) + nChildren
-         treeSize[parentId] = size
+         treeSize, pathSize = getSize(parentId) 
+         treeSizes[parentId] = treeSize + nChildren
+         pathSizes[parentId] = size + 1
       end
-      return size
+      return treeSize, pathSize
    end
    for parentIdx=1,self.parentIds:size(1) do
       local parentId = self.parentIds[parentIdx]
-      local size = getSize(parentId)
-      maxFamilyPath = math.max(size, maxFamilyPath)
+      local treeSize, pathSize = getSize(parentId)
+      maxFamilyPath = math.max(treeSize, maxFamilyPath)
+      maxDept = math.max(pathSize, maxDept)
    end
    self.maxFamilyPath = maxFamilyPath
+   self.maxDept = maxDept
    
    -- stores the parentIds of nodes that have been accGradParameters
    self.updates = {}
@@ -148,6 +155,10 @@ function SoftMaxTree:updateOutput(inputTable)
       self._nodeBuffer:resize(self.maxFamily)
       self._multiBuffer:resize(input:size(1)*self.maxFamilyPath)
       self.batchSize = input:size(1)
+      if self._nodeUpdateHost then
+         self._nodeUpdateHost:resize(input:size(1)*self.maxDept)
+         self._nodeUpdateCuda:resize(input:size(1)*self.maxDept)
+      end
    end
    return input.nn.SoftMaxTree_updateOutput(self, input, target)
 end
@@ -223,11 +234,17 @@ function SoftMaxTree:type(type)
       self._multiBuffer = self._multiBuffer:type(type)
       self.output = self.output:type(type)
       self.gradInput = self.gradInput:type(type)
+      self.parentChildren = self.parentChildren:type(type)
+      self.childParent = self.childParent:type(type)
       if (type == 'torch.CudaTensor') then
-         -- we need these to be both on GPU and CPU
-         self.parentChildren_d = self.parentChildren:type(type)
-         self.childParent_d = self.childParent:type(type)
+         -- cunnx needs this for filling self.updates
+         self._nodeUpdateHost = torch.IntTensor()
+         self._nodeUpdateCuda = torch.CudaTensor()
+      elseif self.nodeUpdateHost then
+         self._nodeUpdateHost = nil
+         self._nodeUpdateCuda = nil
       end
+      self.batchSize = 0 --so that buffers are resized
    end
    return self
 end
