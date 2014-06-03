@@ -156,8 +156,8 @@ function SoftMaxTree:updateOutput(inputTable)
       self._multiBuffer:resize(input:size(1)*self.maxFamilyPath)
       self.batchSize = input:size(1)
       if self._nodeUpdateHost then
-         self._nodeUpdateHost:resize(input:size(1)*self.maxDept)
-         self._nodeUpdateCuda:resize(input:size(1)*self.maxDept)
+         self._nodeUpdateHost:resize(input:size(1),self.maxDept)
+         self._nodeUpdateCuda:resize(input:size(1),self.maxDept)
       end
    end
    return input.nn.SoftMaxTree_updateOutput(self, input, target)
@@ -203,6 +203,15 @@ function SoftMaxTree:parameters(static)
       return {self.weight, self.bias}, {self.gradWeight, self.gradBias}
    end
    return params, grads
+end
+
+function SoftMaxTree:updateParameters(learningRate, partial)
+   local params, gradParams = self:parameters(partial)
+   if params then
+      for k,param in pairs(params) do
+         param:add(-learningRate, gradParams[k])
+      end
+   end
 end
 
 function SoftMaxTree:getNodeParameters(parentId)
