@@ -248,6 +248,7 @@ static int nn_(SoftMaxTree_accGradParameters)(lua_State *L)
     while(1)
     {
       long parentId, parentIdx, childIdx, nChildren;
+      double count;
       /* get next Node in Tree */
       THIntTensor_select(node, childParent, 0, childId);
       parentId = (long)(THIntTensor_get1d(node, 0)) - 1;
@@ -269,7 +270,7 @@ static int nn_(SoftMaxTree_accGradParameters)(lua_State *L)
       /* updates will contain parentId (key) sum of scales (value)*/
       lua_pushinteger(L, (int)(parentId+1));
       lua_gettable(L, -2);
-      double count = lua_tonumber(L, -1) + scale;
+      count = lua_tonumber(L, -1) + scale;
       lua_pop(L, 1);
       
       lua_pushinteger(L, (int)(parentId+1)); /* key */

@@ -113,7 +113,7 @@ function SoftMaxTree:__init(inputSize, hierarchy, rootId, verbose)
          local nChildren = self.parentChildren[nodeId][2]
          treeSize, pathSize = getSize(parentId) 
          treeSizes[parentId] = treeSize + nChildren
-         pathSizes[parentId] = size + 1
+         pathSizes[parentId] = pathSize + 1
       end
       return treeSize, pathSize
    end
