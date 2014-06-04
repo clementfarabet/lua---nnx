@@ -469,6 +469,11 @@ function nnxtest.SoftMaxTree()
    mytester:assertTensorEq(gradWeight, linear.gradWeight, 0.000001)
    mytester:assertTensorEq(bias, linear.bias, 0.000001)
    mytester:assertTensorEq(gradBias, linear.gradBias, 0.000001)
+   -- sharedClone
+   smt2 = smt:sharedClone()
+   output = smt:forward{input, target}
+   output2 = smt2:forward{input, target}
+   mytester:assertTensorEq(output, output2, 0.00001)
 end
 
 function nnx.test(tests)

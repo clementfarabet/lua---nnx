@@ -4,15 +4,11 @@ local SoftMaxTree, parent = torch.class('nn.SoftMaxTree', 'nn.Module')
 -- Computes the log of a product of softmaxes in a path
 -- Returns an output tensor of size 1D
 -- Only works with a tree (one parent per child)
-
--- TODO: 
--- a shareClone method to make clones without wasting memory
--- which may require differing setup after initialization
 ------------------------------------------------------------------------
 
 function SoftMaxTree:__init(inputSize, hierarchy, rootId, verbose)
    parent.__init(self)
-   self.rootId = rootId or 0
+   self.rootId = rootId or 1
    self.inputSize = inputSize
    assert(type(hierarchy) == 'table', "Expecting table at arg 2")
    -- get the total amount of children (non-root nodes)
@@ -258,6 +254,34 @@ function SoftMaxTree:type(type)
       self.batchSize = 0 --so that buffers are resized
    end
    return self
+end
+
+-- generate a Clone that shares parameters and metadata 
+-- without wasting memory
+function SoftMaxTree:sharedClone()
+   -- init a dummy clone (with small memory footprint)
+   local dummyTree = {[1]=torch.IntTensor{1,2}}
+   local smt = nn.SoftMaxTree(self.inputSize, dummyTree, 1)
+   -- clone should have same type
+   smt:type(self.weight:type())
+   -- share all the metadata
+   smt.rootId = self.rootId
+   smt.nChildNode = self.nChildNode
+   smt.nParentNode = self.nParentNode
+   smt.minNodeId = self.minNodeId
+   smt.maxNodeId = self.maxNodeId
+   smt.maxParentId = self.maxParentId
+   smt.maxChildId = self.maxChildId
+   smt.maxFamily = self.maxFamily
+   smt.childIds = self.childIds
+   smt.parentIds = self.parentIds
+   smt.parentChildren = self.parentChildren
+   smt.childParent = self.childParent
+   smt.maxFamilyPath = self.maxFamilyPath
+   smt.maxDept = self.maxDept
+   smt.gradWeight = self.gradWeight:clone()
+   smt.gradBias = self.gradBias:clone()
+   return smt:share(self, 'weight', 'bias')
 end
 
 -- we do not need to accumulate parameters when sharing
