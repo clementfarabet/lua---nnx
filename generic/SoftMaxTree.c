@@ -8,6 +8,7 @@ static int nn_(SoftMaxTree_updateOutput)(lua_State *L)
   THIntTensor *target = (THIntTensor*)luaT_checkudata(L, 3, "torch.IntTensor");  
   int inputSize = luaT_getfieldcheckint(L, 1, "inputSize");
   long rootId = (long)(luaT_getfieldcheckint(L, 1, "rootId") - 1);
+  long maxFamilyPath = (long)luaT_getfieldcheckint(L, 1, "maxFamilyPath");
   
   THIntTensor *childParent = (THIntTensor*)luaT_getfieldcheckudata(L, 1, "childParent", "torch.IntTensor");
   THIntTensor *parentChildren = (THIntTensor*)luaT_getfieldcheckudata(L, 1, "parentChildren", "torch.IntTensor");
@@ -24,7 +25,6 @@ static int nn_(SoftMaxTree_updateOutput)(lua_State *L)
   real *input_data, *output_data;
 
   long i, d;
-  long n = 0;
   
   luaL_argcheck(L, input->nDimension == 2, 2, "2D(batch mode) tensor expected");
   luaL_argcheck(L, input->size[1] == inputSize, 2, "invalid input size");
@@ -40,6 +40,7 @@ static int nn_(SoftMaxTree_updateOutput)(lua_State *L)
   
   for(i = 0; i < input->size[0]; i++)
   {
+    long n = 0;
     long childId = (long)(THIntTensor_get1d(target, i)) - 1;
     accreal narrowsum = 0;
     THTensor_(select)(nodeInput, input, 0, i);
@@ -66,7 +67,7 @@ static int nn_(SoftMaxTree_updateOutput)(lua_State *L)
       
       /* LogSoftMax */
       THTensor_(set)(nodeInter, nodeOutput);
-      THTensor_(narrow)(nodeOutput, logsoftOutput, 0, n, nChildren);
+      THTensor_(narrow)(nodeOutput, logsoftOutput, 0, maxFamilyPath*i + n, nChildren);
       
       input_data = THTensor_(data)(nodeInter);
       output_data = THTensor_(data)(nodeOutput);
@@ -117,6 +118,7 @@ static int nn_(SoftMaxTree_updateGradInput)(lua_State *L)
   THIntTensor *target = (THIntTensor*)luaT_checkudata(L, 4, "torch.IntTensor");  
   int inputSize = luaT_getfieldcheckint(L, 1, "inputSize");
   long rootId = (long)(luaT_getfieldcheckint(L, 1, "rootId") - 1);
+  long maxFamilyPath = (long)luaT_getfieldcheckint(L, 1, "maxFamilyPath");
   
   THIntTensor *childParent = (THIntTensor*)luaT_getfieldcheckudata(L, 1, "childParent", "torch.IntTensor");
   THIntTensor *parentChildren = (THIntTensor*)luaT_getfieldcheckudata(L, 1, "parentChildren", "torch.IntTensor");
@@ -133,7 +135,6 @@ static int nn_(SoftMaxTree_updateGradInput)(lua_State *L)
   real *gradInput_data, *output_data;
 
   long i, d;
-  long n = 0;
   
   luaL_argcheck(L, input->nDimension == 2, 2, "2D(batch mode) tensor expected");
   luaL_argcheck(L, input->size[1] == inputSize, 2, "invalid input size");
@@ -152,6 +153,7 @@ static int nn_(SoftMaxTree_updateGradInput)(lua_State *L)
   
   for(i = 0; i < input->size[0]; i++)
   {
+    long n = 0;
     long childId = (long)(THIntTensor_get1d(target, i)) - 1;
     real grad = THTensor_(get1d)(gradOutput, i);
     
@@ -175,7 +177,7 @@ static int nn_(SoftMaxTree_updateGradInput)(lua_State *L)
         "Backward performed on different inputs than last forward");
       
       /* CAddTable + Narrow + LogSoftMax */
-      THTensor_(narrow)(nodeOutput, logsoftOutput, 0, n, nChildren);
+      THTensor_(narrow)(nodeOutput, logsoftOutput, 0, maxFamilyPath*i + n, nChildren);
       
       output_data = THTensor_(data)(nodeOutput);
 
@@ -213,6 +215,7 @@ static int nn_(SoftMaxTree_accGradParameters)(lua_State *L)
   THIntTensor *target = (THIntTensor*)luaT_checkudata(L, 4, "torch.IntTensor");  
   real scale = luaL_optnumber(L, 5, 1);
   long rootId = (long)(luaT_getfieldcheckint(L, 1, "rootId") - 1);
+  long maxFamilyPath = (long)luaT_getfieldcheckint(L, 1, "maxFamilyPath");
   
   int inputSize = luaT_getfieldcheckint(L, 1, "inputSize");
   THIntTensor *childParent = (THIntTensor*)luaT_getfieldcheckudata(L, 1, "childParent", "torch.IntTensor");
@@ -229,7 +232,6 @@ static int nn_(SoftMaxTree_accGradParameters)(lua_State *L)
   THTensor *nodeGradWeight, *nodeGradBias, *nodeInput, *nodeGradOutput;
 
   long i, d;
-  long n = 0;
   
   luaL_argcheck(L, input->nDimension == 2, 2, "2D(batch mode) tensor expected");
   luaL_argcheck(L, input->size[1] == inputSize, 2, "invalid input size");
@@ -242,6 +244,7 @@ static int nn_(SoftMaxTree_accGradParameters)(lua_State *L)
   
   for(i = 0; i < input->size[0]; i++)
   {
+    long n = 0;
     long childId = (long)(THIntTensor_get1d(target, i)) - 1;
     THTensor_(select)(nodeInput, input, 0, i);
     
@@ -260,7 +263,7 @@ static int nn_(SoftMaxTree_accGradParameters)(lua_State *L)
       parentIdx = (long)(THIntTensor_get1d(node, 0)) - 1;
       nChildren = (long)(THIntTensor_get1d(node, 1));
       
-      THTensor_(narrow)(nodeGradOutput, linearGradOutput, 0, n, nChildren);
+      THTensor_(narrow)(nodeGradOutput, linearGradOutput, 0, maxFamilyPath*i + n, nChildren);
       THTensor_(narrow)(nodeGradWeight, gradWeight, 0, parentIdx, nChildren);
       THTensor_(narrow)(nodeGradBias, gradBias, 0, parentIdx, nChildren);
       

@@ -108,8 +108,10 @@ function SoftMaxTree:__init(inputSize, hierarchy, rootId, verbose)
          local parentId = self.childParent[nodeId][1]
          local nChildren = self.parentChildren[nodeId][2]
          treeSize, pathSize = getSize(parentId) 
-         treeSizes[parentId] = treeSize + nChildren
-         pathSizes[parentId] = pathSize + 1
+         treeSize = treeSize + nChildren
+         pathSize = pathSize + 1
+         treeSizes[parentId] = treeSize
+         pathSizes[parentId] = pathSize
       end
       return treeSize, pathSize
    end
@@ -243,8 +245,8 @@ function SoftMaxTree:type(type)
          -- cunnx needs this for filling self.updates
          self._nodeUpdateHost = torch.IntTensor()
          self._nodeUpdateCuda = torch.CudaTensor()
-         self.parentChildren = self.parentChildren:type(type)
-         self.childParent = self.childParent:type(type)
+         self.parentChildrenCuda = self.parentChildren:type(type)
+         self.childParentCuda = self.childParent:type(type)
       elseif self.nodeUpdateHost then
          self._nodeUpdateHost = nil
          self._nodeUpdateCuda = nil
