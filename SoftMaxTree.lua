@@ -207,7 +207,7 @@ end
 function SoftMaxTree:updateParameters(learningRate, partial)
    local maxNorm = self.maxNorm
    if partial and self.output.nn.SoftMaxTree_updateParameters then
-      self.output.nn.SoftMaxTree_updateParameters(learningRate)
+      self.output.nn.SoftMaxTree_updateParameters(self, learningRate)
    end
    local params, gradParams = self:parameters(partial)
    if params then
