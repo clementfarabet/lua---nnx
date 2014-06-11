@@ -206,15 +206,14 @@ end
 
 function SoftMaxTree:updateParameters(learningRate, partial)
    local maxNorm = self.maxNorm
-   if partial and nn.SoftMaxTree_updateParameters then
-      print"here"
-      os.exit()
+   if partial and self.output.nn.SoftMaxTree_updateParameters then
+      self.output.nn.SoftMaxTree_updateParameters(learningRate)
    end
    local params, gradParams = self:parameters(partial)
    if params then
       for k,param in pairs(params) do
          param:add(-learningRate, gradParams[k])
-         if maxNorm then
+         if param:dim() == 2 and maxNorm then
             param:renorm(2,1,maxNorm)
          end
       end
