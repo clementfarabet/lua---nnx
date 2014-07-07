@@ -270,9 +270,10 @@ end
 function SoftMaxTree:sharedClone()
    -- init a dummy clone (with small memory footprint)
    local dummyTree = {[1]=torch.IntTensor{1,2}}
-   local smt = nn.SoftMaxTree(self.inputSize, dummyTree, 1)
+   local smt = nn.SoftMaxTree(self.inputSize, dummyTree, 1, self.maxNorm)
    -- clone should have same type
-   smt:type(self.weight:type())
+   local type = self.weight:type()
+   smt:type(type)
    -- share all the metadata
    smt.rootId = self.rootId
    smt.nChildNode = self.nChildNode
@@ -290,7 +291,10 @@ function SoftMaxTree:sharedClone()
    smt.maxDept = self.maxDept
    smt.gradWeight = self.gradWeight:clone()
    smt.gradBias = self.gradBias:clone()
-   smt.maxNorm = self.maxNorm
+   if type == 'torch.CudaTensor' then
+      smt.parentChildrenCuda = self.parentChildrenCuda
+      smt.childParentCuda = self.childParentCuda
+   end
    return smt:share(self, 'weight', 'bias')
 end
 
