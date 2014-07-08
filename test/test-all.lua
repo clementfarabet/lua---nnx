@@ -461,19 +461,36 @@ function nnxtest.SoftMaxTree()
    smt:updateParameters(0.1)
    mlp:updateParameters(0.1)
    local parentId = 8
-   local param, grad = smt:getNodeParameters(parentId)
+   local param, grads = smt:getNodeParameters(parentId)
    local weight, bias = unpack(param)
-   local gradWeight, gradBias = unpack(grad)
+   local gradWeight, gradBias = unpack(grads)
    local linear = linears[parentId]
    mytester:assertTensorEq(weight, linear.weight, 0.000001)
    mytester:assertTensorEq(gradWeight, linear.gradWeight, 0.000001)
    mytester:assertTensorEq(bias, linear.bias, 0.000001)
    mytester:assertTensorEq(gradBias, linear.gradBias, 0.000001)
    -- sharedClone
-   smt2 = smt:sharedClone()
+   local smt2 = smt:sharedClone()
    output = smt:forward{input, target}
    output2 = smt2:forward{input, target}
    mytester:assertTensorEq(output, output2, 0.00001)
+   -- accUpdate
+   local smt3 = nn.SoftMaxTree(100, hierarchy, root_id, true)
+   smt3:zeroGradParameters()
+   smt3.weight = smt.weight:clone()
+   smt3.bias = smt.bias:clone()
+   local output3 = smt3:forward{input, target}
+   local output = smt3:forward{input, target}
+   local gradInput3 = smt3:backwardUpdate({input, target}, grad, 0.1)
+   local gradInput = smt:backwardUpdate({input, target}, grad, 0.1)
+   mytester:assertTensorEq(output3, output, 0.00001)
+   mytester:assertTensorEq(gradInput3, gradInput, 0.00001)
+   local parentId = 8
+   local weight3, bias3 = unpack(smt3:getNodeParameters(parentId))
+   local params = smt:getNodeParameters(parentId)
+   local weight, bias = unpack(params)
+   mytester:assertTensorEq(weight3, weight, 0.000001)
+   mytester:assertTensorEq(bias3, bias, 0.000001)
 end
 
 function nnx.test(tests)
