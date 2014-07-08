@@ -136,6 +136,10 @@ function SoftMaxTree:__init(inputSize, hierarchy, rootId, accUpdate, verbose)
    
    self.batchSize = 0
    
+   self._gradInput = torch.Tensor()
+   self._gradTarget = torch.Tensor() -- dummy
+   self.gradInput = {self._gradInput, self._gradTarget}
+   
    self:reset()
 end
 
@@ -253,7 +257,8 @@ function SoftMaxTree:type(type)
       self._nodeBuffer = self._nodeBuffer:type(type)
       self._multiBuffer = self._multiBuffer:type(type)
       self.output = self.output:type(type)
-      self.gradInput = self.gradInput:type(type)      
+      self._gradInput = self._gradInput:type(type)  
+      self.gradInput = {self._gradInput, self._gradTarget} 
       if (type == 'torch.CudaTensor') then
          -- cunnx needs this for filling self.updates
          self._nodeUpdateHost = torch.IntTensor()

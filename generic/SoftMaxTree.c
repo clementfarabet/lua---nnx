@@ -127,7 +127,7 @@ static int nn_(SoftMaxTree_updateGradInput)(lua_State *L)
   
   THTensor *weight = luaT_getfieldcheckudata(L, 1, "weight", torch_Tensor);
   THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_Tensor);
-  THTensor *gradInput = luaT_getfieldcheckudata(L, 1, "gradInput", torch_Tensor);
+  THTensor *gradInput = luaT_getfieldcheckudata(L, 1, "_gradInput", torch_Tensor);
   
   THIntTensor *node;
   THTensor *nodeWeight, *nodeOutput;

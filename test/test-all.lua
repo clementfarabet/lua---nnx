@@ -451,7 +451,7 @@ function nnxtest.SoftMaxTree()
    -- forward backward
    local output = smt:forward{input, target}
    local mlp_act = mlp:forward(input[3])
-   local gradInput = smt:backward({input, target}, grad)
+   local gradInput = smt:backward({input, target}, grad)[1]
    local mlp_grad = mlp:backward(input[3], grad:narrow(1,3,1))
    -- compare
    mytester:assert(math.abs(output[3] - mlp_act[1]) < 0.00001)
@@ -481,8 +481,8 @@ function nnxtest.SoftMaxTree()
    smt3.bias = smt.bias:clone()
    local output3 = smt3:forward{input, target}
    local output = smt3:forward{input, target}
-   local gradInput3 = smt3:backwardUpdate({input, target}, grad, 0.1)
-   local gradInput = smt:backwardUpdate({input, target}, grad, 0.1)
+   local gradInput3 = smt3:backwardUpdate({input, target}, grad, 0.1)[1]
+   local gradInput = smt:backwardUpdate({input, target}, grad, 0.1)[1]
    mytester:assertTensorEq(output3, output, 0.00001)
    mytester:assertTensorEq(gradInput3, gradInput, 0.00001)
    local parentId = 8
