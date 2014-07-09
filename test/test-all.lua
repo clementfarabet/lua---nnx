@@ -199,22 +199,6 @@ function nnxtest.HardShrink()
    mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
 
-function nnxtest.Threshold()
-   local ini = math.random(5,10)
-   local inj = math.random(5,10)
-   local ink = math.random(5,10)
-   local input = torch.Tensor(ink, inj, ini):zero()
-
-   local module = nn.Threshold(torch.uniform(-2,2),torch.uniform(-2,2))
-
-   local err = nn.Jacobian.testJacobian(module, input)
-   mytester:assertlt(err, precision, 'error on state ')
-
-   local ferr, berr = nn.Jacobian.testIO(module, input)
-   mytester:asserteq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
-   mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
-end
-
 function nnxtest.Abs()
    local ini = math.random(5,10)
    local inj = math.random(5,10)
