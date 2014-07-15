@@ -137,7 +137,7 @@ function SoftMaxTree:__init(inputSize, hierarchy, rootId, accUpdate, verbose)
    self.batchSize = 0
    
    self._gradInput = torch.Tensor()
-   self._gradTarget = torch.Tensor() -- dummy
+   self._gradTarget = torch.IntTensor() -- dummy
    self.gradInput = {self._gradInput, self._gradTarget}
    
    self:reset()
@@ -160,6 +160,8 @@ function SoftMaxTree:updateOutput(inputTable)
       self._nodeBuffer:resize(self.maxFamily)
       self._multiBuffer:resize(input:size(1)*self.maxFamilyPath)
       self.batchSize = input:size(1)
+      -- so that it works within nn.ConcatTable :
+      self._gradTarget:resizeAs(target):zero() 
       if self._nodeUpdateHost then
          self._nodeUpdateHost:resize(input:size(1),self.maxDept)
          self._nodeUpdateCuda:resize(input:size(1),self.maxDept)
