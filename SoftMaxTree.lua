@@ -193,7 +193,7 @@ function SoftMaxTree:parameters(static)
       local node = self.parentChildren:select(1, parentId)
       local parentIdx = node[1]
       local nChildren = node[2]
-      if static then
+      if static then -- for use with pairs
          params[parentId] = self.weight:narrow(1, parentIdx, nChildren)
          local biasId = parentId+self.maxParentId
          params[biasId] = self.bias:narrow(1, parentIdx, nChildren)
@@ -201,7 +201,7 @@ function SoftMaxTree:parameters(static)
             grads[parentId] = self.gradWeight:narrow(1, parentIdx, nChildren)
             grads[biasId] = self.gradBias:narrow(1, parentIdx, nChildren)
          end
-      else
+      else -- for use with ipairs
          table.insert(params, self.weight:narrow(1, parentIdx, nChildren))
          table.insert(params, self.bias:narrow(1, parentIdx, nChildren))
          if not self.accUpdate then
@@ -212,7 +212,23 @@ function SoftMaxTree:parameters(static)
       updated = true
    end
    if not updated then
-      return {self.weight, self.bias}, {self.gradWeight, self.gradBias}
+      if static then -- consistent with static = true
+         for i=1,self.parentIds:size(1) do
+            local parentId = self.parentIds[i]
+            local node = self.parentChildren:select(1, parentId)
+            local parentIdx = node[1]
+            local nChildren = node[2]
+            params[parentId] = self.weight:narrow(1, parentIdx, nChildren)
+            local biasId = parentId+self.maxParentId
+            params[biasId] = self.bias:narrow(1, parentIdx, nChildren)
+            if not self.accUpdate then
+               grads[parentId] = self.gradWeight:narrow(1, parentIdx, nChildren)
+               grads[biasId] = self.gradBias:narrow(1, parentIdx, nChildren)
+            end
+         end
+      else
+         return {self.weight, self.bias}, {self.gradWeight, self.gradBias}
+      end
    end
    return params, grads
 end
