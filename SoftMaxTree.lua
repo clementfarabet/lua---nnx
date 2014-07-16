@@ -279,7 +279,6 @@ function SoftMaxTree:type(type)
       self._multiBuffer = self._multiBuffer:type(type)
       self.output = self.output:type(type)
       self._gradInput = self._gradInput:type(type)  
-      self.gradInput = {self._gradInput, self._gradTarget} 
       if (type == 'torch.CudaTensor') then
          -- cunnx needs this for filling self.updates
          self._nodeUpdateHost = torch.IntTensor()
@@ -288,12 +287,15 @@ function SoftMaxTree:type(type)
          self._paramUpdateCuda = torch.CudaTensor()
          self.parentChildrenCuda = self.parentChildren:type(type)
          self.childParentCuda = self.childParent:type(type)
+         self._gradTarget = self._gradTarget:type(type)
       elseif self.nodeUpdateHost then
          self._nodeUpdateHost = nil
          self._nodeUpdateCuda = nil
          self.parentChildren = self.parentChildren:type('torch.IntTensor')
          self.childParent = self.childParent:type('torch.IntTensor')
+         self._gradTarget = self._gradTarget:type('torch.IntTensor')
       end
+      self.gradInput = {self._gradInput, self._gradTarget} 
       self.batchSize = 0 --so that buffers are resized
    end
    return self
