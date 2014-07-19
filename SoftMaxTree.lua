@@ -6,7 +6,7 @@ local SoftMaxTree, parent = torch.class('nn.SoftMaxTree', 'nn.Module')
 -- Only works with a tree (one parent per child)
 ------------------------------------------------------------------------
 
-function SoftMaxTree:__init(inputSize, hierarchy, rootId, accUpdate, verbose)
+function SoftMaxTree:__init(inputSize, hierarchy, rootId, accUpdate, static, verbose)
    parent.__init(self)
    self.rootId = rootId or 1
    self.inputSize = inputSize
@@ -137,8 +137,9 @@ function SoftMaxTree:__init(inputSize, hierarchy, rootId, accUpdate, verbose)
    self.batchSize = 0
    
    self._gradInput = torch.Tensor()
-   self._gradTarget = torch.Tensor() -- dummy
+   self._gradTarget = torch.IntTensor() -- dummy
    self.gradInput = {self._gradInput, self._gradTarget}
+   self.static = (static == nil) and true or static
    
    self:reset()
 end
@@ -160,6 +161,8 @@ function SoftMaxTree:updateOutput(inputTable)
       self._nodeBuffer:resize(self.maxFamily)
       self._multiBuffer:resize(input:size(1)*self.maxFamilyPath)
       self.batchSize = input:size(1)
+      -- so that it works within nn.ConcatTable :
+      self._gradTarget:resizeAs(target):zero() 
       if self._nodeUpdateHost then
          self._nodeUpdateHost:resize(input:size(1),self.maxDept)
          self._nodeUpdateCuda:resize(input:size(1),self.maxDept)
@@ -184,14 +187,15 @@ end
 
 -- when static is true, return parameters with static keys
 -- i.e. keys that don't change from batch to batch
-function SoftMaxTree:parameters(static)
+function SoftMaxTree:parameters()
+   static = self.static
    local params, grads = {}, {}
    local updated = false
    for parentId, scale in pairs(self.updates) do
       local node = self.parentChildren:select(1, parentId)
       local parentIdx = node[1]
       local nChildren = node[2]
-      if static then
+      if static then -- for use with pairs
          params[parentId] = self.weight:narrow(1, parentIdx, nChildren)
          local biasId = parentId+self.maxParentId
          params[biasId] = self.bias:narrow(1, parentIdx, nChildren)
@@ -199,7 +203,7 @@ function SoftMaxTree:parameters(static)
             grads[parentId] = self.gradWeight:narrow(1, parentIdx, nChildren)
             grads[biasId] = self.gradBias:narrow(1, parentIdx, nChildren)
          end
-      else
+      else -- for use with ipairs
          table.insert(params, self.weight:narrow(1, parentIdx, nChildren))
          table.insert(params, self.bias:narrow(1, parentIdx, nChildren))
          if not self.accUpdate then
@@ -210,14 +214,30 @@ function SoftMaxTree:parameters(static)
       updated = true
    end
    if not updated then
-      return {self.weight, self.bias}, {self.gradWeight, self.gradBias}
+      if static then -- consistent with static = true
+         for i=1,self.parentIds:size(1) do
+            local parentId = self.parentIds[i]
+            local node = self.parentChildren:select(1, parentId)
+            local parentIdx = node[1]
+            local nChildren = node[2]
+            params[parentId] = self.weight:narrow(1, parentIdx, nChildren)
+            local biasId = parentId+self.maxParentId
+            params[biasId] = self.bias:narrow(1, parentIdx, nChildren)
+            if not self.accUpdate then
+               grads[parentId] = self.gradWeight:narrow(1, parentIdx, nChildren)
+               grads[biasId] = self.gradBias:narrow(1, parentIdx, nChildren)
+            end
+         end
+      else
+         return {self.weight, self.bias}, {self.gradWeight, self.gradBias}
+      end
    end
    return params, grads
 end
 
-function SoftMaxTree:updateParameters(learningRate, partial)
+function SoftMaxTree:updateParameters(learningRate)
    assert(not self.accUpdate)
-   local params, gradParams = self:parameters(partial)
+   local params, gradParams = self:parameters()
    if params then
       for k,param in pairs(params) do
          param:add(-learningRate, gradParams[k])
@@ -239,8 +259,8 @@ function SoftMaxTree:getNodeParameters(parentId)
    return {weight, bias}
 end
 
-function SoftMaxTree:zeroGradParameters(partial)
-   local _,gradParams = self:parameters(partial)
+function SoftMaxTree:zeroGradParameters()
+   local _,gradParams = self:parameters()
    for k,gradParam in pairs(gradParams) do
       gradParam:zero()
    end
@@ -259,7 +279,6 @@ function SoftMaxTree:type(type)
       self._multiBuffer = self._multiBuffer:type(type)
       self.output = self.output:type(type)
       self._gradInput = self._gradInput:type(type)  
-      self.gradInput = {self._gradInput, self._gradTarget} 
       if (type == 'torch.CudaTensor') then
          -- cunnx needs this for filling self.updates
          self._nodeUpdateHost = torch.IntTensor()
@@ -268,12 +287,15 @@ function SoftMaxTree:type(type)
          self._paramUpdateCuda = torch.CudaTensor()
          self.parentChildrenCuda = self.parentChildren:type(type)
          self.childParentCuda = self.childParent:type(type)
+         self._gradTarget = self._gradTarget:type(type)
       elseif self.nodeUpdateHost then
          self._nodeUpdateHost = nil
          self._nodeUpdateCuda = nil
          self.parentChildren = self.parentChildren:type('torch.IntTensor')
          self.childParent = self.childParent:type('torch.IntTensor')
+         self._gradTarget = self._gradTarget:type('torch.IntTensor')
       end
+      self.gradInput = {self._gradInput, self._gradTarget} 
       self.batchSize = 0 --so that buffers are resized
    end
    return self
@@ -314,8 +336,8 @@ function SoftMaxTree:sharedClone()
    return smt:share(self, 'weight', 'bias')
 end
 
-function SoftMaxTree:maxNorm(maxNorm, partial)
-   local params = self:parameters(partial)
+function SoftMaxTree:maxNorm(maxNorm)
+   local params = self:parameters()
    if params then
       for k,param in pairs(params) do
          if param:dim() == 2 and maxNorm then
