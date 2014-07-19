@@ -1,6 +1,6 @@
 local SpatialPadding, parent = torch.class('nn.SpatialPadding', 'nn.Module')
 
-function SpatialPadding:__init(pad_l, pad_r, pad_t, pad_b, y_dim, x_dim)
+function SpatialPadding:__init(pad_l, pad_r, pad_t, pad_b, y_dim, x_dim, val)
    parent.__init(self)
 
    -- usage
@@ -12,7 +12,8 @@ function SpatialPadding:__init(pad_l, pad_r, pad_t, pad_b, y_dim, x_dim)
                           {type='number', help='top padding'},
                           {type='number', help='bottom padding'},
 			  {type='number', help='y dimension', default=2},
-			  {type='number', help='x dimension', default=3}))
+			  {type='number', help='x dimension', default=3},
+              {type='number', help='pad value', default=0}))
    end
 
    self.pad_l = pad_l
@@ -21,6 +22,7 @@ function SpatialPadding:__init(pad_l, pad_r, pad_t, pad_b, y_dim, x_dim)
    self.pad_b = pad_b or self.pad_l
    self.x_dim = x_dim or 3
    self.y_dim = y_dim or 2
+   self.val = val or 0
 end
 
 function SpatialPadding:updateOutput(input)
@@ -36,7 +38,7 @@ function SpatialPadding:updateOutput(input)
    dims[self.y_dim] = h
    dims[self.x_dim] = w
    self.output:resize(dims)
-   self.output:zero()
+   self.output:fill(self.val)
    -- crop input if necessary
    local c_input = input
    if self.pad_t < 0 then c_input = c_input:narrow(self.y_dim, 1 - self.pad_t, c_input:size(self.y_dim) + self.pad_t) end
