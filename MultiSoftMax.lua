@@ -4,7 +4,7 @@
 ------------------------------------------------------------------------
 local MultiSoftMax, parent = torch.class('nn.MultiSoftMax', 'nn.Module')
 
-function MultiSoftMax.__init()
+function MultiSoftMax.__init(self)
    parent.__init(self)
    self._input = torch.Tensor()
    self._output = torch.Tensor()
@@ -35,7 +35,10 @@ function MultiSoftMax:updateGradInput(input, gradOutput)
    self._gradOutput:view(gradOutput, input:size(1)*input:size(2), input:size(3))
    local gradInput = self.gradInput
    self.gradInput = self._gradInput
+   local output = self.output
+   self.output = self._output
    input.nn.SoftMax_updateGradInput(self, self._input, self._gradOutput)
    self.gradInput = gradInput:viewAs(self.gradInput, input)
+   self.output = output
    return self.gradInput
 end

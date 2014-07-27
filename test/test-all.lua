@@ -3,6 +3,10 @@ local nnxtest = {}
 local precision = 1e-5
 local mytester
 
+-- you can easily test specific units like this: 
+-- th -lnnx -e "nnx.test{'MultiSoftMax'}"
+-- th -lnnx -e "nnx.test{'SoftMaxTree', 'Balance'}"
+
 function nnxtest.SpatialPadding()
    local fanin = math.random(1,3)
    local sizex = math.random(4,16)
@@ -513,7 +517,6 @@ function nnxtest.MultiSoftMax()
    local inputSize = 7 
    local nSoftmax = 5
    local batchSize = 3
-   local nBatch = 4
    
    local input = torch.randn(batchSize, nSoftmax, inputSize)
    local gradOutput = torch.randn(batchSize, nSoftmax, inputSize)
@@ -525,9 +528,9 @@ function nnxtest.MultiSoftMax()
    mytester:assert(gradOutput:isSameSizeAs(gradInput))
    
    local sm = nn.SoftMax()
-   local input2 = input:view(nBatch*nSoftMax, inputSize)
+   local input2 = input:view(batchSize*nSoftmax, inputSize)
    local output2 = sm:forward(input2)
-   local gradInput2 = sm:backward(input2, gradOutput:view(nBatch*nSoftMax, inputSize))
+   local gradInput2 = sm:backward(input2, gradOutput:view(batchSize*nSoftmax, inputSize))
    
    mytester:assertTensorEq(output, output2, 0.000001)
    mytester:assertTensorEq(gradInput, gradInput2, 0.000001)
