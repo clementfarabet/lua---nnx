@@ -77,6 +77,7 @@ torch.include('nnx', 'SaturatedLU.lua')
 torch.include('nnx', 'Minus.lua')
 torch.include('nnx', 'SoftMaxTree.lua')
 torch.include('nnx', 'Balance.lua')
+torch.include('nnx', 'NarrowLookupTable.lua')
 
 -- criterions:
 torch.include('nnx', 'SuperCriterion.lua')

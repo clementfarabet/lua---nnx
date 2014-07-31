@@ -509,6 +509,17 @@ function nnxtest.Balance()
    local gradInput = bl:backward(input, gradOutput)
 end
 
+function nnxtest.NarrowLookupTable()
+   local nIndex = 5
+   local dictSize = 100
+   local batchSize = 8
+   local embedSize = 32
+   local deltaSize = 4
+   
+   local input = torch.randperm(dictSize):narrow(1,1,nIndex)
+   
+end
+
 function nnx.test(tests)
    xlua.require('image',true)
    mytester = torch.Tester()
