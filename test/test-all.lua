@@ -532,6 +532,25 @@ function nnxtest.NarrowLookupTable()
       narrowSize = narrowSize - deltaSize
    end
    mytester:assertTensorEq(output, output2, 0.000001, "1D forward error")
+   
+   local input = torch.randperm(dictSize):narrow(1,1,nIndex*batchSize):view(8,-1)
+   local output = nlt:forward(input)
+   local output2 = torch.Tensor(batchSize, 120):zero()
+   for k=1,batchSize do
+      local input = input[k]
+      local output2 = output2[k]
+      local narrowSize = embedSize
+      local idx = 1
+      for i=1,nIndex do
+         output2:narrow(1, idx, narrowSize):copy(nlt.weight[input[i]]:narrow(1,1,narrowSize))
+         if i == nIndex then
+            break
+         end
+         idx = idx + narrowSize
+         narrowSize = narrowSize - deltaSize
+      end
+   end
+   mytester:assertTensorEq(output, output2, 0.000001, "1D forward error")
 end
 
 function nnx.test(tests)
