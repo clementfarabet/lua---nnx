@@ -27,8 +27,7 @@ function NarrowLookupTable:buildSizes(nIndex)
       self.deltaSizes[i] = deltaSize
       deltaSize = deltaSize + self.deltaSize
    end
-   self.outputSize = self.deltaSizes:sum()
-   assert(nIndex*self.embedSize + self.deltaSize - (nIndex*self.deltaSize*(nIndex+1)/2) == self.outputSize)
+   self.outputSize = nIndex*self.embedSize - self.deltaSizes:sum()
    self.nIndex = nIndex
 end
 
