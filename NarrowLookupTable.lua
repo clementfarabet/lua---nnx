@@ -1,10 +1,19 @@
+------------------------------------------------------------------------
+--[[ NarrowLookupTable ]]--
+-- Concatenates embeddings with descending narrowed sizes 
+-- (ascDelta = true).
+-- Useful for language models, where most recent words in context 
+-- are more useful in predicting next word than older ones.
+-- If input is ordered furthest to nearest word, use ascDelta = false.
+------------------------------------------------------------------------
 local NarrowLookupTable, parent = torch.class('nn.NarrowLookupTable', 'nn.LookupTable')
 
-function NarrowLookupTable:__init(deltaSize, nIndex, embedSize)
+function NarrowLookupTable:__init(deltaSize, nIndex, embedSize, ascDelta)
    nn.Module.__init(self)
    self.deltaSize = deltaSize
    self.deltaSizes = torch.LongTensor()
    self.embedSize = embedSize
+   self.ascDelta = (ascDelta == nil) and true or ascDelta
    
    self.weight = torch.Tensor(nIndex, embedSize)
    self.gradWeight = torch.Tensor(nIndex, embedSize):zero()
@@ -24,9 +33,16 @@ function NarrowLookupTable:buildSizes(nIndex)
    end
    self.deltaSizes:resize(nIndex)
    local deltaSize = 0
-   for i=1,self.deltaSizes:size(1) do
-      self.deltaSizes[i] = deltaSize
-      deltaSize = deltaSize + self.deltaSize
+   if self.ascDelta then
+      for i=1,self.deltaSizes:size(1),1 do
+         self.deltaSizes[i] = deltaSize
+         deltaSize = deltaSize + self.deltaSize
+      end
+   else
+      for i=self.deltaSizes:size(1),1,-1 do
+         self.deltaSizes[i] = deltaSize
+         deltaSize = deltaSize + self.deltaSize
+      end
    end
    self.outputSize = nIndex*self.embedSize - self.deltaSizes:sum()
    self.nIndex = nIndex

@@ -517,6 +517,33 @@ function nnxtest.NarrowLookupTable()
    local deltaSize = 4
    local lr = 0.1
    
+   -- 1D input ascDelta = false
+   local input = torch.randperm(dictSize):narrow(1,1,nIndex)
+   local nlt = nn.NarrowLookupTable(deltaSize, dictSize, embedSize, false)
+   local output = nlt:forward(input)
+   
+   local output2 = torch.Tensor(120):zero()
+   local narrowSize = embedSize
+   local idx = 121 - narrowSize
+   for i=nIndex,1,-1 do
+      output2:narrow(1, idx, narrowSize):copy(nlt.weight[input[i]]:narrow(1,1,narrowSize))
+      narrowSize = narrowSize - deltaSize
+      idx = idx - narrowSize
+   end
+   mytester:assertTensorEq(output, output2, 0.000001, "1D forward ascDelta = false error")
+   
+   nlt:zeroGradParameters()
+   local gradWeight2 = nlt.gradWeight:clone()
+   nlt:backward(input, output)
+   local narrowSize = embedSize
+   local idx = 121 - narrowSize
+   for i=nIndex,1,-1 do
+      gradWeight2[input[i]]:narrow(1, 1, narrowSize):add(output:narrow(1,idx,narrowSize))
+      narrowSize = narrowSize - deltaSize
+      idx = idx - narrowSize
+   end
+   mytester:assertTensorEq(nlt.gradWeight, gradWeight2, 0.000001, "1D backward ascDelta = false error")
+   
    -- 1D input
    local input = torch.randperm(dictSize):narrow(1,1,nIndex)
    local nlt = nn.NarrowLookupTable(deltaSize, dictSize, embedSize)
