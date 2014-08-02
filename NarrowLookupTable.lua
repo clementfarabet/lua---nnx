@@ -17,6 +17,7 @@ function NarrowLookupTable:__init(deltaSize, nIndex, embedSize)
    self:reset()
 end
 
+-- this could be overrided in a subclass :
 function NarrowLookupTable:buildSizes(nIndex)
    if self.nIndex == nIndex then
       return
@@ -68,20 +69,28 @@ function NarrowLookupTable:accGradParameters(input, gradOutput, scale)
    scale = scale or 1
    if input:dim() == 1 then
       self.nBackward = self.nBackward + 1
+      local embedIdx = 1
       for i=1,input:size(1) do
          local k = input[i]
          self.inputs[k] = (self.inputs[k] or 0) + 1
-         self.gradWeight:select(1, k):add(scale, gradOutput:select(1, i))
+         local embedSize = self.embedSize - self.deltaSizes[i]
+         local gradEmbed = gradOutput:narrow(1, embedIdx, embedSize)
+         self.gradWeight[input[i]]:narrow(1, 1, embedSize):add(gradEmbed)
+         embedIdx = embedIdx + embedSize
       end
    elseif input:dim() == 2 then
       self.nBackward = self.nBackward + input:size(1)
       for i=1,input:size(1) do
          local input = input:select(1, i)
          local gradOutput = gradOutput:select(1, i)
+         local embedIdx = 1
          for j=1,input:size(1) do
             local k = input[j]
             self.inputs[k] = (self.inputs[k] or 0) + 1
-            self.gradWeight:select(1, k):add(scale, gradOutput:select(1, j))
+            local embedSize = self.embedSize - self.deltaSizes[j]
+            local gradEmbed = gradOutput:narrow(1, embedIdx, embedSize)
+            self.gradWeight[input[j]]:narrow(1, 1, embedSize):add(gradEmbed)
+            embedIdx = embedIdx + embedSize
          end
       end
    end
