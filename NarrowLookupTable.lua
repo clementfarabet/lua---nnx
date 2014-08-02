@@ -98,37 +98,35 @@ end
 
 function NarrowLookupTable:accUpdateGradParameters(input, gradOutput, lr)
    if input:dim() == 1 then
+      local embedIdx = 1
       for i=1,input:size(1) do
          local k = input[j]
          local kscale = self:scaleUpdateByKey(k)
-         self.weight:select(1, input[i]):add(-lr*kscale, gradOutput:select(1, i))
+         local embedSize = self.embedSize - self.deltaSizes[i]
+         local gradEmbed = gradOutput:narrow(1, embedIdx, embedSize)
+         self.weight[input[i]]:narrow(1, 1, embedSize):add(-lr*kscale, gradEmbed)
+         embedIdx = embedIdx + embedSize
       end
    elseif input:dim() == 2 then 
       for i=1,input:size(1) do
          local input = input:select(1, i)
          local gradOutput = gradOutput:select(1, i)
+         local embedIdx = 1
          for j=1,input:size(1) do
             local k = input[j]
             local kscale = self:scaleUpdateByKey(k)
-            self.weight:select(1, k):add(-lr*kscale, gradOutput:select(1, j))
+            local embedSize = self.embedSize - self.deltaSizes[j]
+            local gradEmbed = gradOutput:narrow(1, embedIdx, embedSize)
+            self.weight[input[j]]:narrow(1, 1, embedSize):add(-lr*kscale, gradEmbed)
+            embedIdx = embedIdx + embedSize
          end
       end
    end
 end
 
-function NarrowLookupTable:updateParameters(learningRate)
-   assert(not self.accUpdate, "use accUpdateGradParameters instead")
-   for k,nBackward in pairs(self.inputs) do
-      local kscale = self:scaleUpdateByKey(k)
-      self.weight:select(1, k):add(-learningRate*kscale, self.gradWeight:select(1, k))
-   end
+function NarrowLookupTable:type(type)
+   self.gradInput = self.gradInput:type(type)
+   self.output = self.output:type(type)
+   self.weight = self.weight:type(type)
+   self.gradWeight = self.gradWeight:type(type)
 end
-
--- scale the update for each key
-function NarrowLookupTable:scaleUpdateByKey(inputKey)
-   -- default is to perform no key-based scalling
-   return 1
-end
-
--- we do not need to accumulate parameters when sharing
-NarrowLookupTable.sharedAccUpdateGradParameters = NarrowLookupTable.accUpdateGradParameters
