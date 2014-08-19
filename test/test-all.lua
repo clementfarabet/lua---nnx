@@ -3,6 +3,10 @@ local nnxtest = {}
 local precision = 1e-5
 local mytester
 
+-- you can easily test specific units like this: 
+-- th -lnnx -e "nnx.test{'MultiSoftMax'}"
+-- th -lnnx -e "nnx.test{'SoftMaxTree', 'Balance'}"
+
 function nnxtest.SpatialPadding()
    local fanin = math.random(1,3)
    local sizex = math.random(4,16)
@@ -633,6 +637,30 @@ function nnxtest.NarrowLookupTable()
    end
    mytester:assertTensorEq(nlt.weight, weight2, 0.000001, "2D backwardUpdate error")
 end
+
+function nnxtest.MultiSoftMax()
+   local inputSize = 7 
+   local nSoftmax = 5
+   local batchSize = 3
+   
+   local input = torch.randn(batchSize, nSoftmax, inputSize)
+   local gradOutput = torch.randn(batchSize, nSoftmax, inputSize)
+   local msm = nn.MultiSoftMax()
+   
+   local output = msm:forward(input)
+   local gradInput = msm:backward(input, gradOutput)
+   mytester:assert(output:isSameSizeAs(input))
+   mytester:assert(gradOutput:isSameSizeAs(gradInput))
+   
+   local sm = nn.SoftMax()
+   local input2 = input:view(batchSize*nSoftmax, inputSize)
+   local output2 = sm:forward(input2)
+   local gradInput2 = sm:backward(input2, gradOutput:view(batchSize*nSoftmax, inputSize))
+   
+   mytester:assertTensorEq(output, output2, 0.000001)
+   mytester:assertTensorEq(gradInput, gradInput2, 0.000001)
+end
+
 
 function nnx.test(tests)
    xlua.require('image',true)
