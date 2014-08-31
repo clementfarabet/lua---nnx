@@ -84,6 +84,7 @@ torch.include('nnx', 'NarrowLookupTable.lua')
 torch.include('nnx', 'SuperCriterion.lua')
 torch.include('nnx', 'DistNLLCriterion.lua')
 torch.include('nnx', 'DistMarginCriterion.lua')
+torch.include('nnx', 'TreeNLLCriterion.lua')
 
 -- datasets:
 torch.include('nnx', 'DataSet.lua')
