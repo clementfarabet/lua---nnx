@@ -20,5 +20,5 @@ function TreeNLLCriterion:updateOutput(input, target)
 end
 
 function TreeNLLCriterion:updateGradInput(input, target)
-   return self._module:backward(input, self._output_grad))
+   return self._module:backward(input, self._output_grad)
 end
