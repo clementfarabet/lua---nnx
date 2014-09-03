@@ -45,3 +45,23 @@ tests:
 > nnx.test_all()
 > nnx.test_omp()
 ```
+
+## Library Documentation ##
+This section includes documentation for the following objects:
+ * [SoftMaxTree](#nnx.SoftMaxTree) : a hierarchical log-softmax Module;
+ * [TreeNLLCriterion](#nnx.TreeNLLCriterion) : a Negative log-likelihodd Criterion for the SoftMaxTree;
+
+<a name='nnx.SoftMaxTree'/>
+### SoftMaxTree ###
+Computes the log of a product of softmaxes in a path.
+Returns an output tensor of size 1D.
+Only works with a tree (one parent per child).
+
+<a name='nnx.TreeNLLCriterion''/>
+### TreeNLLCriterion ###
+Measures the Negative Log Likelihood (NLL) for SoftMaxTrees. 
+Used for maximizing the likelihood of SoftMaxTree outputs.
+SoftMaxTree outputs a column tensor representing the log likelihood
+of each target in the batch. Thus SoftMaxTree requires the targets.
+So this Criterion only computes the negative of those outputs, as 
+well as its corresponding gradients.
