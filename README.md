@@ -69,7 +69,40 @@ The constructor takes 2 mandatory and 4 optional arguments :
  * `static` : when true (the defualt), returns parameters with keys that don't change from batch to batch;
  * `verbose` : prints some additional information concerning the hierarchy during construction.
 
-Method `forward` returns an `output` Tensor of size 1D.
+The `forward` method returns an `output` Tensor of size 1D, while 
+`backward` returns a table `{gradInput, gradTarget}`. The second 
+variable is just a Tensor of zeros , such that the `targets` can be 
+propagated through [Containers](https://github.com/torch/nn/blob/master/doc/containers.md#nn.Containers) 
+like [ParallelTable](https://github.com/torch/nn/blob/master/doc/table.md#nn.ParallelTable).
+
+```lua
+> input = torch.randn(5,10)
+> target = torch.IntTensor{20,24,27,10,12}
+> gradOutput = torch.randn(5)
+> root_id = 29
+> input_size = 10	
+> hierarchy = {
+>>    [29]=torch.IntTensor{30,1,2}, [1]=torch.IntTensor{3,4,5}, 
+>>    [2]=torch.IntTensor{6,7,8}, [3]=torch.IntTensor{9,10,11},
+>>    [4]=torch.IntTensor{12,13,14}, [5]=torch.IntTensor{15,16,17},
+>>    [6]=torch.IntTensor{18,19,20}, [7]=torch.IntTensor{21,22,23},
+>>    [8]=torch.IntTensor{24,25,26,27,28}
+>> }
+> smt = nn.SoftMaxTree(input_size, hierarchy, root_id)
+> smt:forward{input, target}
+-3.5186
+-3.8950
+-3.7433
+-3.3071
+-3.0522
+[torch.DoubleTensor of dimension 5]
+> smt:backward({input, target}, gradOutput)
+{
+  1 : DoubleTensor - size: 5x10
+  2 : IntTensor - size: 5
+}
+
+```
 
 <a name='nnx.TreeNLLCriterion''/>
 ### TreeNLLCriterion ###
