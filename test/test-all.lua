@@ -482,6 +482,21 @@ function nnxtest.SoftMaxTree()
    mytester:assertTensorEq(bias3, bias, 0.000001)
 end
 
+function nnxtest.TreeNLLCriterion()
+   local input = torch.randn(5,10)
+   local target = torch.ones(5) --all targets are 1
+   local c = nn.TreeNLLCriterion() 
+   -- the targets are actually ignored (SoftMaxTree uses them before TreeNLLCriterion)
+   local err = c:forward(input, target)
+   gradInput = c:backward(input, target)
+   -- compare to ClassNLLCriterion
+   local c2 = nn.ClassNLLCriterion()
+   local err2 = c2:forward(input, target)
+   local gradInput2 = c2:backward(input, target)
+   mytester:asserteq(err2, err, 0.00001)
+   mytester:assertTensorEq(gradInput2:narrow(2,1,1), gradInput, 0.00001)
+end
+
 local function blur(mean, stdv, size)
    local range = torch.range(1,size):float()
    local a = 1/(stdv*math.sqrt(2*math.pi))
