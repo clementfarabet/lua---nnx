@@ -6,8 +6,7 @@ function PushTable:__init(index)
    self.output = {}
    self._gradInput = torch.Tensor()
    self.gradInput = {}
-   self._nForward = 0
-   self._nBackward = 0
+   self._forward = false
 end
 
 function PushTable:pull(index)
@@ -30,26 +29,24 @@ function PushTable:updateOutput(inputTable)
       pull:_updateOutput(input)
    end
    
-   self._nBackward = 0
+   self._forward = true
    return self.output
 end
 
 function PushTable:_updateGradInput(gradOutput)
-   if self._nBackward == 0 then
+   if self._forward then
+      if torch.type(self.gradInput) ~= torch.type(gradOutput) then
+         self._gradInput = gradOutput.new()
+      end
+      self._gradInput:resizeAs(gradOutput)
       self._gradInput:copy(gradOutput)
    else
       self._gradInput:add(gradOutput)
    end
-   self._nBackward = self._nBackward + 1
+   self._forward = false
 end
 
 function PushTable:updateGradInput(inputTable, gradOutputTable)
-   if self._nBackward ~= self._nForward then
-      error("n Inputs forwarded (pushed) ~= n gradOutputs backwarded"..
-            " (pulled) : "..self._nForward.." ~= "..self._nBackward) 
-   end
-   self._nForward = 0
-   
    for i, gradOutput in ipairs(gradOutputTable) do
       if i < self._index then
          self.gradInput[i] = gradOutput

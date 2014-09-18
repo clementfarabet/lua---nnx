@@ -680,7 +680,7 @@ function nnxtest.PushPullTable()
    -- use for targets with SoftMaxTree
    local input = torch.randn(5,50)
    local target = torch.IntTensor{20,23,27,10,8}
-   local grad = torch.randn(5)
+   local gradOutput = torch.randn(5)
    local root_id = 29
    local hierarchy={
       [29]=torch.IntTensor{30,1,2}, [1]=torch.IntTensor{3,4,5}, 
@@ -701,7 +701,21 @@ function nnxtest.PushPullTable()
    mlp:add(linear)
    mlp:add(pull)
    mlp:add(smt)
-   print(mlp:forward{input, target})
+   -- compare to simpler alternative
+   local mlp2 = nn.Sequential()
+   local para = nn.ParallelTable()
+   para:add(linear:clone())
+   para:add(nn.Identity())
+   mlp2:add(para)
+   mlp2:add(smt:clone())
+   local inputTable = {input, target}
+   local output = mlp:forward(inputTable)
+   local output2 = mlp2:forward(inputTable)
+   local gradInput = mlp:backward(inputTable, gradOutput)
+   local gradInput2 = mlp2:backward(inputTable, gradOutput)
+   mytester:assertTensorEq(output, output2, 0.00001, "push/pull forward error")
+   mytester:assertTensorEq(gradInput[1], gradInput[1], 0.00001, "push/pull backward error")
+   mytester:assertTensorEq(gradInput[2], gradInput[2], 0.00001, "push/pull backward error")
 end
 
 
