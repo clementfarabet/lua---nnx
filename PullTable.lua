@@ -4,9 +4,10 @@ function PullTable:__init(push, index)
    self._push = push
    self._index = index
    self.output = {}
+   self.gradInput = {}
 end
 
-function PullTable:push(output)
+function PullTable:_updateOutput(output)
    self._output = output
 end
 
@@ -25,6 +26,7 @@ function PullTable:updateOutput(inputTable)
          self.output[2] = inputTable
          self.output[1] = self._output
       else
+         assert(self._index == 2, "table index out of range")
          self.output[1] = inputTable
          self.output[2] = self._output
       end
@@ -32,7 +34,27 @@ function PullTable:updateOutput(inputTable)
    return self.output
 end
 
-function PullTable:updateGradInput(input, gradOutput)
-   self._push:addGradOutput(input, gradOutput)
+function PullTable:updateGradInput(inputTable, gradOutputTable)
+   self._push:_updateGradInput(gradOutputTable[self._index])
+   
+   if torch.type(inputTable) == 'table' then
+      if torch.type(self.gradInput) ~= 'table' then
+         self.gradInput = {}
+      end
+      for i, gradOutput in ipairs(gradOutputTable) do
+         if i < self._index then
+            self.gradInput[i] = gradOutput
+         elseif i > self._index then
+            self.gradInput[i-1] = gradOutput
+         end
+      end
+      assert(#inputTable == #self.gradInput, "tables size mismatch")   
+   else
+      if self._index == 1 then
+         self.gradInput = gradOutputTable[2]
+      else
+         self.gradInput = gradOutputTable[1]
+      end
+   end
    return self.gradInput
 end
