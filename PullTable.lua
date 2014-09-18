@@ -3,7 +3,6 @@ local PullTable, parent = torch.class("nn.PullTable", "nn.Module")
 function PullTable:__init(push, index)
    self._push = push
    self._index = index
-   self.gradInput = push.output.new()
    self.output = {}
 end
 

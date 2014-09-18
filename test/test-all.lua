@@ -694,7 +694,7 @@ function nnxtest.PushPullTable()
    -- and targets are teleported (pushed then pulled) to softmaxtree
    local mlp = nn.Sequential()
    local linear = nn.Linear(50,100)
-   local push = nn.Push(2)
+   local push = nn.PushTable(2)
    local pull = push:pull(2)
    mlp:add(push)
    mlp:add(nn.SelectTable(1))

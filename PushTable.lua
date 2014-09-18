@@ -22,7 +22,7 @@ function PushTable:updateOutput(inputTable)
    end
    
    local input = inputTable[self._index]
-   for i,pull in ipairs(self._pulls) end
+   for i,pull in ipairs(self._pulls) do
       pull:push(input)
    end
    return self.output
