@@ -104,7 +104,7 @@ like [ParallelTable](https://github.com/torch/nn/blob/master/doc/table.md#nn.Par
 
 ```
 
-<a name='nnx.TreeNLLCriterion''/>
+<a name='nnx.TreeNLLCriterion'/>
 ### TreeNLLCriterion ###
 Measures the Negative log-likelihood (NLL) for [SoftMaxTrees](#nnx.SoftMaxTree). 
 Used for maximizing the likelihood of SoftMaxTree outputs.
@@ -112,3 +112,70 @@ The SoftMaxTree Module outputs a column Tensor representing the log likelihood
 of each target in the batch. Thus SoftMaxTree requires the targets.
 So this Criterion only computes the negative of those outputs, as 
 well as its corresponding gradients.
+
+<a name=='nnx.PullTable'/>
+<a name=='nnx.PushTable'/>
+### PushTable (and PullTable) ###
+PushTable and PullTable work together. The first can be put earlier
+in a digraph of Modules such that it can communicate with a 
+PullTable located later in the graph. `PushTable:forward(input)` 
+for an `input` table of Tensors to the output, excluding one, the index of which 
+is specified by the `index` argument in the `PushTable(index)` constructor.
+The Tensor identified by this `index` is communicated to one or many 
+PullTables created via the `PushTable:pull(index)` factory method. 
+These can be inserted later in the digraph such that 
+a call to `PushTable:forward(input)`, where `input` is a table or a Tensor, 
+will output a table with the previously *pushed* Tensor inserted 
+at index `index`.
+
+An example utilizing the above [SoftMaxTree](#nnx.SoftMaxTree) Module
+and a Linear Module demonstrates how the PushTable can be used to 
+forward the `target` Tensor without any other 
+[Table Modules](https://github.com/torch/nn/blob/master/doc/table.md#table-layers):
+```lua
+> mlp = nn.Sequential()
+> linear = nn.Linear(50,100)
+> push = nn.PushTable(2)
+> pull = push:pull(2)
+> mlp:add(push)
+> mlp:add(nn.SelectTable(1))
+> mlp:add(linear)
+> mlp:add(pull)
+> mlp:add(smt) --smt is a SoftMaxTree instance
+> mlp:forward{input, target} -- input and target are defined above
+-3.5186
+-3.8950
+-3.7433
+-3.3071
+-3.0522
+[torch.DoubleTensor of dimension 5]
+> mlp:backward({input, target}, gradOutput) -- so is gradOutput
+{
+  1 : DoubleTensor - size: 5x10
+  2 : IntTensor - size: 5
+}
+```
+The above code is equivalent to the following:
+```lua
+> mlp2 = nn.Sequential()
+> para = nn.ParallelTable()
+> para:add(linear)
+> para:add(nn.Identity())
+> mlp2:add(para)
+> mlp2:add(smt)
+> mlp2:forward{input, target}
+-3.5186
+-3.8950
+-3.7433
+-3.3071
+-3.0522
+[torch.DoubleTensor of dimension 5]
+> mlp2:backward({input, target}, gradOutput)
+{
+  1 : DoubleTensor - size: 5x10
+  2 : IntTensor - size: 5
+}
+```
+In some cases, this can simplify the digraph of Modules. Note that 
+a PushTable can be associated to many PullTables, but each PullTable 
+is associated to only one PushTable.

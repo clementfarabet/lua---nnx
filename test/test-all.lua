@@ -409,6 +409,7 @@ function nnxtest.SoftMaxTree()
       [8]=torch.IntTensor{24,25,26,27,28}
    }
    local smt = nn.SoftMaxTree(100, hierarchy, root_id)
+   smt:zeroGradParameters()
    -- compare to the inefficient version for example 3
    local concat = nn.ConcatTable()
    local indices = {3,3,4}
@@ -461,7 +462,7 @@ function nnxtest.SoftMaxTree()
    -- sharedClone
    local smt2 = smt:sharedClone()
    output = smt:forward{input, target}
-   output2 = smt2:forward{input, target}
+   local output2 = smt2:forward{input, target}
    mytester:assertTensorEq(output, output2, 0.00001)
    -- accUpdate
    local smt3 = nn.SoftMaxTree(100, hierarchy, root_id, true)
@@ -674,6 +675,68 @@ function nnxtest.MultiSoftMax()
    
    mytester:assertTensorEq(output, output2, 0.000001)
    mytester:assertTensorEq(gradInput, gradInput2, 0.000001)
+end
+
+function nnxtest.PushPullTable()
+   -- use for targets with SoftMaxTree
+   local input = torch.randn(5,50)
+   local target = torch.IntTensor{20,23,27,10,8}
+   local gradOutput = torch.randn(5)
+   local root_id = 29
+   local hierarchy={
+      [29]=torch.IntTensor{30,1,2}, [1]=torch.IntTensor{3,4,5}, 
+      [2]=torch.IntTensor{6,7,8}, [3]=torch.IntTensor{9,10,11},
+      [4]=torch.IntTensor{12,13,14}, [5]=torch.IntTensor{15,16,17},
+      [6]=torch.IntTensor{18,19,20}, [7]=torch.IntTensor{21,22,23},
+      [8]=torch.IntTensor{24,25,26,27,28}
+   }
+   local smt = nn.SoftMaxTree(100, hierarchy, root_id)
+   -- create a network where inputs are fed through softmaxtree 
+   -- and targets are teleported (pushed then pulled) to softmaxtree
+   local mlp = nn.Sequential()
+   local linear = nn.Linear(50,100)
+   local push = nn.PushTable(2)
+   local pull = push:pull(2)
+   mlp:add(push)
+   mlp:add(nn.SelectTable(1))
+   mlp:add(linear)
+   mlp:add(pull)
+   mlp:add(smt)
+   -- compare to simpler alternative
+   local mlp2 = nn.Sequential()
+   local para = nn.ParallelTable()
+   para:add(linear:clone())
+   para:add(nn.Identity())
+   mlp2:add(para)
+   mlp2:add(smt:clone())
+   local inputTable = {input, target}
+   local output = mlp:forward(inputTable)
+   local output2 = mlp2:forward(inputTable)
+   local gradInput = mlp:backward(inputTable, gradOutput)
+   local gradInput2 = mlp2:backward(inputTable, gradOutput)
+   mytester:assertTensorEq(output, output2, 0.00001, "push/pull forward error")
+   mytester:assertTensorEq(gradInput[1], gradInput[1], 0.00001, "push/pull backward error")
+   mytester:assertTensorEq(gradInput[2], gradInput[2], 0.00001, "push/pull backward error")
+   
+   -- test multi-pull case
+   local mlp = nn.Sequential()
+   local push = nn.PushTable(2)
+   mlp:add(push)
+   mlp:add(nn.Identity())
+   mlp:add(push:pull(2))
+   mlp:add(push:pull(3))
+   mlp:add(push:pull(1))
+   -- {1,2} -> {2,1,2,2}
+   local output = mlp:forward(inputTable)
+   mytester:assertTensorEq(output[1], inputTable[2], 0.00001, "push/pull multi-forward error")
+   mytester:assertTensorEq(output[2], inputTable[1], 0.00001, "push/pull multi-forward error")
+   mytester:assertTensorEq(output[3], inputTable[2], 0.00001, "push/pull multi-forward error")
+   mytester:assertTensorEq(output[4], inputTable[2], 0.00001, "push/pull multi-forward error")
+   local gradOutput = {inputTable[2]:clone(), inputTable[1]:clone(), inputTable[2]:clone(), inputTable[2]:clone()}
+   local gradInput = mlp:backward(inputTable, gradOutput)
+   local gradInput2 = inputTable[2]:clone():mul(3) 
+   mytester:assertTensorEq(gradInput[1], gradInput[1], 0.00001, "push/pull multi-backward error")
+   mytester:assertTensorEq(gradInput[2], gradInput[2], 0.00001, "push/pull multi-backward error")
 end
 
 
