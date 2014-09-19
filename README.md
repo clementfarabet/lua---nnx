@@ -50,7 +50,9 @@ tests:
 This section includes documentation for the following objects:
  * [SoftMaxTree](#nnx.SoftMaxTree) : a hierarchical log-softmax Module;
  * [TreeNLLCriterion](#nnx.TreeNLLCriterion) : a negative log-likelihood Criterion for the SoftMaxTree;
-
+ * [PushTable (and PullTable)](#nnx.PushTable) : extracts a table element and inserts it later in the network;
+ * [MultiSoftMax](#nnx.MultiSoftMax) : performs a softmax over the last dimension of a 2D or 3D input.
+ 
 <a name='nnx.SoftMaxTree'/>
 ### SoftMaxTree ###
 A hierarchy of parameterized log-softmaxes. Used for computing the likelihood of a leaf class. 
@@ -179,3 +181,10 @@ The above code is equivalent to the following:
 In some cases, this can simplify the digraph of Modules. Note that 
 a PushTable can be associated to many PullTables, but each PullTable 
 is associated to only one PushTable.
+
+<a name=='nnx.MultiSoftMax'/>
+### MultiSoftMax ###
+This Module takes 2D or 3D input and performs a softmax over the last dimension. 
+It uses the existing [SoftMax](https://github.com/torch/nn/blob/master/doc/transfer.md#nn.SoftMax) 
+CUDA/C code to do so such that the Module can be used on both GPU and CPU. 
+This can be useful for [keypoint detection](https://github.com/nicholas-leonard/dp/blob/master/doc/facialkeypointstutorial.md#multisoftmax).
