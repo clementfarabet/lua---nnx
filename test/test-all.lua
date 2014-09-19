@@ -717,6 +717,26 @@ function nnxtest.PushPullTable()
    mytester:assertTensorEq(output, output2, 0.00001, "push/pull forward error")
    mytester:assertTensorEq(gradInput[1], gradInput[1], 0.00001, "push/pull backward error")
    mytester:assertTensorEq(gradInput[2], gradInput[2], 0.00001, "push/pull backward error")
+   
+   -- test multi-pull case
+   local mlp = nn.Sequential()
+   local push = nn.PushTable(2)
+   mlp:add(push)
+   mlp:add(nn.Identity())
+   mlp:add(push:pull(2))
+   mlp:add(push:pull(3))
+   mlp:add(push:pull(1))
+   -- {1,2} -> {2,1,2,2}
+   local output = mlp:forward(inputTable)
+   mytester:assertTensorEq(output[1], inputTable[2], 0.00001, "push/pull multi-forward error")
+   mytester:assertTensorEq(output[2], inputTable[1], 0.00001, "push/pull multi-forward error")
+   mytester:assertTensorEq(output[3], inputTable[2], 0.00001, "push/pull multi-forward error")
+   mytester:assertTensorEq(output[4], inputTable[2], 0.00001, "push/pull multi-forward error")
+   local gradOutput = {inputTable[2]:clone(), inputTable[1]:clone(), inputTable[2]:clone(), inputTable[2]:clone()}
+   local gradInput = mlp:backward(inputTable, gradOutput)
+   local gradInput2 = inputTable[2]:clone():mul(3) 
+   mytester:assertTensorEq(gradInput[1], gradInput[1], 0.00001, "push/pull multi-backward error")
+   mytester:assertTensorEq(gradInput[2], gradInput[2], 0.00001, "push/pull multi-backward error")
 end
 
 
