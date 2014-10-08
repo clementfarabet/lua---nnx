@@ -116,8 +116,8 @@ of each target in the batch. Thus SoftMaxTree requires the targets.
 So this Criterion only computes the negative of those outputs, as 
 well as its corresponding gradients.
 
-<a name=='nnx.PullTable'/>
-<a name=='nnx.PushTable'/>
+<a name='nnx.PullTable'/>
+<a name='nnx.PushTable'/>
 ### PushTable (and PullTable) ###
 PushTable and PullTable work together. The first can be put earlier
 in a digraph of Modules such that it can communicate with a 
@@ -183,18 +183,18 @@ In some cases, this can simplify the digraph of Modules. Note that
 a PushTable can be associated to many PullTables, but each PullTable 
 is associated to only one PushTable.
 
-<a name=='nnx.MultiSoftMax'/>
+<a name='nnx.MultiSoftMax'/>
 ### MultiSoftMax ###
 This Module takes 2D or 3D input and performs a softmax over the last dimension. 
 It uses the existing [SoftMax](https://github.com/torch/nn/blob/master/doc/transfer.md#nn.SoftMax) 
 CUDA/C code to do so such that the Module can be used on both GPU and CPU. 
 This can be useful for [keypoint detection](https://github.com/nicholas-leonard/dp/blob/master/doc/facialkeypointstutorial.md#multisoftmax).
 
-<a name=='nnx.SpatialReSampling'/>
+<a name='nnx.SpatialReSampling'/>
 ### SpatialReSampling ###
 Applies a 2D re-sampling over an input image composed of
-several input planes (channels/colors). The input tensor in `forward(input)` is 
-expected to be a 3D or 4D tensor of size : `[batchSize x] width x height x nInputPlane`. 
+several input planes (or channels, colors). The input tensor in `forward(input)` is 
+expected to be a 3D or 4D tensor of size : `[batchSize x] nInputPlane x width x height`. 
 The number of output planes will be the same as the number of input
 planes.
 
