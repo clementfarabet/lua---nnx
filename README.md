@@ -219,7 +219,11 @@ l = nn.SpatialReSampling{owidth=150,oheight=150}
 output = l:forward(input)
 image.save('doc/image/Lenna-150x150-bilinear.png', output)
 ```
+
 The input:
+
 ![Lenna](doc/image/Lenna.png) 
+
 The re-sampled output:
-![Lenna re-sampled](doc/image/Lenna-150x150.png) 
+
+![Lenna re-sampled](doc/image/Lenna-150x150-bilinear.png) 
