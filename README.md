@@ -51,7 +51,8 @@ This section includes documentation for the following objects:
  * [SoftMaxTree](#nnx.SoftMaxTree) : a hierarchical log-softmax Module;
  * [TreeNLLCriterion](#nnx.TreeNLLCriterion) : a negative log-likelihood Criterion for the SoftMaxTree;
  * [PushTable (and PullTable)](#nnx.PushTable) : extracts a table element and inserts it later in the network;
- * [MultiSoftMax](#nnx.MultiSoftMax) : performs a softmax over the last dimension of a 2D or 3D input.
+ * [MultiSoftMax](#nnx.MultiSoftMax) : performs a softmax over the last dimension of a 2D or 3D input;
+ * [SpatialReSampling](#nnx.SpatialReSampling) : performs bilinear resampling of a 3D or 4D input image;
  
 <a name='nnx.SoftMaxTree'/>
 ### SoftMaxTree ###
@@ -188,3 +189,41 @@ This Module takes 2D or 3D input and performs a softmax over the last dimension.
 It uses the existing [SoftMax](https://github.com/torch/nn/blob/master/doc/transfer.md#nn.SoftMax) 
 CUDA/C code to do so such that the Module can be used on both GPU and CPU. 
 This can be useful for [keypoint detection](https://github.com/nicholas-leonard/dp/blob/master/doc/facialkeypointstutorial.md#multisoftmax).
+
+<a name=='nnx.SpatialReSampling'/>
+### SpatialReSampling ###
+Applies a 2D re-sampling over an input image composed of
+several input planes (channels/colors). The input tensor in `forward(input)` is 
+expected to be a 3D or 4D tensor of size : `[batchSize x] width x height x nInputPlane`. 
+The number of output planes will be the same as the number of input
+planes.
+
+The re-sampling is done using [bilinear interpolation](http://en.wikipedia.org/wiki/Bilinear_interpolation). 
+For a simple nearest-neihbor upsampling, use `nn.SpatialUpSampling()`,
+and for a simple average-based down-sampling, use 
+`nn.SpatialDownSampling()`.
+
+If the input image is a 3D tensor of size `nInputPlane x height x width`,
+the output image size will be `nInputPlane x oheight x owidth` where
+`owidth` and `oheight` are given to the constructor.
+
+Instead of `owidth` and `oheight`, one can provide `rwidth` and `rheight`, 
+such that `owidth = iwidth*rwidth` and `oheight = iheight*rheight`.
+
+As an example, we can run the following code on the famous Lenna image:
+```lua
+require 'image'                                                           
+require 'nnx'
+input = image.loadPNG('doc/image/Lenna.png')
+l = nn.SpatialReSampling{owidth=150,oheight=150}
+output = l:forward(input)
+image.save('doc/image/Lenna-150x150-bilinear.png', output)
+```
+
+The input:
+
+![Lenna](doc/image/Lenna.png) 
+
+The re-sampled output:
+
+![Lenna re-sampled](doc/image/Lenna-150x150-bilinear.png) 
