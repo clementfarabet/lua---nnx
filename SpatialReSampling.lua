@@ -3,7 +3,7 @@ local SpatialReSampling, parent = torch.class('nn.SpatialReSampling', 'nn.Module
 local help_desc =
 [[Applies a 2D re-sampling over an input image composed of
 several input planes. The input tensor in forward(input) is 
-expected to be a 3D tensor (width x height x nInputPlane). 
+expected to be a 3D or 4D tensor ([batchSize x nInputPlane x width x height). 
 The number of output planes will be the same as the nb of input
 planes.
 
@@ -31,8 +31,12 @@ function SpatialReSampling:__init(...)
 end
 
 function SpatialReSampling:updateOutput(input)
-   self.oheight = self.oheight or self.rheight*input:size(2)
-   self.owidth = self.owidth or self.rwidth*input:size(3)
+   local hDim, wDim = 2, 3
+   if input:dim() == 4 then
+      hDim, wDim = 3, 4
+   end
+   self.oheight = self.oheight or self.rheight*input:size(hDim)
+   self.owidth = self.owidth or self.rwidth*input:size(wDim)
    input.nn.SpatialReSampling_updateOutput(self, input)
    return self.output
 end

@@ -167,7 +167,7 @@ function nnxtest.SpatialReSampling_1()
    local ferr, berr = nn.Jacobian.testIO(module, input)
    mytester:asserteq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
    mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
-   
+
    -- test batches (4D input)
    local batchSize = math.random(4,8)
    local input2 = torch.rand(batchSize,fanin,sizey,sizex)
@@ -180,6 +180,17 @@ function nnxtest.SpatialReSampling_1()
    local gradInput = module:backward(input, output):clone()
    local gradInput2 = module:backward(input2, output2)
    mytester:assertTensorEq(gradInput, gradInput2[2], 0.00001, 'SpatialResampling batch backward err')
+   
+   -- test rwidth/rheight
+   local input = torch.randn(3,8,10)
+   local module = nn.SpatialReSampling{rwidth=0.5,rheight=0.5}
+   local output = module:forward(input)
+   mytester:assertTableEq(output:size():totable(), {3, 4, 5}, 0.00000001, 'SpatialResampling batch rwidth/rheight err')
+   
+   local input = torch.randn(2,3,8,10)
+   local module = nn.SpatialReSampling{rwidth=0.5,rheight=0.5}
+   local output = module:forward(input)
+   mytester:assertTableEq(output:size():totable(), {2, 3, 4, 5}, 0.00000001, 'SpatialResampling batch rwidth/rheight err')
 end
 
 function nnxtest.SpatialReSampling_2()
