@@ -1,8 +1,7 @@
 local Module = nn.Module
 
 -- returns a table of outputs and the commensurate module's gradInputs
--- this shouldn't return any duplicates
--- can't be used to set units
+-- This shouldn't return any duplicates
 function Module:representations()
    local function tinsert(to, from)
       if type(from) == 'table' then

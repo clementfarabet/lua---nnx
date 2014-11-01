@@ -262,6 +262,39 @@ function nnxtest.SpatialConvolution()
    mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
 
+function nnxtest.Module_representations()
+   local batchSize = 4
+   local inputSize, outputSize = 7, 6
+   local linear = nn.Linear(inputSize, outputSize)
+   local tanh = nn.Tanh()
+   local reshape = nn.Reshape(outputSize/2, 2)
+   local mlp = nn.Sequential()
+   mlp:add(linear)
+   mlp:add(tanh)
+   mlp:add(reshape)
+   local outputs, gradInputs = mlp:representations()
+   local outputs2 = {linear.output, tanh.output, reshape.output}
+   local gradInputs2 = {linear.gradInput, tanh.gradInput, reshape.gradInput}
+   mytester:assert(#outputs == #outputs2, 'missing outputs')
+   mytester:assert(#outputs == #gradInputs, 'missing gradInputs')
+   for i=1,#outputs do
+      mytester:assert(outputs[i] == outputs2[i], 'different output tensors '..i)
+      mytester:assert(gradInputs[i] == gradInputs2[i], 'different gradInput tensors '..i)
+   end
+   local input = torch.randn(batchSize, inputSize)
+   local gradOutput = torch.randn(batchSize, outputSize/2, 2)
+   mlp:forward(input)
+   mlp:backward(input, gradOutput)
+   for i=1,#outputs do
+      mytester:assert(outputs[i] == outputs2[i], 'different output tensors after forward/backward'..i)
+      mytester:assert(gradInputs[i] == gradInputs2[i], 'different gradInput tensors after forward/backward'..i)
+   end
+end
+
+function nnxtest.Recurrent()
+
+end
+
 function nnxtest.SpatialNormalization_Gaussian2D()
    local inputSize = math.random(11,20)
    local kersize = 9
