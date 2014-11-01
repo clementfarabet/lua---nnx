@@ -46,6 +46,9 @@ require 'libnnx'
 torch.include('nnx', 'test-all.lua')
 torch.include('nnx', 'test-omp.lua')
 
+-- extensions of nn modules
+torch.include('nnx', 'Module.lua')
+
 -- tools:
 torch.include('nnx', 'Probe.lua')
 torch.include('nnx', 'Tic.lua')
@@ -79,6 +82,7 @@ torch.include('nnx', 'SoftMaxTree.lua')
 torch.include('nnx', 'MultiSoftMax.lua')
 torch.include('nnx', 'Balance.lua')
 torch.include('nnx', 'NarrowLookupTable.lua')
+torch.include('nnx', 'Recurrent.lua')
 
 -- criterions:
 torch.include('nnx', 'SuperCriterion.lua')
