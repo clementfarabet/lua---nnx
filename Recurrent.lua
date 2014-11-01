@@ -2,58 +2,58 @@
 --[[ Recurrent ]]--
 -- Ref. A.: http://goo.gl/vtVGkO (Mikolov et al.)
 -- B. http://goo.gl/hu1Lqm
--- Truncated BPTT.
--- It processes the sequence one timestep at a time. 
--- A call to backward only backward propagates the output Module.
+-- Processes the sequence one timestep (forward/backward) at a time. 
+-- A call to backward only keeps a log of the gradOutputs and scales.
 -- Back-Propagation Through Time (BPTT) is done when updateParameters
--- is called. The Module keeps a list and copy of all previous 
--- representations (Module.outputs), including intermediate ones 
--- for BPTT.
--- The use this module with batches, we suggest using different 
+-- is called. The Module keeps a list of all previous representations 
+-- (Module.outputs), including intermediate ones for BPTT.
+-- To use this module with batches, we suggest using different 
 -- sequences of the same size within a batch and calling 
 -- updateParameters() at the end of the Sequence. 
+-- TODO :
+-- make this work with :representations()
 ------------------------------------------------------------------------
 local Recurrent, parent = torch.class('nn.Recurrent', 'nn.Module')
 
-function Recurrent:__init(input, feedback, transfer, output, hiddenSize)
+function Recurrent:__init(start, input, feedback, transfer)
    parent.__init(self)
 
-   self.hiddenSize = hiddenSize
+   local ts = torch.type(start)
+   if ts == 'torch.LongTensor' or ts == 'number' then
+      start == nn.Add(ts)
+   end
+   self.startModule = start
    self.inputModule = input
    self.feedbackModule = feedback
-   self.transferModule = transfer
-   self.outputModule = output
-   
-   self.modules = {inputModule, feedbackModule, transferModule, outputModule} --add nn.Add()?
+   self.transferModule = transfer or nn.Sigmoid()
    
    -- used for forward propagations only
    local parallelModule = nn.ParallelTable()
-   parallelModule:add(self.feedbackModule)
    parallelModule:add(self.inputModule)
-   self._recurrentModule = nn.Sequential()
-   self._recurrentModule:add(parallelModule)
-   self._recurrentModule:add(nn.CAddTable())
-   self._recurrentModule:add(self.transferModule)
-   self.recurrentModule = nn.Sequential()
-   self.recurrentModule:add(self._recurrentModule)
-   self.recurrentModule:add(self.outputModule)
+   parallelModule:add(self.feedbackModule)
+   self.feedbackModule = nn.Sequential()
+   self.feedbackModule:add(parallelModule)
+   self.feedbackModule:add(nn.CAddTable())
+   self.feedbackModule:add(self.transferModule)
    
    -- used for the first step in sequence (replaces the recurrence)
-   self._initialModule = nn.Sequential()
-   self._initialModule:add(self.inputModule)
-   self._initialModule:add(nn.Add(self.hiddenSize))
-   self._initialModule:add(self.transferModule)
    self.initialModule = nn.Sequential()
-   self.initialModule:add(self._initialModule)
-   self.initialModule:add(self.outputModule)
+   self.initialModule:add(self.inputModule)
+   self.initialModule:add(self.startModule)
+   self.initialModule:add(self.transferModule)
+   
+   self.modules = {self.startModule, self.inputModule, self.feedbackModule, self.transferModule}
    
    self.initialState = {}
    self.initialGradState = {}
    self.recurrentStates = {}
    self.recurrentGradStates = {}
    
-   self.gradPrestates {}
-   self.gradStates = {}
+   self.copyInputs = true
+   self.inputs = {}
+   self.outputs = {}
+   self.gradOutputs = {}
+   self.scales = {}
    
    self.step = 1
    
@@ -64,7 +64,7 @@ function Recurrent:updateOutput(input)
    -- output(t) = transfer(feedback(output_(t-1)) + input(input_(t)))
    if self.step == 1 then
       -- set/save the output states
-      local outputs = self._initialModule:representations()
+      local outputs = self.initialModule:representations()
       for i=1,#outputs do
          local output = outputs[i]
          local output_ = self.initialState[i]
@@ -78,14 +78,14 @@ function Recurrent:updateOutput(input)
       self.output:set(output)
    else
       -- set/save the output states
-      local outputs = self._recurrentModule:representations()
+      local outputs = self.feedbackModule:representations()
+      local recurrentState = self.recurrentStates[self.step]
+      if not recurrentState then
+         recurrentState = {}
+         self.recurrentStates[self.step] = recurrentState
+      end
       for i=1,#outputs do
          local output = outputs[i]
-         local recurrentState = self.recurrentStates[self.step]
-         if not recurrentState then
-            recurrentState = {}
-            self.recurrentStates[self.step] = recurrentState
-         end
          local output_ = recurrentState[i]
          if not output_ then
             output_ = output:clone()
@@ -93,19 +93,109 @@ function Recurrent:updateOutput(input)
          end
          output:set(output_)
       end
-      local output = self.recurrentModule:updateOutput(input)
+      -- self.output is the previous output of this module
+      local output = self.feedbackModule:updateOutput{input, self.output}
       self.output:set(output)
    end
+   local input_ = self.inputs[self.step]
+   if not input_ then
+      input_ = input.new()
+      self.inputs[self.step] = input_
+   end
+   if self.copyInputs then
+      input_:resizeAs(input):copy(input)
+   else
+      input_:set(input)
+   end
+   self.outputs[self.step] = self.output
+   self.step = self.step + 1
    return self.output
 end
 
 function Recurrent:updateGradInput(input, gradOutput)
-   -- Back-Propagate Through Time (BPTT)
+   -- Back-Propagate Through Time (BPTT) happens in updateParameters()
+   -- for now we just keep a list of the gradOutputs
+   self.gradOutputs[self.step-1] = gradOutput 
    return self.gradInput
 end
 
 function Recurrent:accGradParameters(input, gradOutput, scale)
-   scale = scale or 1
+   -- Back-Propagate Through Time (BPTT) happens in updateParameters()
+   -- for now we just keep a list of the scales
+   self.scales[self.step-1] = scale
+end
+
+-- not to be confused with the hit movie Back to the Future
+function Recurrent:backwardThroughTime()
+   local gradInput
+   for step=self.step-1,-1,2 do
+      -- set the output/gradOutput states of current Module
+      local outputs, gradInputs = self.feedbackModule:representations()
+      local recurrentState = self.recurrentStates[step]
+      local recurrentGradState = self.recurrentGradStates[step]
+      if not recurrentGradState then
+         recurrentGradState = {}
+         self.recurrentGradStates[step] = recurrentGradState
+      end
+      for i=1,#outputs do
+         local output, gradInput = outputs[i], gradInputs[i]
+         local output_, gradInput_ = recurrentState[i], recurrentGradState[i]
+         if not gradInput_ then
+            gradInput_ = gradInput:clone()
+            reccurentGradState[i] = gradInput_
+         end
+         output:set(output_)
+         gradInput:set(gradInput_)
+      end
+      
+      -- backward propagate through this step
+      local input = self.inputs[step]
+      local output = self.outputs[step-1]
+      local gradOutput = self.gradOutputs[step]
+      if gradInput then
+         gradOutput:add(gradInput)
+      end
+      local scale = self.scales[step]
+      gradInput = self.feedbackModule:backward({input, output}, gradOutput, scale/(self.step-1))
+   end
+   
+   -- set the output/gradOutput states of initialModule
+   local outputs, gradInputs = self.initialModule:representations()
+   for i=1,#outputs do
+      local output, gradInput = outputs[i], gradInputs[i]
+      local output_, gradInput_ = self.initialState[i], self.initialGradState[i]
+      if not gradInput_ then
+         gradInput_ = gradInput:clone()
+         self.initialGradState[i] = gradInput_
+      end
+      output:set(output_)
+      gradInput:set(gradInput_)
+   end
+   
+   -- backward propagate through first step
+   local input = self.inputs[1]
+   local gradOutput = self.gradOutputs[1]
+   if gradInput then
+      gradOutput:add(gradInput)
+   end
+   local scale = self.scales[1]
+   gradInput = self.initialModule:backward(input, gradOutput, scale/(self.step-1))
+   
+   -- startModule's gradParams shouldn't be step-averaged
+   -- as it is used only once. So un-step-average it
+   local params, gradParams = self.startModule:parameters()
+   if gradParams then
+      for i,gradParam in ipairs(gradParams) do
+         gradParams:mul(self.step-1)
+      end
+   end
+   self.step = 1
+   return gradInput
+end
+
+function Recurrent:updateParameters(learningRate)
+   self:backwardThroughTime()
+   parent.updateParameters(self, learningRate)
 end
 
 function Recurrent:size()
