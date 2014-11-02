@@ -262,33 +262,44 @@ function nnxtest.SpatialConvolution()
    mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
 end
 
-function nnxtest.Module_representations()
+function nnxtest.Module_listModules()
    local batchSize = 4
    local inputSize, outputSize = 7, 6
    local linear = nn.Linear(inputSize, outputSize)
    local tanh = nn.Tanh()
    local reshape = nn.Reshape(outputSize/2, 2)
+   local mlp3 = nn.Sequential()
+   mlp3:add(linear)
+   mlp3:add(tanh)
+   mlp3:add(reshape)
+   
+   local mlp2 = nn.Sequential()
+   local view = nn.View(outputSize)
+   local linear2 = nn.Linear(outputSize, inputSize)
+   local tanh2 = nn.Tanh()
+   mlp2:add(mlp3)
+   mlp2:add(view)
+   mlp2:add(linear2)
+   mlp2:add(tanh2)
+   
+   local concat = nn.ConcatTable()
+   local id = nn.Identity()
+   concat:add(mlp2)
+   concat:add(id)
    local mlp = nn.Sequential()
-   mlp:add(linear)
-   mlp:add(tanh)
-   mlp:add(reshape)
-   local outputs, gradInputs = mlp:representations()
-   local outputs2 = {linear.output, tanh.output, reshape.output}
-   local gradInputs2 = {linear.gradInput, tanh.gradInput, reshape.gradInput}
-   mytester:assert(#outputs == #outputs2, 'missing outputs')
-   mytester:assert(#outputs == #gradInputs, 'missing gradInputs')
-   for i=1,#outputs do
-      mytester:assert(outputs[i] == outputs2[i], 'different output tensors '..i)
-      mytester:assert(gradInputs[i] == gradInputs2[i], 'different gradInput tensors '..i)
+   local add = nn.CAddTable()
+   mlp:add(concat)
+   mlp:add(add)
+   
+   local modules2 = {mlp, concat, mlp2, mlp3, linear, tanh, reshape, view, linear2, tanh2, id, add}
+   local modules = mlp:listModules()
+   
+   mytester:assert(#modules2 == #modules, 'missing modules error')
+   
+   for i,module in ipairs(modules) do
+      mytester:assert(torch.type(module) == torch.type(modules2[i]), 'module error')
    end
-   local input = torch.randn(batchSize, inputSize)
-   local gradOutput = torch.randn(batchSize, outputSize/2, 2)
-   mlp:forward(input)
-   mlp:backward(input, gradOutput)
-   for i=1,#outputs do
-      mytester:assert(outputs[i] == outputs2[i], 'different output tensors after forward/backward'..i)
-      mytester:assert(gradInputs[i] == gradInputs2[i], 'different gradInput tensors after forward/backward'..i)
-   end
+   
 end
 
 function nnxtest.Recurrent()
@@ -312,6 +323,7 @@ function nnxtest.Recurrent()
    local inputs
    local startModule = mlp.startModule:clone()
    
+   mlp:zeroGradParameters()
    for step=1,nSteps do
       local input = torch.randn(batchSize, inputSize)
       local gradOutput
@@ -323,7 +335,8 @@ function nnxtest.Recurrent()
          gradOutput = torch.randn(batchSize, outputSize)
       end
       
-      local output = mlp:updateOutput(input)
+      local output = mlp:forward(input)
+      mlp:backward(input, gradOutput)
 
       table.insert(gradOutputs, gradOutput)
       table.insert(outputs, output:clone())
@@ -334,6 +347,8 @@ function nnxtest.Recurrent()
          inputs = input
       end
    end
+   -- backward propagate through time (BPTT)
+   mlp:backwardThroughTime()
    
    -- input = {inputN, {inputN-1, {inputN-2, ...}}}}}
    local mlp2
@@ -366,11 +381,24 @@ function nnxtest.Recurrent()
       end
    end
    
-   local output2 = mlp2:updateOutput(inputs)
+   local output2 = mlp2:forward(inputs)
+   mlp2:zeroGradParameters()
+   local gradInput2 = mlp2:backward(inputs, gradOutputs[#gradOutputs])
+   
    mytester:assertTensorEq(outputs[#outputs], output2, 0.000001, "recurrent output")
    for step=1,nSteps do
       local output, output2 = outputs[step], outputs2[step]
-      mytester:assertTensorEq(output, output2, 0.0000001, "recurrent output step="..step)
+      mytester:assertTensorEq(output, output2, 0.000001, "recurrent output step="..step)
+   end
+   
+   local mlp3 = nn.Sequential()
+   mlp3:add(startModule):add(inputModule):add(recurrentModule)
+   local params2, gradParams2 = mlp3:parameters()
+   local params, gradParams = mlp:parameters()
+   mytester:assert(#params2 == #params, 'missing parameters')
+   mytester:assert(#gradParams == #params, 'missing gradParameters')
+   for i=1,#params do
+      mytester:assertTensorEq(gradParams[i], gradParams2[i], 0.000001, 'gradParameter error ' .. 1)
    end
 end
 

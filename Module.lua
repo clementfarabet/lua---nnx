@@ -1,10 +1,9 @@
 local Module = nn.Module
 
--- returns a table of outputs and the commensurate module's gradInputs
--- This shouldn't return any duplicates
-function Module:representations()
+-- returns a list of modules
+function Module:listModules()
    local function tinsert(to, from)
-      if type(from) == 'table' then
+      if torch.type(from) == 'table' then
          for i=1,#from do
             tinsert(to,from[i])
          end
@@ -12,20 +11,15 @@ function Module:representations()
          table.insert(to,from)
       end
    end
-   local outputs = {}
-   local gradInputs = {}
+   -- include self first
+   local modules = {self}
    if self.modules then
       for i=1,#self.modules do
-         local output,gradInput = self.modules[i]:representations()
-         if output then
-            tinsert(outputs,output)
-            tinsert(gradInputs,gradInput)
+         local modulas = self.modules[i]:listModules()
+         if modulas then
+            tinsert(modules,modulas)
          end
       end
-   else
-      table.insert(outputs, self.output)
-      table.insert(gradInputs, self.gradInput)
    end
-   return outputs, gradInputs
+   return modules
 end
-
