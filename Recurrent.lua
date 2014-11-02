@@ -20,29 +20,29 @@ function Recurrent:__init(start, input, feedback, transfer)
 
    local ts = torch.type(start)
    if ts == 'torch.LongTensor' or ts == 'number' then
-      start == nn.Add(ts)
+      start = nn.Add(start)
    end
    self.startModule = start
    self.inputModule = input
    self.feedbackModule = feedback
    self.transferModule = transfer or nn.Sigmoid()
    
-   -- used for forward propagations only
-   local parallelModule = nn.ParallelTable()
-   parallelModule:add(self.inputModule)
-   parallelModule:add(self.feedbackModule)
-   self.feedbackModule = nn.Sequential()
-   self.feedbackModule:add(parallelModule)
-   self.feedbackModule:add(nn.CAddTable())
-   self.feedbackModule:add(self.transferModule)
-   
-   -- used for the first step in sequence (replaces the recurrence)
+   -- used for the first step 
    self.initialModule = nn.Sequential()
    self.initialModule:add(self.inputModule)
    self.initialModule:add(self.startModule)
    self.initialModule:add(self.transferModule)
    
-   self.modules = {self.startModule, self.inputModule, self.feedbackModule, self.transferModule}
+   -- used for the other steps (steps > 1)
+   local parallelModule = nn.ParallelTable()
+   parallelModule:add(self.inputModule)
+   parallelModule:add(self.feedbackModule)
+   self.recurrentModule = nn.Sequential()
+   self.recurrentModule:add(parallelModule)
+   self.recurrentModule:add(nn.CAddTable())
+   self.recurrentModule:add(self.transferModule)
+   
+   self.modules = {self.startModule, self.inputModule, self.recurrentModule, self.transferModule}
    
    self.initialState = {}
    self.initialGradState = {}
@@ -78,7 +78,7 @@ function Recurrent:updateOutput(input)
       self.output:set(output)
    else
       -- set/save the output states
-      local outputs = self.feedbackModule:representations()
+      local outputs = self.recurrentModule:representations()
       local recurrentState = self.recurrentStates[self.step]
       if not recurrentState then
          recurrentState = {}
@@ -89,12 +89,12 @@ function Recurrent:updateOutput(input)
          local output_ = recurrentState[i]
          if not output_ then
             output_ = output:clone()
-            reccurentState[i] = output_
+            recurrentState[i] = output_
          end
          output:set(output_)
       end
       -- self.output is the previous output of this module
-      local output = self.feedbackModule:updateOutput{input, self.output}
+      local output = self.recurrentModule:updateOutput{input, self.output}
       self.output:set(output)
    end
    local input_ = self.inputs[self.step]
@@ -130,7 +130,7 @@ function Recurrent:backwardThroughTime()
    local gradInput
    for step=self.step-1,-1,2 do
       -- set the output/gradOutput states of current Module
-      local outputs, gradInputs = self.feedbackModule:representations()
+      local outputs, gradInputs = self.recurrentModule:representations()
       local recurrentState = self.recurrentStates[step]
       local recurrentGradState = self.recurrentGradStates[step]
       if not recurrentGradState then
@@ -142,7 +142,7 @@ function Recurrent:backwardThroughTime()
          local output_, gradInput_ = recurrentState[i], recurrentGradState[i]
          if not gradInput_ then
             gradInput_ = gradInput:clone()
-            reccurentGradState[i] = gradInput_
+            recurrentGradState[i] = gradInput_
          end
          output:set(output_)
          gradInput:set(gradInput_)
@@ -156,7 +156,7 @@ function Recurrent:backwardThroughTime()
          gradOutput:add(gradInput)
       end
       local scale = self.scales[step]
-      gradInput = self.feedbackModule:backward({input, output}, gradOutput, scale/(self.step-1))
+      gradInput = self.recurrentModule:backward({input, output}, gradOutput, scale/(self.step-1))
    end
    
    -- set the output/gradOutput states of initialModule
@@ -280,7 +280,6 @@ function Recurrent:__tostring__()
    str = str .. line .. '}'
    return str
 end
-
 
 --[[
 Recurrent(input, recurrence, transfer, output)

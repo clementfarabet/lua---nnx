@@ -292,7 +292,86 @@ function nnxtest.Module_representations()
 end
 
 function nnxtest.Recurrent()
+   local batchSize = 4
+   local inputSize = 10
+   local hiddenSize = 12
+   local outputSize = 7
+   local nSteps = 5   
+   local inputModule = nn.Linear(inputSize, outputSize)
+   local transferModule = nn.Sigmoid()
+   -- test MLP feedback Module (because of Module:representations())
+   local feedbackModule = nn.Sequential()
+   feedbackModule:add(nn.Linear(outputSize, hiddenSize))
+   feedbackModule:add(nn.Sigmoid())
+   feedbackModule:add(nn.Linear(hiddenSize, outputSize))
+   local mlp = nn.Recurrent(outputSize, inputModule, feedbackModule, transferModule:clone())
+   inputModule = mlp.inputModule:clone()
+   feedbackModule = mlp.feedbackModule:clone()
+   
+   local gradOutputs, outputs = {}, {}
+   local inputs
+   local startModule = mlp.startModule:clone()
+   
+   for step=1,nSteps do
+      local input = torch.randn(batchSize, inputSize)
+      local gradOutput
+      if step ~= nSteps then
+         -- for the sake of keeping this unit test simple,
+         gradOutput = torch.zeros(batchSize, outputSize)
+      else
+         -- only the last step will get a gradient from the output
+         gradOutput = torch.randn(batchSize, outputSize)
+      end
+      
+      local output = mlp:updateOutput(input)
 
+      table.insert(gradOutputs, gradOutput)
+      table.insert(outputs, output:clone())
+      
+      if inputs then
+         inputs = {input, inputs}
+      else
+         inputs = input
+      end
+   end
+   
+   -- input = {inputN, {inputN-1, {inputN-2, ...}}}}}
+   local mlp2
+   local outputs2 = {}
+   for step=1,nSteps do
+      local inputModule_ = inputModule:clone()
+      local outputModule = transferModule:clone()
+      table.insert(outputs2, outputModule.output)
+      inputModule_:share(inputModule, 'weight', 'gradWeight', 'bias', 'gradBias')
+      if step == 1 then
+         local initialModule = nn.Sequential()
+         initialModule:add(inputModule_)
+         initialModule:add(startModule)
+         initialModule:add(outputModule)
+         mlp2 = initialModule
+      else
+         local parallelModule = nn.ParallelTable()
+         parallelModule:add(inputModule_)
+         local pastModule = nn.Sequential()
+         pastModule:add(mlp2)
+         local feedbackModule_ = feedbackModule:clone()
+         feedbackModule_:share(feedbackModule, 'weight', 'gradWeight', 'bias', 'gradBias')
+         pastModule:add(feedbackModule_)
+         parallelModule:add(pastModule)
+         local recurrentModule = nn.Sequential()
+         recurrentModule:add(parallelModule)
+         recurrentModule:add(nn.CAddTable())
+         recurrentModule:add(outputModule)
+         mlp2 = recurrentModule
+      end
+   end
+   
+   local output2 = mlp2:updateOutput(inputs)
+   mytester:assertTensorEq(outputs[#outputs], output2, 0.000001, "recurrent output")
+   for step=1,nSteps do
+      local output, output2 = outputs[step], outputs2[step]
+      mytester:assertTensorEq(output, output2, 0.0000001, "recurrent output step="..step)
+   end
 end
 
 function nnxtest.SpatialNormalization_Gaussian2D()
