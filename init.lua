@@ -83,6 +83,8 @@ torch.include('nnx', 'MultiSoftMax.lua')
 torch.include('nnx', 'Balance.lua')
 torch.include('nnx', 'NarrowLookupTable.lua')
 torch.include('nnx', 'Recurrent.lua')
+torch.include('nnx', 'PushTable.lua')
+torch.include('nnx', 'PullTable.lua')
 
 -- criterions:
 torch.include('nnx', 'SuperCriterion.lua')

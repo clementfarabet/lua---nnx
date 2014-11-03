@@ -188,7 +188,7 @@ end
 -- when static is true, return parameters with static keys
 -- i.e. keys that don't change from batch to batch
 function SoftMaxTree:parameters()
-   static = self.static
+   local static = self.static
    local params, grads = {}, {}
    local updated = false
    for parentId, scale in pairs(self.updates) do
