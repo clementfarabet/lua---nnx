@@ -42,12 +42,12 @@ function Recurrent:__init(start, input, feedback, transfer)
    self.recurrentModule:add(nn.CAddTable())
    self.recurrentModule:add(self.transferModule)
    
-   self.modules = {self.startModule, self.inputModule, self.recurrentModule, self.transferModule}
+   self.modules = {self.startModule, self.inputModule, self.feedbackModule, self.transferModule}
    
-   self.initialState = {}
-   self.initialGradState = {}
-   self.recurrentStates = {}
-   self.recurrentGradStates = {}
+   self.initialOutputs = {}
+   self.initialGradInputs = {}
+   self.recurrentOutputs = {}
+   self.recurrentGradInputs = {}
    
    self.copyInputs = true
    self.inputs = {}
@@ -60,42 +60,53 @@ function Recurrent:__init(start, input, feedback, transfer)
    self:reset()
 end
 
+local function recursiveClone(t)
+   local clone
+   if torch.type(t) == 'table' then
+      clone = {}
+      for i = 1, #t do
+         clone[i] = recursiveClone(t[i])
+      end
+   else
+      if torch.typename(t) and 
+        torch.typename(t):find('torch%..+Tensor') then
+         clone = t:clone()
+      end
+   end
+   return clone
+end
+
 function Recurrent:updateOutput(input)
    -- output(t) = transfer(feedback(output_(t-1)) + input(input_(t)))
+   local output
    if self.step == 1 then
       -- set/save the output states
-      local outputs = self.initialModule:representations()
-      for i=1,#outputs do
-         local output = outputs[i]
-         local output_ = self.initialState[i]
-         if not output_ then
-            output_ = output:clone()
-            self.initialState[i] = output_
-         end
-         output:set(output_)
+      local modules = self.initialModule:listModules()
+      for i,modula in ipairs(modules) do
+         local output_ = self.initialOutputs[i] or recursiveClone(modula.output)
+         modula.output = output_
       end
-      local output = self.initialModule:updateOutput(input)
-      self.output:set(output)
+      output = self.initialModule:updateOutput(input)
+      for i,modula in ipairs(modules) do
+         self.initialOutputs[i]  = modula.output
+      end
    else
       -- set/save the output states
-      local outputs = self.recurrentModule:representations()
-      local recurrentState = self.recurrentStates[self.step]
-      if not recurrentState then
-         recurrentState = {}
-         self.recurrentStates[self.step] = recurrentState
+      local modules = self.recurrentModule:listModules()
+      local recurrentOutputs = self.recurrentOutputs[self.step]
+      if not recurrentOutputs then
+         recurrentOutputs = {}
+         self.recurrentOutputs[self.step] = recurrentOutputs
       end
-      for i=1,#outputs do
-         local output = outputs[i]
-         local output_ = recurrentState[i]
-         if not output_ then
-            output_ = output:clone()
-            recurrentState[i] = output_
-         end
-         output:set(output_)
+      for i,modula in ipairs(modules) do
+         local output_ = recurrentOutputs[i] or recursiveClone(modula.output)
+         modula.output = output_
       end
       -- self.output is the previous output of this module
-      local output = self.recurrentModule:updateOutput{input, self.output}
-      self.output:set(output)
+      output = self.recurrentModule:updateOutput{input, self.output}
+      for i,modula in ipairs(modules) do
+         recurrentOutputs[i]  = modula.output
+      end
    end
    local input_ = self.inputs[self.step]
    if not input_ then
@@ -107,7 +118,8 @@ function Recurrent:updateOutput(input)
    else
       input_:set(input)
    end
-   self.outputs[self.step] = self.output
+   self.outputs[self.step] = output
+   self.output:set(output)
    self.step = self.step + 1
    return self.output
 end
@@ -115,8 +127,12 @@ end
 function Recurrent:updateGradInput(input, gradOutput)
    -- Back-Propagate Through Time (BPTT) happens in updateParameters()
    -- for now we just keep a list of the gradOutputs
-   self.gradOutputs[self.step-1] = gradOutput 
-   return self.gradInput
+   local gradOutput_ = self.gradOutputs[self.step-1] 
+   if not gradOutput_ then
+      gradOutput_ = recursiveClone(gradOutput)
+      self.gradOutputs[self.step-1] = gradOutput_
+   end
+   gradOutput_:copy(gradOutput)
 end
 
 function Recurrent:accGradParameters(input, gradOutput, scale)
@@ -128,24 +144,22 @@ end
 -- not to be confused with the hit movie Back to the Future
 function Recurrent:backwardThroughTime()
    local gradInput
-   for step=self.step-1,-1,2 do
+   for step=self.step-1,2,-1 do
       -- set the output/gradOutput states of current Module
-      local outputs, gradInputs = self.recurrentModule:representations()
-      local recurrentState = self.recurrentStates[step]
-      local recurrentGradState = self.recurrentGradStates[step]
-      if not recurrentGradState then
-         recurrentGradState = {}
-         self.recurrentGradStates[step] = recurrentGradState
+      local modules = self.recurrentModule:listModules()
+      local recurrentOutputs = self.recurrentOutputs[step]
+      local recurrentGradInputs = self.recurrentGradInputs[step]
+      if not recurrentGradInputs then
+         recurrentGradInputs = {}
+         self.recurrentGradInputs[step] = recurrentGradInputs
       end
-      for i=1,#outputs do
-         local output, gradInput = outputs[i], gradInputs[i]
-         local output_, gradInput_ = recurrentState[i], recurrentGradState[i]
-         if not gradInput_ then
-            gradInput_ = gradInput:clone()
-            recurrentGradState[i] = gradInput_
-         end
-         output:set(output_)
-         gradInput:set(gradInput_)
+      for i,modula in ipairs(modules) do
+         local output, gradInput = modula.output, modula.gradInput
+         local output_ = recurrentOutputs[i]
+         local gradInput_ = recurrentGradInputs[i] or recursiveClone(gradInput)
+         assert(output_, "backwardThroughTime requires previous updateOutput")
+         modula.output = output_
+         modula.gradInput = gradInput_
       end
       
       -- backward propagate through this step
@@ -153,23 +167,24 @@ function Recurrent:backwardThroughTime()
       local output = self.outputs[step-1]
       local gradOutput = self.gradOutputs[step]
       if gradInput then
+         -- needs recursiveAdd
          gradOutput:add(gradInput)
       end
       local scale = self.scales[step]
-      gradInput = self.recurrentModule:backward({input, output}, gradOutput, scale/(self.step-1))
+      gradInput = self.recurrentModule:backward({input, output}, gradOutput, scale/(self.step-1))[2]
+      for i,modula in ipairs(modules) do
+         recurrentGradInputs[i] = modula.gradInput
+      end
    end
    
    -- set the output/gradOutput states of initialModule
-   local outputs, gradInputs = self.initialModule:representations()
-   for i=1,#outputs do
-      local output, gradInput = outputs[i], gradInputs[i]
-      local output_, gradInput_ = self.initialState[i], self.initialGradState[i]
-      if not gradInput_ then
-         gradInput_ = gradInput:clone()
-         self.initialGradState[i] = gradInput_
-      end
-      output:set(output_)
-      gradInput:set(gradInput_)
+   local modules = self.initialModule:listModules()
+   for i,modula in ipairs(modules) do
+      local output, gradInput = modula.output, modula.gradInput
+      local output_ = self.initialOutputs[i]
+      local gradInput_ = self.initialGradInputs[i] or recursiveClone(gradInput)
+      modula.output = output_
+      modula.gradInput = gradInput_
    end
    
    -- backward propagate through first step
@@ -181,12 +196,16 @@ function Recurrent:backwardThroughTime()
    local scale = self.scales[1]
    gradInput = self.initialModule:backward(input, gradOutput, scale/(self.step-1))
    
+   for i,modula in ipairs(modules) do
+      self.initialGradInputs[i] = modula.gradInput
+   end
+   
    -- startModule's gradParams shouldn't be step-averaged
    -- as it is used only once. So un-step-average it
    local params, gradParams = self.startModule:parameters()
    if gradParams then
       for i,gradParam in ipairs(gradParams) do
-         gradParams:mul(self.step-1)
+         gradParam:mul(self.step-1)
       end
    end
    self.step = 1
