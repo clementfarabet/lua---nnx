@@ -1,58 +1,67 @@
 # nnx: experimental stuff for the 'nn' package.
 
-The original neural network from Torch7, 'nn', contains stable and widely
+The original neural network from Torch7, [nn](https://github.com/torch/nn), contains stable and widely
 used modules. 'nnx' contains more experimental, unproven modules, and
-optimizations. Eventually, modules that become stable enough will make 
+optimizations. Modules that become stable and which are proven useful make 
 their way into 'nn' (some already have).
-
-Disclaimer: DONT USE THIS PACKAGE WITHOUT FIRST CHECKING ITS MODULES !!!
-
-## Requirements
-
-* Torch7 (www.torch.ch)
-
-## Installation
-
-* Install Torch7 (refer to its own documentation).
-* clone this project into dev directory of Torch7.
-* Rebuild torch, it will include new projects too.
-
-## Use the library
-
-First run torch, and load nnx:
-
-``` sh
-$ torch
-``` 
-
-``` lua
-> require 'nnx'
-```
-
-Once loaded, tab-completion will help you navigate through the
-library (note that most function are added directly to nn):
-
-``` lua
-> nnx. + TAB
-...
-> nn. + TAB
-```
-
-In particular, it's good to verify that all modules provided pass their
-tests:
-
-``` lua
-> nnx.test_all()
-> nnx.test_omp()
-```
 
 ## Library Documentation ##
 This section includes documentation for the following objects:
+ * [Recurrent](#nnx.Recurrent) : a generalized recurrent neural network container;
  * [SoftMaxTree](#nnx.SoftMaxTree) : a hierarchical log-softmax Module;
  * [TreeNLLCriterion](#nnx.TreeNLLCriterion) : a negative log-likelihood Criterion for the SoftMaxTree;
  * [PushTable (and PullTable)](#nnx.PushTable) : extracts a table element and inserts it later in the network;
  * [MultiSoftMax](#nnx.MultiSoftMax) : performs a softmax over the last dimension of a 2D or 3D input;
  * [SpatialReSampling](#nnx.SpatialReSampling) : performs bilinear resampling of a 3D or 4D input image;
+ 
+<a name='nnx.Recurrent'/>
+### Recurrent ###
+References :
+ * A. [Sutsekever Thesis Sec. 2.5 and 2.8](http://www.cs.utoronto.ca/~ilya/pubs/ilya_sutskever_phd_thesis.pdf)
+ * B. [Mikolov Thesis Sec. 3.2 and 3.3](http://www.fit.vutbr.cz/~imikolov/rnnlm/thesis.pdf)
+ * C. [RNN and Backpropagation Guide](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.3.9311&rep=rep1&type=pdf)
+
+A [composite module](https://github.com/torch/nn/blob/master/doc/containers.md#containers) for implementing Recurrent Neural Networks (RNN), excluding the output layer. 
+
+The constructor takes 4 arguments:
+ * `start` : the size of the output (excluding the batch dimension), or a Module that will be inserted between the `input` Module and `transfer` module during the first step of the propagation. When `start` is a size (a number of `torch.LongTensor`), then this *start* Module will be initialized as `nn.Add(start)` (see Ref. A).
+ * `input` : a Module that processes input Tensors (or Tables). Output must be of same size as `start` (or its output in the case of a `start` Module), and same size as the output of the `feedback` Module.
+ * `feedback` : a Module that feedbacks the previous output Tensor (or Tables) up to the `transfer` Module.
+ * `transfer` : a non-linear Module used to process the element-wise sum of the output of the `input` and `feedback` module, or in the case of the first step, the output of the *start* Module.
+ 
+Processes the sequence one timestep (forward/backward) at a time. 
+A call to `backward` only keeps a log of the `gradOutputs` and `scales`.
+Back-Propagation Through Time (BPTT) is done when `updateParameters` or `backwardThroughTime`
+is called. Prior to BPTT, the Module keeps a list of all past states 
+(`Module.output` and `Module.gradInput`), including intermediate ones for BPTT.
+To use this module with batches, we suggest using different 
+sequences of the same size within a batch and calling `updateParameters` at the end of the Sequence. 
+
+```lua
+batchSize = 8
+hiddenSize = 10
+r = nn.Recurrent(nn.LookupTable(), nn.Linear(), nn.Sigmoid())
+
+local i = 1
+local wordIndice = torch.LongTensor{0,10000,200000,90000000}
+while true do
+   local input = text:index(1, wordIndice)
+   local output = r:forward(input)
+   increment(wordIndice)
+   local target = text:index(1, wordIndice)
+   local err = criterion:forward(output, target)
+   local gradOutput = criterion:backward(output, target)
+   -- only backpropagates through outputLayer
+   -- and memorizes these gradOutputs
+   r:backward(input, gradOutput)
+   i = i + 1
+   if i % rho then
+      -- backpropagates through time (BPTT), 
+      -- i.e. through recurrence and input layer
+      r:updateParameters(lr)
+   end
+end
+```
  
 <a name='nnx.SoftMaxTree'/>
 ### SoftMaxTree ###
@@ -227,3 +236,42 @@ The input:
 The re-sampled output:
 
 ![Lenna re-sampled](doc/image/Lenna-150x150-bilinear.png) 
+
+## Requirements
+
+* Torch7 (www.torch.ch)
+
+## Installation
+
+* Install Torch7 (refer to its own documentation).
+* clone this project into dev directory of Torch7.
+* Rebuild torch, it will include new projects too.
+
+## Use the library
+
+First run torch, and load nnx:
+
+``` sh
+$ torch
+``` 
+
+``` lua
+> require 'nnx'
+```
+
+Once loaded, tab-completion will help you navigate through the
+library (note that most function are added directly to nn):
+
+``` lua
+> nnx. + TAB
+...
+> nn. + TAB
+```
+
+In particular, it's good to verify that all modules provided pass their
+tests:
+
+``` lua
+> nnx.test_all()
+> nnx.test_omp()
+```
