@@ -10,12 +10,10 @@
 -- To use this module with batches, we suggest using different 
 -- sequences of the same size within a batch and calling 
 -- updateParameters() at the end of the Sequence. 
--- TODO :
--- make this work with :representations()
 ------------------------------------------------------------------------
 local Recurrent, parent = torch.class('nn.Recurrent', 'nn.Module')
 
-function Recurrent:__init(start, input, feedback, transfer)
+function Recurrent:__init(start, input, feedback, transfer, merge)
    parent.__init(self)
 
    local ts = torch.type(start)
@@ -26,6 +24,7 @@ function Recurrent:__init(start, input, feedback, transfer)
    self.inputModule = input
    self.feedbackModule = feedback
    self.transferModule = transfer or nn.Sigmoid()
+   self.mergeModule = merge or nn.CAddTable()
    
    -- used for the first step 
    self.initialModule = nn.Sequential()
@@ -39,10 +38,10 @@ function Recurrent:__init(start, input, feedback, transfer)
    parallelModule:add(self.feedbackModule)
    self.recurrentModule = nn.Sequential()
    self.recurrentModule:add(parallelModule)
-   self.recurrentModule:add(nn.CAddTable())
+   self.recurrentModule:add(self.mergeModule)
    self.recurrentModule:add(self.transferModule)
    
-   self.modules = {self.startModule, self.inputModule, self.feedbackModule, self.transferModule}
+   self.modules = {self.startModule, self.inputModule, self.feedbackModule, self.transferModule, self.mergeModule}
    
    self.initialOutputs = {}
    self.initialGradInputs = {}
@@ -167,7 +166,6 @@ function Recurrent:backwardThroughTime()
       local output = self.outputs[step-1]
       local gradOutput = self.gradOutputs[step]
       if gradInput then
-         -- needs recursiveAdd
          gradOutput:add(gradInput)
       end
       local scale = self.scales[step]
@@ -299,29 +297,3 @@ function Recurrent:__tostring__()
    str = str .. line .. '}'
    return str
 end
-
---[[
-Recurrent(input, recurrence, transfer, output)
-local outputLayer = nn.Recurrent():add(nn.Linear()):add(nn.SoftMax())
-r = nn.Recurrent(nn.LookupTable(), nn.Linear(), nn.Sigmoid(), outputLayer)
-
-local i = 1
-local wordIndice = torch.LongTensor{0,10000,200000,90000000}
-while true do
-   local input = text:index(1, wordIndice)
-   local output = r:forward(input)
-   increment(wordIndice)
-   local target = text:index(1, wordIndice)
-   local err = criterion:forward(output, target)
-   local gradOutput = criterion:backward(output, target)
-   -- only backpropagates through outputLayer
-   -- and memorizes these gradOutputs
-   r:backward(input, gradOutput)
-   i = i + 1
-   if i % rho then
-      -- backpropagates through time (BPTT), 
-      -- i.e. through recurrence and input layer
-      r:updateParameters(lr)
-   end
-end
---]]
