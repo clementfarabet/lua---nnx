@@ -1,4 +1,4 @@
-# nnx: experimental stuff for the 'nn' package.
+# nnx: experimental 'nn' components
 
 The original neural network from Torch7, [nn](https://github.com/torch/nn), contains stable and widely
 used modules. 'nnx' contains more experimental, unproven modules, and
@@ -21,43 +21,80 @@ References :
  * B. [Mikolov Thesis Sec. 3.2 and 3.3](http://www.fit.vutbr.cz/~imikolov/rnnlm/thesis.pdf)
  * C. [RNN and Backpropagation Guide](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.3.9311&rep=rep1&type=pdf)
 
-A [composite module](https://github.com/torch/nn/blob/master/doc/containers.md#containers) for implementing Recurrent Neural Networks (RNN), excluding the output layer. 
+A [composite Module](https://github.com/torch/nn/blob/master/doc/containers.md#containers) for implementing Recurrent Neural Networks (RNN), excluding the output layer. 
 
-The constructor takes 4 arguments:
+The `nn.Recurrent(start, input, feedback, [transfer, merge])` constructor takes 5 arguments:
  * `start` : the size of the output (excluding the batch dimension), or a Module that will be inserted between the `input` Module and `transfer` module during the first step of the propagation. When `start` is a size (a number of `torch.LongTensor`), then this *start* Module will be initialized as `nn.Add(start)` (see Ref. A).
  * `input` : a Module that processes input Tensors (or Tables). Output must be of same size as `start` (or its output in the case of a `start` Module), and same size as the output of the `feedback` Module.
  * `feedback` : a Module that feedbacks the previous output Tensor (or Tables) up to the `transfer` Module.
  * `transfer` : a non-linear Module used to process the element-wise sum of the output of the `input` and `feedback` module, or in the case of the first step, the output of the *start* Module.
+ * `merge` : a [table Module](https://github.com/torch/nn/blob/master/doc/table.md#table-layers) that merges the outputs of the `input` and `feedback` Module before being forwarded through the `transfer` Module.
  
-Processes the sequence one timestep (forward/backward) at a time. 
-A call to `backward` only keeps a log of the `gradOutputs` and `scales`.
-Back-Propagation Through Time (BPTT) is done when `updateParameters` or `backwardThroughTime`
-is called. Prior to BPTT, the Module keeps a list of all past states 
-(`Module.output` and `Module.gradInput`), including intermediate ones for BPTT.
+An RNN is used to process a sequence of inputs. 
+Each step in the sequence should be propagated by its own `forward` (and `backward`), 
+one `input` (and `gradOutput`) at a time. 
+Each call to `forward` keeps a log of the intermediate states (the `input` and many `Module.outputs`) 
+and increments the `step` attribute by 1. 
+A call to `backward` doesn't result in a `gradInput`. It only keeps a log of the current `gradOutput` and `scale`.
+Back-Propagation Through Time (BPTT) is done when the `updateParameters` or `backwardThroughTime` method
+is called. The `step` attribute is then reset to 1 such that the Module is ready to process the next sequence (or batch thereof).
+
 To use this module with batches, we suggest using different 
-sequences of the same size within a batch and calling `updateParameters` at the end of the Sequence. 
+sequences of the same size within a batch and calling `updateParameters` 
+at the end of the Sequence. 
 
 ```lua
+require 'nnx'
+
 batchSize = 8
 hiddenSize = 10
-r = nn.Recurrent(nn.LookupTable(), nn.Linear(), nn.Sigmoid())
+nIndex = 10000
+-- RNN
+r = nn.Recurrent(
+   hiddenSize, nn.LookupTable(nIndex, hiddenSize), 
+   nn.Linear(hiddenSize, hiddenSize), nn.Sigmoid()
+)
+print(batchSize)
+rnn = nn.Sequential()
+rnn:add(r)
+rnn:add(nn.Linear(hiddenSize, nIndex))
+rnn:add(nn.LogSoftMax())
 
-local i = 1
-local wordIndice = torch.LongTensor{0,10000,200000,90000000}
+criterion = nn.ClassNLLCriterion()
+
+-- dummy dataset (task is to prevent net item, given previous)
+sequence = torch.randperm(nIndex)
+
+offsets = {}
+for i=1,batchSize do
+   table.insert(offsets, math.ceil(math.random()*batchSize))
+end
+offsets = torch.LongTensor(offsets)
+
+lr = 0.1
+rho = 4 --every rho steps we BPTT and update parameters
+i = 1
 while true do
-   local input = text:index(1, wordIndice)
-   local output = r:forward(input)
-   increment(wordIndice)
-   local target = text:index(1, wordIndice)
+   -- a batch of inputs
+   local input = sequence:index(1, offsets)
+   local output = rnn:forward(input)
+   -- incement indices
+   offsets:add(1)
+   for j=1,batchSize do
+      if offsets[j] > nIndex then
+         offsets[j] = 1
+      end
+   end
+   local target = sequence:index(1, offsets)
    local err = criterion:forward(output, target)
    local gradOutput = criterion:backward(output, target)
-   -- only backpropagates through outputLayer
-   -- and memorizes these gradOutputs
-   r:backward(input, gradOutput)
+   -- the Recurrent layer is memorizing its gradOutputs
+   rnn:backward(input, gradOutput)
    i = i + 1
    if i % rho then
       -- backpropagates through time (BPTT), 
-      -- i.e. through recurrence and input layer
+      -- i.e. through feedback and input layer,
+      -- and updates parameters
       r:updateParameters(lr)
    end
 end
