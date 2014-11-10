@@ -348,6 +348,9 @@ function nnxtest.Recurrent()
    inputModule = mlp.inputModule:clone()
    feedbackModule = mlp.feedbackModule:clone()
    
+   local mlp6 = mlp:clone()
+   mlp6:evaluate()
+   
    mlp:zeroGradParameters()
    for step=1,nSteps do
       local input = torch.randn(batchSize, inputSize)
@@ -362,6 +365,9 @@ function nnxtest.Recurrent()
       
       local output = mlp:forward(input)
       mlp:backward(input, gradOutput)
+      
+      local output6 = mlp6:forward(input)
+      mytester:assertTensorEq(output, output6, 0.000001, "evaluation error "..step)
 
       table.insert(gradOutputs, gradOutput)
       table.insert(outputs, output:clone())
@@ -372,8 +378,14 @@ function nnxtest.Recurrent()
          inputs = input
       end
    end
+   local mlp4 = mlp:clone()
+   local mlp5 = mlp:clone()
+   
    -- backward propagate through time (BPTT)
    local gradInput = mlp:backwardThroughTime()
+   mlp4.fastBackward = false
+   local gradInput4 = mlp4:backwardThroughTime()
+   mytester:assertTensorEq(gradInput, gradInput4, 0.000001, 'error slow vs fast backwardThroughTime')
    
    local mlp2
    local outputModules = {}
@@ -430,6 +442,30 @@ function nnxtest.Recurrent()
          gradParams2[i]:div(nSteps)
       end
       mytester:assertTensorEq(gradParams[i], gradParams2[i], 0.000001, 'gradParameter error ' .. i)
+   end
+   
+   -- already called backwardThroughTime()
+   mlp:updateParameters(0.1) 
+   mlp4:updateParameters(0.1) 
+   
+   local params4 = mlp4:parameters()
+   local params5 = mlp5:parameters()
+   local params = mlp:parameters()
+   mytester:assert(#params4 == #params, 'missing parameters')
+   mytester:assert(#params5 == #params, 'missing parameters')
+   for i=1,#params do
+      mytester:assertTensorEq(params[i], params4[i], 0.000001, 'backwardThroughTime error ' .. i)
+      mytester:assertTensorNe(params[i], params5[i], 0.0000000001, 'backwardThroughTime error ' .. i)
+   end
+   
+   -- should call backwardUpdateThroughTime()
+   mlp5:updateParameters(0.1)
+   
+   local params5 = mlp5:parameters()
+   local params = mlp:parameters()
+   mytester:assert(#params5 == #params, 'missing parameters')
+   for i=1,#params do
+      mytester:assertTensorEq(params[i], params5[i], 0.000001, 'backwardUpdateThroughTime error ' .. i)
    end
 end
 
