@@ -144,7 +144,7 @@ function Recurrent:updateGradInput(input, gradOutput)
       gradOutput_ = recursiveClone(gradOutput)
       self.gradOutputs[self.step-1] = gradOutput_
    end
-   gradOutput_:copy(gradOutput)
+   gradOutput_:resizeAs(gradOutput):copy(gradOutput)
 end
 
 function Recurrent:accGradParameters(input, gradOutput, scale)
