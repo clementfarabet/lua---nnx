@@ -10,16 +10,19 @@
 -- To use this module with batches, we suggest using different 
 -- sequences of the same size within a batch and calling 
 -- updateParameters() at the end of the Sequence. 
+-- Note that this won't work with modules that use more than the
+-- output attribute to keep track of their internal state after forward.
 ------------------------------------------------------------------------
 local Recurrent, parent = torch.class('nn.Recurrent', 'nn.Module')
 
 function Recurrent:__init(start, input, feedback, transfer, merge)
    parent.__init(self)
-
+   
    local ts = torch.type(start)
    if ts == 'torch.LongTensor' or ts == 'number' then
       start = nn.Add(start)
    end
+   
    self.startModule = start
    self.inputModule = input
    self.feedbackModule = feedback
@@ -154,11 +157,13 @@ function Recurrent:accGradParameters(input, gradOutput, scale)
 end
 
 -- not to be confused with the hit movie Back to the Future
-function Recurrent:backwardThroughTime()
+function Recurrent:backwardThroughTime(rho)
    assert(self.step > 1, "expecting at least one updateOutput")
+   rho = rho and math.min(rho, self.step-1) or self.step - 1
+   local stop = self.step - rho
    if self.fastBackward then
       local gradInput
-      for step=self.step-1,2,-1 do
+      for step=self.step-1,math.max(stop, 2),-1 do
          -- set the output/gradOutput states of current Module
          local modules = self.recurrentModule:listModules()
          local recurrentOutputs = self.recurrentOutputs[step]
@@ -184,63 +189,67 @@ function Recurrent:backwardThroughTime()
             gradOutput:add(gradInput)
          end
          local scale = self.scales[step]
-         gradInput = self.recurrentModule:backward({input, output}, gradOutput, scale/(self.step-1))[2]
+         gradInput = self.recurrentModule:backward({input, output}, gradOutput, scale/rho)[2]
          for i,modula in ipairs(modules) do
             recurrentGradInputs[i] = modula.gradInput
          end
       end
       
-      -- set the output/gradOutput states of initialModule
-      local modules = self.initialModule:listModules()
-      for i,modula in ipairs(modules) do
-         local output, gradInput = modula.output, modula.gradInput
-         local output_ = self.initialOutputs[i]
-         local gradInput_ = self.initialGradInputs[i] or recursiveClone(gradInput)
-         modula.output = output_
-         modula.gradInput = gradInput_
-      end
-      
-      -- backward propagate through first step
-      local input = self.inputs[1]
-      local gradOutput = self.gradOutputs[1]
-      if gradInput then
-         gradOutput:add(gradInput)
-      end
-      local scale = self.scales[1]
-      gradInput = self.initialModule:backward(input, gradOutput, scale/(self.step-1))
-      
-      for i,modula in ipairs(modules) do
-         self.initialGradInputs[i] = modula.gradInput
-      end
-      
-      -- startModule's gradParams shouldn't be step-averaged
-      -- as it is used only once. So un-step-average it
-      local params, gradParams = self.startModule:parameters()
-      if gradParams then
-         for i,gradParam in ipairs(gradParams) do
-            gradParam:mul(self.step-1)
+      if stop <= 1 then
+         -- set the output/gradOutput states of initialModule
+         local modules = self.initialModule:listModules()
+         for i,modula in ipairs(modules) do
+            local output, gradInput = modula.output, modula.gradInput
+            local output_ = self.initialOutputs[i]
+            local gradInput_ = self.initialGradInputs[i] or recursiveClone(gradInput)
+            modula.output = output_
+            modula.gradInput = gradInput_
          end
+         
+         -- backward propagate through first step
+         local input = self.inputs[1]
+         local gradOutput = self.gradOutputs[1]
+         if gradInput then
+            gradOutput:add(gradInput)
+         end
+         local scale = self.scales[1]
+         gradInput = self.initialModule:backward(input, gradOutput, scale/rho)
+         
+         for i,modula in ipairs(modules) do
+            self.initialGradInputs[i] = modula.gradInput
+         end
+         
+         -- startModule's gradParams shouldn't be step-averaged
+         -- as it is used only once. So un-step-average it
+         local params, gradParams = self.startModule:parameters()
+         if gradParams then
+            for i,gradParam in ipairs(gradParams) do
+               gradParam:mul(rho)
+            end
+         end
+         
+         self.gradParametersAccumulated = true
+         return gradInput
       end
-      self.step = 1
-      self.gradParametersAccumulated = true
-      return gradInput
    else
-      local gradInput = self:updateGradInputThroughTime()
-      self:accGradParametersThroughTime()
+      local gradInput = self:updateGradInputThroughTime(rho)
+      self:accGradParametersThroughTime(rho)
       return gradInput
    end
 end
 
-function Recurrent:backwardUpdateThroughTime(learningRate)
-   local gradInput = self:updateGradInputThroughTime()
-   self:accUpdateGradParametersThroughTime(learningRate)
+function Recurrent:backwardUpdateThroughTime(learningRate, rho)
+   local gradInput = self:updateGradInputThroughTime(rho)
+   self:accUpdateGradParametersThroughTime(learningRate,rho)
    return gradInput
 end
 
-function Recurrent:updateGradInputThroughTime()
+function Recurrent:updateGradInputThroughTime(rho)
    assert(self.step > 1, "expecting at least one updateOutput")
    local gradInput
-   for step=self.step-1,2,-1 do
+   rho = rho and math.min(rho, self.step-1) or self.step - 1
+   local stop = self.step - rho
+   for step=self.step-1,math.max(stop,2),-1 do
       -- set the output/gradOutput states of current Module
       local modules = self.recurrentModule:listModules()
       local recurrentOutputs = self.recurrentOutputs[step]
@@ -271,33 +280,37 @@ function Recurrent:updateGradInputThroughTime()
       end
    end
    
-   -- set the output/gradOutput states of initialModule
-   local modules = self.initialModule:listModules()
-   for i,modula in ipairs(modules) do
-      local output, gradInput = modula.output, modula.gradInput
-      local output_ = self.initialOutputs[i]
-      local gradInput_ = self.initialGradInputs[i] or recursiveClone(gradInput)
-      modula.output = output_
-      modula.gradInput = gradInput_
-   end
-   
-   -- backward propagate through first step
-   local input = self.inputs[1]
-   local gradOutput = self.gradOutputs[1]
-   if gradInput then
-      gradOutput:add(gradInput)
-   end
-   gradInput = self.initialModule:updateGradInput(input, gradOutput)
-   
-   for i,modula in ipairs(modules) do
-      self.initialGradInputs[i] = modula.gradInput
+   if stop <= 1 then
+      -- set the output/gradOutput states of initialModule
+      local modules = self.initialModule:listModules()
+      for i,modula in ipairs(modules) do
+         local output, gradInput = modula.output, modula.gradInput
+         local output_ = self.initialOutputs[i]
+         local gradInput_ = self.initialGradInputs[i] or recursiveClone(gradInput)
+         modula.output = output_
+         modula.gradInput = gradInput_
+      end
+      
+      -- backward propagate through first step
+      local input = self.inputs[1]
+      local gradOutput = self.gradOutputs[1]
+      if gradInput then
+         gradOutput:add(gradInput)
+      end
+      gradInput = self.initialModule:updateGradInput(input, gradOutput)
+      
+      for i,modula in ipairs(modules) do
+         self.initialGradInputs[i] = modula.gradInput
+      end
    end
    
    return gradInput
 end
 
-function Recurrent:accGradParametersThroughTime()
-   for step=self.step-1,2,-1 do
+function Recurrent:accGradParametersThroughTime(rho)
+   rho = rho and math.min(rho, self.step-1) or self.step - 1
+   local stop = self.step - rho
+   for step=self.step-1,math.max(stop,2),-1 do
       -- set the output/gradOutput states of current Module
       local modules = self.recurrentModule:listModules()
       local recurrentOutputs = self.recurrentOutputs[step]
@@ -319,40 +332,45 @@ function Recurrent:accGradParametersThroughTime()
       local gradOutput = self.gradOutputs[step]
 
       local scale = self.scales[step]
-      self.recurrentModule:accGradParameters({input, output}, gradOutput, scale/(self.step-1))
-   end
-   
-   -- set the output/gradOutput states of initialModule
-   local modules = self.initialModule:listModules()
-   for i,modula in ipairs(modules) do
-      local output, gradInput = modula.output, modula.gradInput
-      local output_ = self.initialOutputs[i]
-      local gradInput_ = self.initialGradInputs[i] 
-      modula.output = output_
-      modula.gradInput = gradInput_
-   end
+      self.recurrentModule:accGradParameters({input, output}, gradOutput, scale/rho)
       
-   -- backward propagate through first step
-   local input = self.inputs[1]
-   local gradOutput = self.gradOutputs[1]
-   local scale = self.scales[1]
-   self.initialModule:accGradParameters(input, gradOutput, scale/(self.step-1))
+   end
    
-   -- startModule's gradParams shouldn't be step-averaged
-   -- as it is used only once. So un-step-average it
-   local params, gradParams = self.startModule:parameters()
-   if gradParams then
-      for i,gradParam in ipairs(gradParams) do
-         gradParam:mul(self.step-1)
+   if stop <= 1 then
+      -- set the output/gradOutput states of initialModule
+      local modules = self.initialModule:listModules()
+      for i,modula in ipairs(modules) do
+         local output, gradInput = modula.output, modula.gradInput
+         local output_ = self.initialOutputs[i]
+         local gradInput_ = self.initialGradInputs[i] 
+         modula.output = output_
+         modula.gradInput = gradInput_
+      end
+         
+      -- backward propagate through first step
+      local input = self.inputs[1]
+      local gradOutput = self.gradOutputs[1]
+      local scale = self.scales[1]
+      self.initialModule:accGradParameters(input, gradOutput, scale/rho)
+      
+      -- startModule's gradParams shouldn't be step-averaged
+      -- as it is used only once. So un-step-average it
+      local params, gradParams = self.startModule:parameters()
+      if gradParams then
+         for i,gradParam in ipairs(gradParams) do
+            gradParam:mul(rho)
+         end
       end
    end
-   self.step = 1
+   
    self.gradParametersAccumulated = true
    return gradInput
 end
 
-function Recurrent:accUpdateGradParametersThroughTime(lr)
-   for step=self.step-1,2,-1 do
+function Recurrent:accUpdateGradParametersThroughTime(lr, rho)
+   rho = rho and math.min(rho, self.step-1) or self.step - 1
+   local stop = self.step - rho
+   for step=self.step-1,math.max(stop,2),-1 do
       -- set the output/gradOutput states of current Module
       local modules = self.recurrentModule:listModules()
       local recurrentOutputs = self.recurrentOutputs[step]
@@ -374,38 +392,39 @@ function Recurrent:accUpdateGradParametersThroughTime(lr)
       local gradOutput = self.gradOutputs[step]
 
       local scale = self.scales[step]
-      self.recurrentModule:accUpdateGradParameters({input, output}, gradOutput, lr*scale/(self.step-1))
+      self.recurrentModule:accUpdateGradParameters({input, output}, gradOutput, lr*scale/rho)
    end
+   
+   if stop <= 1 then
+      -- set the output/gradOutput states of initialModule
+      local modules = self.initialModule:listModules()
+      for i,modula in ipairs(modules) do
+         local output, gradInput = modula.output, modula.gradInput
+         local output_ = self.initialOutputs[i]
+         local gradInput_ = self.initialGradInputs[i] 
+         modula.output = output_
+         modula.gradInput = gradInput_
+      end
       
-   -- set the output/gradOutput states of initialModule
-   local modules = self.initialModule:listModules()
-   for i,modula in ipairs(modules) do
-      local output, gradInput = modula.output, modula.gradInput
-      local output_ = self.initialOutputs[i]
-      local gradInput_ = self.initialGradInputs[i] 
-      modula.output = output_
-      modula.gradInput = gradInput_
+      -- backward propagate through first step
+      local input = self.inputs[1]
+      local gradOutput = self.gradOutputs[1]
+      local scale = self.scales[1]
+      self.inputModule:accUpdateGradParameters(input, self.startModule.gradInput, lr*scale/rho)
+      -- startModule's gradParams shouldn't be step-averaged as it is used only once.
+      self.startModule:accUpdateGradParameters(self.inputModule.output, self.transferModule.gradInput, lr*scale)
    end
    
-   -- backward propagate through first step
-   local input = self.inputs[1]
-   local gradOutput = self.gradOutputs[1]
-   local scale = self.scales[1]
-   self.inputModule:accUpdateGradParameters(input, self.startModule.gradInput, lr*scale/(self.step-1))
-   -- startModule's gradParams shouldn't be step-averaged as it is used only once.
-   self.startModule:accUpdateGradParameters(self.inputModule.output, self.transferModule.gradInput, lr*scale)
-   
-   self.step = 1
    return gradInput
 end
 
-function Recurrent:updateParameters(learningRate)
+function Recurrent:updateParameters(learningRate, rho)
    if self.gradParametersAccumulated then
       for i=1,#self.modules do
          self.modules[i]:updateParameters(learningRate)
       end
    else
-      self:backwardUpdateThroughTime(learningRate)
+      self:backwardUpdateThroughTime(learningRate, rho)
    end
 end
 
