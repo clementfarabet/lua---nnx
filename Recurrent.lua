@@ -11,11 +11,12 @@
 -- sequences of the same size within a batch and calling 
 -- updateParameters() at the end of the Sequence. 
 -- Note that this won't work with modules that use more than the
--- output attribute to keep track of their internal state after forward.
+-- output attribute to keep track of their internal state between 
+-- forward and backward.
 ------------------------------------------------------------------------
 local Recurrent, parent = torch.class('nn.Recurrent', 'nn.Module')
 
-function Recurrent:__init(start, input, feedback, transfer, merge)
+function Recurrent:__init(start, input, feedback, transfer, rho, merge)
    parent.__init(self)
    
    local ts = torch.type(start)
@@ -28,6 +29,7 @@ function Recurrent:__init(start, input, feedback, transfer, merge)
    self.feedbackModule = feedback
    self.transferModule = transfer or nn.Sigmoid()
    self.mergeModule = merge or nn.CAddTable()
+   self.rho = rho or 5
    
    -- used for the first step 
    self.initialModule = nn.Sequential()
@@ -99,6 +101,7 @@ function Recurrent:updateOutput(input)
       if self.train ~= false then
          -- set/save the output states
          local modules = self.recurrentModule:listModules()
+         self:recycle()
          local recurrentOutputs = self.recurrentOutputs[self.step]
          if not recurrentOutputs then
             recurrentOutputs = {}
@@ -157,9 +160,9 @@ function Recurrent:accGradParameters(input, gradOutput, scale)
 end
 
 -- not to be confused with the hit movie Back to the Future
-function Recurrent:backwardThroughTime(rho)
+function Recurrent:backwardThroughTime()
    assert(self.step > 1, "expecting at least one updateOutput")
-   rho = rho and math.min(rho, self.step-1) or self.step - 1
+   local rho = math.min(self.rho, self.step-1)
    local stop = self.step - rho
    if self.fastBackward then
       local gradInput
@@ -189,6 +192,7 @@ function Recurrent:backwardThroughTime(rho)
             gradOutput:add(gradInput)
          end
          local scale = self.scales[step]
+         
          gradInput = self.recurrentModule:backward({input, output}, gradOutput, scale/rho)[2]
          for i,modula in ipairs(modules) do
             recurrentGradInputs[i] = modula.gradInput
@@ -232,22 +236,22 @@ function Recurrent:backwardThroughTime(rho)
          return gradInput
       end
    else
-      local gradInput = self:updateGradInputThroughTime(rho)
-      self:accGradParametersThroughTime(rho)
+      local gradInput = self:updateGradInputThroughTime()
+      self:accGradParametersThroughTime()
       return gradInput
    end
 end
 
-function Recurrent:backwardUpdateThroughTime(learningRate, rho)
-   local gradInput = self:updateGradInputThroughTime(rho)
-   self:accUpdateGradParametersThroughTime(learningRate,rho)
+function Recurrent:backwardUpdateThroughTime(learningRate)
+   local gradInput = self:updateGradInputThroughTime()
+   self:accUpdateGradParametersThroughTime(learningRate)
    return gradInput
 end
 
-function Recurrent:updateGradInputThroughTime(rho)
+function Recurrent:updateGradInputThroughTime()
    assert(self.step > 1, "expecting at least one updateOutput")
    local gradInput
-   rho = rho and math.min(rho, self.step-1) or self.step - 1
+   local rho = math.min(self.rho, self.step-1)
    local stop = self.step - rho
    for step=self.step-1,math.max(stop,2),-1 do
       -- set the output/gradOutput states of current Module
@@ -307,8 +311,8 @@ function Recurrent:updateGradInputThroughTime(rho)
    return gradInput
 end
 
-function Recurrent:accGradParametersThroughTime(rho)
-   rho = rho and math.min(rho, self.step-1) or self.step - 1
+function Recurrent:accGradParametersThroughTime()
+   local rho = math.min(self.rho, self.step-1)
    local stop = self.step - rho
    for step=self.step-1,math.max(stop,2),-1 do
       -- set the output/gradOutput states of current Module
@@ -367,8 +371,8 @@ function Recurrent:accGradParametersThroughTime(rho)
    return gradInput
 end
 
-function Recurrent:accUpdateGradParametersThroughTime(lr, rho)
-   rho = rho and math.min(rho, self.step-1) or self.step - 1
+function Recurrent:accUpdateGradParametersThroughTime(lr)
+   local rho = math.min(self.rho, self.step-1)
    local stop = self.step - rho
    for step=self.step-1,math.max(stop,2),-1 do
       -- set the output/gradOutput states of current Module
@@ -418,18 +422,57 @@ function Recurrent:accUpdateGradParametersThroughTime(lr, rho)
    return gradInput
 end
 
-function Recurrent:updateParameters(learningRate, rho)
+function Recurrent:updateParameters(learningRate)
    if self.gradParametersAccumulated then
       for i=1,#self.modules do
          self.modules[i]:updateParameters(learningRate)
       end
    else
-      self:backwardUpdateThroughTime(learningRate, rho)
+      self:backwardUpdateThroughTime(learningRate)
    end
 end
 
--- forget the past inputs; restart from first step
+-- goes hand in hand with the next method : forget()
+function Recurrent:recycle()
+   -- +1 is to skip initialModule
+   if self.step > self.rho + 1 then
+      assert(self.recurrentOutputs[self.step] == nil)
+      self.recurrentOutputs[self.step] = self.recurrentOutputs[self.step-self.rho]
+      self.recurrentGradInputs[self.step] = self.recurrentGradInputs[self.step-self.rho]
+   end
+   if self.step > self.rho then
+      assert(self.inputs[self.step] == nil)
+      self.inputs[self.step] = self.inputs[self.step-self.rho] 
+      self.outputs[self.step] = self.outputs[self.step-self.rho] 
+      self.gradOutputs[self.step] = self.gradOutputs[self.step-self.rho] 
+      self.scales[self.step-self.rho] = nil
+   end
+end
+
 function Recurrent:forget()
+   -- bring all states back to the start of the sequence buffers
+   local lastStep = self.step - 1
+   if self.step > self.rho + 1 then
+      local i = 2
+      for step = lastStep-rho,lastStep do
+         self.recurrentOutputs[i] = self.recurrentOutputs[step]
+         self.recurrentGradInputs[i] = self.recurrentGradInputs[step]
+         i = i + 1
+      end
+   end
+   
+   if self.step > self.rho then
+      local i = 1
+      for step = lastStep-rho,lastStep do
+         self.inputs[i] = self.inputs[step]
+         self.outputs[i] = self.outputs[step]
+         self.gradOutputs[i] = self.gradOutputs[step]
+         self.scales[step] = nil
+         i = i + 1
+      end
+   end
+   
+   -- forget the past inputs; restart from first step
    self.step = 1
 end
 
@@ -466,6 +509,7 @@ function Recurrent:share(mlp,...)
 end
 
 function Recurrent:reset(stdv)
+   self:forget()
    for i=1,#self.modules do
       self.modules[i]:reset(stdv)
    end
