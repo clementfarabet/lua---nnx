@@ -393,6 +393,17 @@ function nnxtest.Recurrent()
    mlp4.fastBackward = false
    local gradInput4 = mlp4:backwardThroughTime()
    mytester:assertTensorEq(gradInput, gradInput4, 0.000001, 'error slow vs fast backwardThroughTime')
+   local mlp10 = mlp7:clone()
+   mytester:assert(mlp10.inputs[1] == nil, 'recycle inputs error')
+   mlp10:forget()
+   mytester:assert(#mlp10.inputs == 4, 'forget inputs error')
+   mytester:assert(#mlp10.outputs == 5, 'forget outputs error')
+   local i = 0
+   for k,v in pairs(mlp10.recurrentOutputs) do
+      i = i + 1
+   end
+   mytester:assert(i == 4, 'forget recurrentOutputs error')
+   
    -- rho = nSteps - 1 : shouldn't update startModule
    mlp7:backwardThroughTime()
    

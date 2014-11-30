@@ -180,6 +180,7 @@ function Recurrent:backwardThroughTime()
             local output_ = recurrentOutputs[i]
             local gradInput_ = recurrentGradInputs[i] or recursiveClone(gradInput)
             assert(output_, "backwardThroughTime should be preceded by updateOutput")
+            assert(gradInput_, "missing gradInput")
             modula.output = output_
             modula.gradInput = gradInput_
          end
@@ -437,38 +438,58 @@ function Recurrent:recycle()
    -- +1 is to skip initialModule
    if self.step > self.rho + 1 then
       assert(self.recurrentOutputs[self.step] == nil)
+      assert(self.recurrentOutputs[self.step-self.rho] ~= nil)
       self.recurrentOutputs[self.step] = self.recurrentOutputs[self.step-self.rho]
       self.recurrentGradInputs[self.step] = self.recurrentGradInputs[self.step-self.rho]
+      self.recurrentOutputs[self.step-self.rho] = nil
+      self.recurrentGradInputs[self.step-self.rho] = nil
+      -- need to keep rho+1 of these
+      self.outputs[self.step] = self.outputs[self.step-self.rho-1] 
+      self.outputs[self.step-self.rho-1] = nil
    end
    if self.step > self.rho then
       assert(self.inputs[self.step] == nil)
+      assert(self.inputs[self.step-self.rho] ~= nil)
       self.inputs[self.step] = self.inputs[self.step-self.rho] 
-      self.outputs[self.step] = self.outputs[self.step-self.rho] 
       self.gradOutputs[self.step] = self.gradOutputs[self.step-self.rho] 
+      self.inputs[self.step-self.rho] = nil
+      self.gradOutputs[self.step-self.rho] = nil
       self.scales[self.step-self.rho] = nil
    end
 end
 
 function Recurrent:forget()
-   -- bring all states back to the start of the sequence buffers
-   local lastStep = self.step - 1
-   if self.step > self.rho + 1 then
-      local i = 2
-      for step = lastStep-rho,lastStep do
-         self.recurrentOutputs[i] = self.recurrentOutputs[step]
-         self.recurrentGradInputs[i] = self.recurrentGradInputs[step]
-         i = i + 1
+
+   if self.train ~= false then
+      -- bring all states back to the start of the sequence buffers
+      local lastStep = self.step - 1
+      
+      if lastStep > self.rho + 1 then
+         local i = 2
+         for step = lastStep-self.rho+1,lastStep do
+            self.recurrentOutputs[i] = self.recurrentOutputs[step]
+            self.recurrentGradInputs[i] = self.recurrentGradInputs[step]
+            self.recurrentOutputs[step] = nil
+            self.recurrentGradInputs[step] = nil
+            -- we keep rho+1 of these : outputs[k]=outputs[k+rho+1]
+            self.outputs[i-1] = self.outputs[step]
+            self.outputs[step] = nil
+            i = i + 1
+         end
+         
       end
-   end
-   
-   if self.step > self.rho then
-      local i = 1
-      for step = lastStep-rho,lastStep do
-         self.inputs[i] = self.inputs[step]
-         self.outputs[i] = self.outputs[step]
-         self.gradOutputs[i] = self.gradOutputs[step]
-         self.scales[step] = nil
-         i = i + 1
+      
+      if lastStep > self.rho then
+         local i = 1
+         for step = lastStep-self.rho+1,lastStep do
+            self.inputs[i] = self.inputs[step]
+            self.gradOutputs[i] = self.gradOutputs[step]
+            self.inputs[step] = nil
+            self.gradOutputs[step] = nil
+            self.scales[step] = nil
+            i = i + 1
+         end
+
       end
    end
    
