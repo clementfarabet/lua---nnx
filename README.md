@@ -24,7 +24,7 @@ References :
 A [composite Module](https://github.com/torch/nn/blob/master/doc/containers.md#containers) for implementing Recurrent Neural Networks (RNN), excluding the output layer. 
 
 The `nn.Recurrent(start, input, feedback, [transfer, rho, merge])` constructor takes 5 arguments:
- * `start` : the size of the output (excluding the batch dimension), or a Module that will be inserted between the `input` Module and `transfer` module during the first step of the propagation. When `start` is a size (a number of `torch.LongTensor`), then this *start* Module will be initialized as `nn.Add(start)` (see Ref. A).
+ * `start` : the size of the output (excluding the batch dimension), or a Module that will be inserted between the `input` Module and `transfer` module during the first step of the propagation. When `start` is a size (a number or `torch.LongTensor`), then this *start* Module will be initialized as `nn.Add(start)` (see Ref. A).
  * `input` : a Module that processes input Tensors (or Tables). Output must be of same size as `start` (or its output in the case of a `start` Module), and same size as the output of the `feedback` Module.
  * `feedback` : a Module that feedbacks the previous output Tensor (or Tables) up to the `transfer` Module.
  * `transfer` : a non-linear Module used to process the element-wise sum of the `input` and `feedback` module outputs, or in the case of the first step, the output of the *start* Module.
@@ -51,6 +51,7 @@ Note that calling the `evaluate` method turns off long-term memory;
 the RNN will only remember the previous output. This allows the RNN 
 to handle long sequences without allocating any additional memory.
 
+Example :
 ```lua
 require 'nnx'
 
@@ -112,9 +113,9 @@ while true do
 end
 ```
 
-Note that this won't work with modules that use more than the
-output attribute to keep track of their internal state between 
-forward and backward.
+Note that this won't work with `input` and `feedback` modules that use more than their
+`output` attribute to keep track of their internal state between 
+calls to `forward` and `backward`.
  
 <a name='nnx.SoftMaxTree'/>
 ### SoftMaxTree ###
