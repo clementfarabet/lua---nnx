@@ -109,8 +109,8 @@ end
 
 function SpatialPyramid:checkSize(input)
    for i = 1,#self.ratios do
-      if (math.mod(input:size(2), self.ratios[i]) ~= 0) or
-         (math.mod(input:size(3), self.ratios[i]) ~= 0) then
+      if (math.fmod(input:size(2), self.ratios[i]) ~= 0) or
+         (math.fmod(input:size(3), self.ratios[i]) ~= 0) then
          error('SpatialPyramid: input sizes must be multiple of ratios')
       end
    end
