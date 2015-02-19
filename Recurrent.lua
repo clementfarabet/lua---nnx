@@ -83,6 +83,22 @@ local function recursiveClone(t)
    return clone
 end
 
+local function recursiveAdd(s, t)
+   local clone
+   assert(torch.type(s) == torch.type(t), "expecting same type objects to add")         
+   if torch.type(s) == 'table' then      
+      assert(#s == #t, "expecting same size tables to add")         
+      for i = 1, #t do
+         recursiveAdd(s[i], t[i])
+      end
+   else
+      if torch.typename(t) and 
+        torch.typename(t):find('torch%..+Tensor') then
+        s:add(t)
+      end
+   end
+end
+
 function Recurrent:updateOutput(input)
    -- output(t) = transfer(feedback(output_(t-1)) + input(input_(t)))
    local output
@@ -124,19 +140,16 @@ function Recurrent:updateOutput(input)
    
    if self.train ~= false then
       local input_ = self.inputs[self.step]
-      if not input_ then
-         input_ = input.new()
-         self.inputs[self.step] = input_
-      end
       if self.copyInputs then
-         input_:resizeAs(input):copy(input)
+         input_ = recursiveClone(input)         
       else
-         input_:set(input)
+         input_ = input
       end
+      self.inputs[self.step] = input_
    end
    
    self.outputs[self.step] = output
-   self.output:set(output)
+   self.output = output
    self.step = self.step + 1
    self.gradParametersAccumulated = false
    return self.output
@@ -146,11 +159,8 @@ function Recurrent:updateGradInput(input, gradOutput)
    -- Back-Propagate Through Time (BPTT) happens in updateParameters()
    -- for now we just keep a list of the gradOutputs
    local gradOutput_ = self.gradOutputs[self.step-1] 
-   if not gradOutput_ then
-      gradOutput_ = recursiveClone(gradOutput)
-      self.gradOutputs[self.step-1] = gradOutput_
-   end
-   gradOutput_:resizeAs(gradOutput):copy(gradOutput)
+   gradOutput_ = recursiveClone(gradOutput)
+   self.gradOutputs[self.step-1] = gradOutput_
 end
 
 function Recurrent:accGradParameters(input, gradOutput, scale)
@@ -190,7 +200,7 @@ function Recurrent:backwardThroughTime()
          local output = self.outputs[step-1]
          local gradOutput = self.gradOutputs[step]
          if gradInput then
-            gradOutput:add(gradInput)
+            recursiveAdd(gradOutput, gradInput)            
          end
          local scale = self.scales[step]
          
@@ -215,7 +225,7 @@ function Recurrent:backwardThroughTime()
          local input = self.inputs[1]
          local gradOutput = self.gradOutputs[1]
          if gradInput then
-            gradOutput:add(gradInput)
+            recursiveAdd(gradOutput, gradInput)
          end
          local scale = self.scales[1]
          gradInput = self.initialModule:backward(input, gradOutput, scale/rho)

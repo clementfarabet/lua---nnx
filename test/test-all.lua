@@ -518,6 +518,53 @@ function nnxtest.Recurrent()
    end
 end
 
+function nnxtest.Recurrent_TestTable()
+   -- Set up RNN where internal state is a table.
+   -- Trivial example is same RNN from nnxtest.Recurrent test
+   -- but all layers are duplicated
+   local batchSize = 4
+   local inputSize = 10
+   local hiddenSize = 12
+   local outputSize = 7
+   local nSteps = 5 
+   local inputModule = nn.Linear(inputSize, outputSize)
+   local transferModule = nn.Sigmoid()
+   local learningRate = 0.1
+   -- test MLP feedback Module (because of Module:representations())
+   local feedbackModule = nn.Sequential()
+   feedbackModule:add(nn.Linear(outputSize, hiddenSize))
+   feedbackModule:add(nn.Sigmoid())
+   feedbackModule:add(nn.Linear(hiddenSize, outputSize))
+   -- rho = nSteps
+   local mlp = nn.Recurrent(
+      nn.ParallelTable()
+         :add(nn.Add(outputSize))
+         :add(nn.Add(outputSize)),
+      nn.ParallelTable()
+         :add(inputModule:clone())
+         :add(inputModule:clone()),
+      nn.ParallelTable()
+         :add(feedbackModule:clone())
+         :add(feedbackModule:clone()),
+      nn.ParallelTable()
+         :add(transferModule:clone())
+         :add(transferModule:clone()),
+      nSteps,
+      nn.ParallelTable()
+         :add(nn.CAddTable())
+         :add(nn.CAddTable())
+   )
+
+   for i=1,10 do
+      local input = torch.randn(batchSize, inputSize)
+      local err = torch.randn(batchSize, outputSize)
+
+      mlp:forward{input, input}
+      mlp:backward({input, input}, {err, err})
+   end
+   mlp:backwardThroughTime(learningRate)
+end
+
 function nnxtest.SpatialNormalization_Gaussian2D()
    local inputSize = math.random(11,20)
    local kersize = 9
