@@ -530,7 +530,7 @@ function nnxtest.Recurrent_TestTable()
    local inputModule = nn.Linear(inputSize, outputSize)
    local transferModule = nn.Sigmoid()
    local learningRate = 0.1
-   -- test MLP feedback Module (because of Module:representations())
+   -- test MLP feedback Module
    local feedbackModule = nn.Sequential()
    feedbackModule:add(nn.Linear(outputSize, hiddenSize))
    feedbackModule:add(nn.Sigmoid())
@@ -555,12 +555,11 @@ function nnxtest.Recurrent_TestTable()
          :add(nn.CAddTable())
    )
 
+   local input = torch.randn(batchSize, inputSize)
+   local err = torch.randn(batchSize, outputSize)
    for i=1,10 do
-      local input = torch.randn(batchSize, inputSize)
-      local err = torch.randn(batchSize, outputSize)
-
-      mlp:forward{input, input}
-      mlp:backward({input, input}, {err, err})
+      mlp:forward{input, input:clone()}
+      mlp:backward({input, input:clone()}, {err, err:clone()})
    end
    mlp:backwardThroughTime(learningRate)
 end

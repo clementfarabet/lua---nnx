@@ -67,36 +67,67 @@ function Recurrent:__init(start, input, feedback, transfer, rho, merge)
    self:reset()
 end
 
-local function recursiveClone(t)
-   local clone
-   if torch.type(t) == 'table' then
-      clone = {}
-      for i = 1, #t do
-         clone[i] = recursiveClone(t[i])
+local function recursiveResizeAs(t1,t2)
+   if torch.type(t2) == 'table' then
+      t1 = (torch.type(t1) == 'table') and t1 or {t1}
+      for i=1,#t2 do
+         t1[i], t2[i] = recursiveResizeAs(t1[i], t2[i])
       end
+   elseif torch.isTensor(t2) then
+      t1 = t1 or t2.new()
+      t1:resizeAs(t2)
    else
-      if torch.typename(t) and 
-        torch.typename(t):find('torch%..+Tensor') then
-         clone = t:clone()
-      end
+      error("expecting nested tensors or tables. Got "..
+            torch.type(t1).." and "..torch.type(t2).." instead")
    end
-   return clone
+   return t1, t2
 end
 
-local function recursiveAdd(s, t)
-   local clone
-   assert(torch.type(s) == torch.type(t), "expecting same type objects to add")         
-   if torch.type(s) == 'table' then      
-      assert(#s == #t, "expecting same size tables to add")         
-      for i = 1, #t do
-         recursiveAdd(s[i], t[i])
+local function recursiveSet(t1,t2)
+   if torch.type(t2) == 'table' then
+      t1 = (torch.type(t1) == 'table') and t1 or {t1}
+      for i=1,#t2 do
+         t1[i], t2[i] = recursiveSet(t1[i], t2[i])
       end
+   elseif torch.isTensor(t2) then
+      t1 = t1 or t2.new()
+      t1:set(t2)
    else
-      if torch.typename(t) and 
-        torch.typename(t):find('torch%..+Tensor') then
-        s:add(t)
-      end
+      error("expecting nested tensors or tables. Got "..
+            torch.type(t1).." and "..torch.type(t2).." instead")
    end
+   return t1, t2
+end
+
+local function recursiveCopy(t1,t2)
+   if torch.type(t2) == 'table' then
+      t1 = (torch.type(t1) == 'table') and t1 or {t1}
+      for i=1,#t2 do
+         t1[i], t2[i] = recursiveCopy(t1[i], t2[i])
+      end
+   elseif torch.isTensor(t2) then
+      t1 = t1 or t2.new()
+      t1:resizeAs(t2):copy(t2)
+   else
+      error("expecting nested tensors or tables. Got "..
+            torch.type(t1).." and "..torch.type(t2).." instead")
+   end
+   return t1, t2
+end
+
+local function recursiveAdd(t1, t2)
+   if torch.type(t2) == 'table' then
+      t1 = (torch.type(t1) == 'table') and t1 or {t1}
+      for i=1,#t2 do
+         t1[i], t2[i] = recursiveAdd(t1[i], t2[i])
+      end
+   elseif torch.isTensor(t2) and torch.isTensor(t2) then
+      t1:add(t2)
+   else
+      error("expecting nested tensors or tables. Got "..
+            torch.type(t1).." and "..torch.type(t2).." instead")
+   end
+   return t1, t2
 end
 
 function Recurrent:updateOutput(input)
@@ -106,7 +137,7 @@ function Recurrent:updateOutput(input)
       -- set/save the output states
       local modules = self.initialModule:listModules()
       for i,modula in ipairs(modules) do
-         local output_ = self.initialOutputs[i] or recursiveClone(modula.output)
+         local output_ = recursiveResizeAs(self.initialOutputs[i], modula.output)
          modula.output = output_
       end
       output = self.initialModule:updateOutput(input)
@@ -124,7 +155,7 @@ function Recurrent:updateOutput(input)
             self.recurrentOutputs[self.step] = recurrentOutputs
          end
          for i,modula in ipairs(modules) do
-            local output_ = recurrentOutputs[i] or recursiveClone(modula.output)
+            local output_ = recursiveResizeAs(recurrentOutputs[i], modula.output)
             modula.output = output_
          end
           -- self.output is the previous output of this module
@@ -141,11 +172,17 @@ function Recurrent:updateOutput(input)
    if self.train ~= false then
       local input_ = self.inputs[self.step]
       if self.copyInputs then
-         input_ = recursiveClone(input)         
+         input_ = recursiveCopy(input_, input)
       else
-         input_ = input
+         input_:set(input)
       end
-      self.inputs[self.step] = input_
+   end
+   
+   if self.train ~= false then
+      local input_ = self.inputs[self.step]
+      self.inputs[self.step] = self.copyInputs 
+         and recursiveCopy(input_, input) 
+         or recursiveSet(input_, input)     
    end
    
    self.outputs[self.step] = output
@@ -158,9 +195,7 @@ end
 function Recurrent:updateGradInput(input, gradOutput)
    -- Back-Propagate Through Time (BPTT) happens in updateParameters()
    -- for now we just keep a list of the gradOutputs
-   local gradOutput_ = self.gradOutputs[self.step-1] 
-   gradOutput_ = recursiveClone(gradOutput)
-   self.gradOutputs[self.step-1] = gradOutput_
+   self.gradOutputs[self.step-1] = recursiveCopy(self.gradOutputs[self.step-1] , gradOutput)
 end
 
 function Recurrent:accGradParameters(input, gradOutput, scale)
@@ -187,24 +222,24 @@ function Recurrent:backwardThroughTime()
          end
          for i,modula in ipairs(modules) do
             local output, gradInput = modula.output, modula.gradInput
+            assert(gradInput, "missing gradInput")
             local output_ = recurrentOutputs[i]
-            local gradInput_ = recurrentGradInputs[i] or recursiveClone(gradInput)
             assert(output_, "backwardThroughTime should be preceded by updateOutput")
-            assert(gradInput_, "missing gradInput")
             modula.output = output_
-            modula.gradInput = gradInput_
+            modula.gradInput = recursiveCopy(recurrentGradInputs[i], gradInput)
          end
          
          -- backward propagate through this step
          local input = self.inputs[step]
          local output = self.outputs[step-1]
-         local gradOutput = self.gradOutputs[step]
+         local gradOutput = self.gradOutputs[step] 
          if gradInput then
-            recursiveAdd(gradOutput, gradInput)            
+            recursiveAdd(gradOutput, gradInput)   
          end
          local scale = self.scales[step]
          
          gradInput = self.recurrentModule:backward({input, output}, gradOutput, scale/rho)[2]
+         
          for i,modula in ipairs(modules) do
             recurrentGradInputs[i] = modula.gradInput
          end
@@ -214,11 +249,8 @@ function Recurrent:backwardThroughTime()
          -- set the output/gradOutput states of initialModule
          local modules = self.initialModule:listModules()
          for i,modula in ipairs(modules) do
-            local output, gradInput = modula.output, modula.gradInput
-            local output_ = self.initialOutputs[i]
-            local gradInput_ = self.initialGradInputs[i] or recursiveClone(gradInput)
-            modula.output = output_
-            modula.gradInput = gradInput_
+            modula.output = self.initialOutputs[i]
+            modula.gradInput = recursiveCopy(self.initialGradInputs[i], modula.gradInput)
          end
          
          -- backward propagate through first step
@@ -276,10 +308,9 @@ function Recurrent:updateGradInputThroughTime()
       for i,modula in ipairs(modules) do
          local output, gradInput = modula.output, modula.gradInput
          local output_ = recurrentOutputs[i]
-         local gradInput_ = recurrentGradInputs[i] or recursiveClone(gradInput)
          assert(output_, "updateGradInputThroughTime should be preceded by updateOutput")
          modula.output = output_
-         modula.gradInput = gradInput_
+         modula.gradInput = recursiveCopy(recurrentGradInputs[i], gradInput)
       end
       
       -- backward propagate through this step
@@ -299,11 +330,8 @@ function Recurrent:updateGradInputThroughTime()
       -- set the output/gradOutput states of initialModule
       local modules = self.initialModule:listModules()
       for i,modula in ipairs(modules) do
-         local output, gradInput = modula.output, modula.gradInput
-         local output_ = self.initialOutputs[i]
-         local gradInput_ = self.initialGradInputs[i] or recursiveClone(gradInput)
-         modula.output = output_
-         modula.gradInput = gradInput_
+         modula.output = self.initialOutputs[i]
+         modula.gradInput = recursiveResizeAs(self.initialGradInputs[i], modula.gradInput)
       end
       
       -- backward propagate through first step
