@@ -70,8 +70,8 @@ end
 local function recursiveResizeAs(t1,t2)
    if torch.type(t2) == 'table' then
       t1 = (torch.type(t1) == 'table') and t1 or {t1}
-      for i=1,#t2 do
-         t1[i], t2[i] = recursiveResizeAs(t1[i], t2[i])
+      for key,_ in pairs(t2) do
+         t1[key], t2[key] = recursiveResizeAs(t1[key], t2[key])
       end
    elseif torch.isTensor(t2) then
       t1 = t1 or t2.new()
@@ -86,8 +86,8 @@ end
 local function recursiveSet(t1,t2)
    if torch.type(t2) == 'table' then
       t1 = (torch.type(t1) == 'table') and t1 or {t1}
-      for i=1,#t2 do
-         t1[i], t2[i] = recursiveSet(t1[i], t2[i])
+      for key,_ in pairs(t2) do
+         t1[key], t2[key] = recursiveSet(t1[key], t2[key])
       end
    elseif torch.isTensor(t2) then
       t1 = t1 or t2.new()
@@ -102,8 +102,8 @@ end
 local function recursiveCopy(t1,t2)
    if torch.type(t2) == 'table' then
       t1 = (torch.type(t1) == 'table') and t1 or {t1}
-      for i=1,#t2 do
-         t1[i], t2[i] = recursiveCopy(t1[i], t2[i])
+      for key,_ in pairs(t2) do
+         t1[key], t2[key] = recursiveCopy(t1[key], t2[key])
       end
    elseif torch.isTensor(t2) then
       t1 = t1 or t2.new()
@@ -118,8 +118,8 @@ end
 local function recursiveAdd(t1, t2)
    if torch.type(t2) == 'table' then
       t1 = (torch.type(t1) == 'table') and t1 or {t1}
-      for i=1,#t2 do
-         t1[i], t2[i] = recursiveAdd(t1[i], t2[i])
+      for key,_ in pairs(t2) do
+         t1[key], t2[key] = recursiveAdd(t1[key], t2[key])
       end
    elseif torch.isTensor(t2) and torch.isTensor(t2) then
       t1:add(t2)
