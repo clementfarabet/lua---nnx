@@ -600,15 +600,28 @@ function Recurrent:__tostring__()
    local tab = '  '
    local line = '\n'
    local next = ' -> '
-   local str = 'nn.Recurrent'
-   str = str .. ' {' .. line .. tab .. '[input'
-   for i=1,#self.modules do
+   local str = torch.type(self)
+   str = str .. ' {' .. line .. tab .. '[{input(t), output(t-1)}'
+   for i=1,3 do
       str = str .. next .. '(' .. i .. ')'
    end
-   str = str .. next .. 'output]'
-   for i=1,#self.modules do
-      str = str .. line .. tab .. '(' .. i .. '): ' .. tostring(self.modules[i]):gsub(line, line .. tab)
-   end
+   str = str .. next .. 'output(t)]'
+   
+   local tab = '  '
+   local line = '\n  '
+   local next = '  |`-> '
+   local ext = '  |    '
+   local last = '   ... -> '
+   str = str .. line ..  '(1): ' .. ' {' .. line .. tab .. 'input(t)'
+   str = str .. line .. tab .. next .. '(t==0): ' .. tostring(self.startModule):gsub('\n', '\n' .. tab .. ext)
+   str = str .. line .. tab .. next .. '(t~=0): ' .. tostring(self.inputModule):gsub('\n', '\n' .. tab .. ext)
+   str = str .. line .. tab .. 'output(t-1)'
+   str = str .. line .. tab .. next .. tostring(self.feedbackModule):gsub('\n', line .. tab .. ext)
+   local tab = '  '
+   local line = '\n'
+   local next = ' -> '
+   str = str .. line .. tab .. '(' .. 2 .. '): ' .. tostring(self.mergeModule):gsub(line, line .. tab)
+   str = str .. line .. tab .. '(' .. 3 .. '): ' .. tostring(self.transferModule):gsub(line, line .. tab)
    str = str .. line .. '}'
    return str
 end
