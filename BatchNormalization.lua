@@ -1,49 +1,80 @@
 --Based on: http://arxiv.org/pdf/1502.03167v3
---If input dimension is larger than 1, a reshape is needed before and after usage.
 --Usage example:
 ------------------------------------
---   model:add(nn.Reshape(3 * 32 * 32))
---   model:add(batchNormalization(3 * 32 * 32))
---   model:add(nn.Reshape(3 , 32 , 32))
+--   model:add(nn.BatchNormalization(3 * 32 * 32))
 ------------------------------------
 
-local Meanvec, parent = torch.class('nn.Meanvec', 'nn.Module')
+require 'nn'
+require 'cunn'
+local BatchNormalization, parent = torch.class('nn.BatchNormalization', 'nn.Module')
 
-function Meanvec:__init()
-   parent.__init(self)   
+function BatchNormalization:__init(inputSize)
+   parent.__init(self)
+   self.bias = torch.Tensor(inputSize)
+   self.weight = torch.Tensor(inputSize)
+   self.gradBias = torch.Tensor(inputSize)
+   self.gradWeight = torch.Tensor(inputSize)
+   
+   self:reset(stdv)
+end   
+
+function BatchNormalization:reset(stdv)
+   if stdv then
+      stdv = stdv * math.sqrt(3)
+   else
+      stdv = 1./math.sqrt(self.bias:nElement())
+   end
+   
+   self.bias:uniform(-stdv,stdv)
+   self.weight:uniform(-stdv,stdv)
 end
 
-function Meanvec:updateOutput(input)
+function BatchNormalization:updateOutput(input)
+   self.output = self.output or input.new()
    self.output:resizeAs(input) 
    self.size = input:nElement()
    self.std = torch.std(input)  * torch.sqrt((self.size - 1.0) / self.size )
    self.mean = torch.mean(input)
+   self.stdcube = torch.pow(self.std,3)
+   self.ones = torch.Tensor(self.size):fill(1.0)-- :cuda()
    self.output:copy(input):add(-self.mean):div(self.std)
+   self.buffer = self.buffer or input.new()
+   self.buffer:resizeAs(self.output):copy(self.output)
+   self.output:cmul(self.weight)
+   self.output:add(self.bias)
 return self.output
 end
 
-function Meanvec:updateGradInput(input, gradOutput)
+function BatchNormalization:updateGradInput(input, gradOutput)
 
- 
-   local der1 = input:clone():fill(1.0)
-   der1 = der1:diag()
-   der1:add(-1.0/self.size):div(self.std)
+   self.buffer = self.buffer or gradOutput.new()
+   self.buffer:resizeAs(gradOutput):copy(gradOutput)
+   self.buffer:cmul(self.weight)
+   self.dotprod1 = torch.dot(self.ones,self.buffer)
+   local der1 = self.ones:clone()
+   der1:mul(- self.dotprod1 / self.size/self.std)
+   -- x_i - mu
    local der2 = input:clone()
    der2:add(-self.mean)
-	local temp = torch.Tensor(self.size,self.size):fill(0)
-	temp:addr(der1,-1.0/(self.size* torch.pow(self.std,3)),der2,der2)
-	self.gradInput:resizeAs(gradOutput):fill(0)
-	self.gradInput:addmv(temp,gradOutput)
 
+   self.dotprod2 = torch.dot(der2,self.buffer)
+   der2:mul(self.dotprod2 / self.size / self.stdcube)
+
+   self.gradInput = self.buffer:clone()
+   
+   self.gradInput:div(self.std)
+
+   self.gradInput:add(der1)
+   self.gradInput:add(-der2)
    return self.gradInput
 end
 
-function batchNormalization(inputSize)
-
-local module = nn.Sequential()
-   module:add(nn.Meanvec())
-   module:add(nn.CMul(inputSize))
-   module:add(nn.Add(inputSize,false))
+function BatchNormalization:accGradParameters(input, gradOutput, scale)
+   scale = scale or 1
    
-   return module
+   self.gradBias:add(scale,gradOutput)
+   self.gradWeight:addcmul(scale,self.buffer,gradOutput)
 end
+
+
+
