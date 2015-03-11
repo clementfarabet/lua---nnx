@@ -31,22 +31,10 @@ function Recurrent:__init(start, input, feedback, transfer, rho, merge)
    self.mergeModule = merge or nn.CAddTable()
    self.rho = rho or 5
    
-   -- used for the first step 
-   self.initialModule = nn.Sequential()
-   self.initialModule:add(self.inputModule)
-   self.initialModule:add(self.startModule)
-   self.initialModule:add(self.transferModule)
-   
-   -- used for the other steps (steps > 1)
-   local parallelModule = nn.ParallelTable()
-   parallelModule:add(self.inputModule)
-   parallelModule:add(self.feedbackModule)
-   self.recurrentModule = nn.Sequential()
-   self.recurrentModule:add(parallelModule)
-   self.recurrentModule:add(self.mergeModule)
-   self.recurrentModule:add(self.transferModule)
-   
    self.modules = {self.startModule, self.inputModule, self.feedbackModule, self.transferModule, self.mergeModule}
+   
+   self:buildInitialModule()
+   self:buildRecurrentModule()
    
    self.initialOutputs = {}
    self.initialGradInputs = {}
@@ -65,6 +53,25 @@ function Recurrent:__init(start, input, feedback, transfer, rho, merge)
    self.step = 1
    
    self:reset()
+end
+
+-- build module used for the first step (steps == 1)
+function Recurrent:buildInitialModule()
+   self.initialModule = nn.Sequential()
+   self.initialModule:add(self.inputModule)
+   self.initialModule:add(self.startModule)
+   self.initialModule:add(self.transferModule)
+end
+
+-- build module used for the other steps (steps > 1)
+function Recurrent:buildRecurrentModule()
+   local parallelModule = nn.ParallelTable()
+   parallelModule:add(self.inputModule)
+   parallelModule:add(self.feedbackModule)
+   self.recurrentModule = nn.Sequential()
+   self.recurrentModule:add(parallelModule)
+   self.recurrentModule:add(self.mergeModule)
+   self.recurrentModule:add(self.transferModule)
 end
 
 local function recursiveResizeAs(t1,t2)
