@@ -14,7 +14,7 @@
 -- output attribute to keep track of their internal state between 
 -- forward and backward.
 ------------------------------------------------------------------------
-local Recurrent, parent = torch.class('nn.Recurrent', 'nn.Module')
+local Recurrent, parent = torch.class('nn.Recurrent', 'nn.AbstractRecurrent')
 
 function Recurrent:__init(start, input, feedback, transfer, rho, merge)
    parent.__init(self)
@@ -67,69 +67,6 @@ function Recurrent:__init(start, input, feedback, transfer, rho, merge)
    self:reset()
 end
 
-local function recursiveResizeAs(t1,t2)
-   if torch.type(t2) == 'table' then
-      t1 = (torch.type(t1) == 'table') and t1 or {t1}
-      for key,_ in pairs(t2) do
-         t1[key], t2[key] = recursiveResizeAs(t1[key], t2[key])
-      end
-   elseif torch.isTensor(t2) then
-      t1 = t1 or t2.new()
-      t1:resizeAs(t2)
-   else
-      error("expecting nested tensors or tables. Got "..
-            torch.type(t1).." and "..torch.type(t2).." instead")
-   end
-   return t1, t2
-end
-
-local function recursiveSet(t1,t2)
-   if torch.type(t2) == 'table' then
-      t1 = (torch.type(t1) == 'table') and t1 or {t1}
-      for key,_ in pairs(t2) do
-         t1[key], t2[key] = recursiveSet(t1[key], t2[key])
-      end
-   elseif torch.isTensor(t2) then
-      t1 = t1 or t2.new()
-      t1:set(t2)
-   else
-      error("expecting nested tensors or tables. Got "..
-            torch.type(t1).." and "..torch.type(t2).." instead")
-   end
-   return t1, t2
-end
-
-local function recursiveCopy(t1,t2)
-   if torch.type(t2) == 'table' then
-      t1 = (torch.type(t1) == 'table') and t1 or {t1}
-      for key,_ in pairs(t2) do
-         t1[key], t2[key] = recursiveCopy(t1[key], t2[key])
-      end
-   elseif torch.isTensor(t2) then
-      t1 = t1 or t2.new()
-      t1:resizeAs(t2):copy(t2)
-   else
-      error("expecting nested tensors or tables. Got "..
-            torch.type(t1).." and "..torch.type(t2).." instead")
-   end
-   return t1, t2
-end
-
-local function recursiveAdd(t1, t2)
-   if torch.type(t2) == 'table' then
-      t1 = (torch.type(t1) == 'table') and t1 or {t1}
-      for key,_ in pairs(t2) do
-         t1[key], t2[key] = recursiveAdd(t1[key], t2[key])
-      end
-   elseif torch.isTensor(t2) and torch.isTensor(t2) then
-      t1:add(t2)
-   else
-      error("expecting nested tensors or tables. Got "..
-            torch.type(t1).." and "..torch.type(t2).." instead")
-   end
-   return t1, t2
-end
-
 function Recurrent:updateOutput(input)
    -- output(t) = transfer(feedback(output_(t-1)) + input(input_(t)))
    local output
@@ -137,7 +74,7 @@ function Recurrent:updateOutput(input)
       -- set/save the output states
       local modules = self.initialModule:listModules()
       for i,modula in ipairs(modules) do
-         local output_ = recursiveResizeAs(self.initialOutputs[i], modula.output)
+         local output_ = self.recursiveResizeAs(self.initialOutputs[i], modula.output)
          modula.output = output_
       end
       output = self.initialModule:updateOutput(input)
@@ -155,7 +92,7 @@ function Recurrent:updateOutput(input)
             self.recurrentOutputs[self.step] = recurrentOutputs
          end
          for i,modula in ipairs(modules) do
-            local output_ = recursiveResizeAs(recurrentOutputs[i], modula.output)
+            local output_ = self.recursiveResizeAs(recurrentOutputs[i], modula.output)
             modula.output = output_
          end
           -- self.output is the previous output of this module
@@ -171,18 +108,9 @@ function Recurrent:updateOutput(input)
    
    if self.train ~= false then
       local input_ = self.inputs[self.step]
-      if self.copyInputs then
-         input_ = recursiveCopy(input_, input)
-      else
-         input_:set(input)
-      end
-   end
-   
-   if self.train ~= false then
-      local input_ = self.inputs[self.step]
       self.inputs[self.step] = self.copyInputs 
-         and recursiveCopy(input_, input) 
-         or recursiveSet(input_, input)     
+         and self.recursiveCopy(input_, input) 
+         or self.recursiveSet(input_, input)     
    end
    
    self.outputs[self.step] = output
@@ -195,7 +123,7 @@ end
 function Recurrent:updateGradInput(input, gradOutput)
    -- Back-Propagate Through Time (BPTT) happens in updateParameters()
    -- for now we just keep a list of the gradOutputs
-   self.gradOutputs[self.step-1] = recursiveCopy(self.gradOutputs[self.step-1] , gradOutput)
+   self.gradOutputs[self.step-1] = self.recursiveCopy(self.gradOutputs[self.step-1] , gradOutput)
 end
 
 function Recurrent:accGradParameters(input, gradOutput, scale)
@@ -226,7 +154,7 @@ function Recurrent:backwardThroughTime()
             local output_ = recurrentOutputs[i]
             assert(output_, "backwardThroughTime should be preceded by updateOutput")
             modula.output = output_
-            modula.gradInput = recursiveCopy(recurrentGradInputs[i], gradInput)
+            modula.gradInput = self.recursiveCopy(recurrentGradInputs[i], gradInput)
          end
          
          -- backward propagate through this step
@@ -234,7 +162,7 @@ function Recurrent:backwardThroughTime()
          local output = self.outputs[step-1]
          local gradOutput = self.gradOutputs[step] 
          if gradInput then
-            recursiveAdd(gradOutput, gradInput)   
+            self.recursiveAdd(gradOutput, gradInput)   
          end
          local scale = self.scales[step]
          
@@ -250,14 +178,14 @@ function Recurrent:backwardThroughTime()
          local modules = self.initialModule:listModules()
          for i,modula in ipairs(modules) do
             modula.output = self.initialOutputs[i]
-            modula.gradInput = recursiveCopy(self.initialGradInputs[i], modula.gradInput)
+            modula.gradInput = self.recursiveCopy(self.initialGradInputs[i], modula.gradInput)
          end
          
          -- backward propagate through first step
          local input = self.inputs[1]
          local gradOutput = self.gradOutputs[1]
          if gradInput then
-            recursiveAdd(gradOutput, gradInput)
+            self.recursiveAdd(gradOutput, gradInput)
          end
          local scale = self.scales[1]
          gradInput = self.initialModule:backward(input, gradOutput, scale/rho)
@@ -310,7 +238,7 @@ function Recurrent:updateGradInputThroughTime()
          local output_ = recurrentOutputs[i]
          assert(output_, "updateGradInputThroughTime should be preceded by updateOutput")
          modula.output = output_
-         modula.gradInput = recursiveCopy(recurrentGradInputs[i], gradInput)
+         modula.gradInput = self.recursiveCopy(recurrentGradInputs[i], gradInput)
       end
       
       -- backward propagate through this step
@@ -331,7 +259,7 @@ function Recurrent:updateGradInputThroughTime()
       local modules = self.initialModule:listModules()
       for i,modula in ipairs(modules) do
          modula.output = self.initialOutputs[i]
-         modula.gradInput = recursiveResizeAs(self.initialGradInputs[i], modula.gradInput)
+         modula.gradInput = self.recursiveResizeAs(self.initialGradInputs[i], modula.gradInput)
       end
       
       -- backward propagate through first step
@@ -459,141 +387,6 @@ function Recurrent:accUpdateGradParametersThroughTime(lr)
    end
    
    return gradInput
-end
-
-function Recurrent:updateParameters(learningRate)
-   if self.gradParametersAccumulated then
-      for i=1,#self.modules do
-         self.modules[i]:updateParameters(learningRate)
-      end
-   else
-      self:backwardUpdateThroughTime(learningRate)
-   end
-end
-
--- goes hand in hand with the next method : forget()
-function Recurrent:recycle()
-   -- +1 is to skip initialModule
-   if self.step > self.rho + 1 then
-      assert(self.recurrentOutputs[self.step] == nil)
-      assert(self.recurrentOutputs[self.step-self.rho] ~= nil)
-      self.recurrentOutputs[self.step] = self.recurrentOutputs[self.step-self.rho]
-      self.recurrentGradInputs[self.step] = self.recurrentGradInputs[self.step-self.rho]
-      self.recurrentOutputs[self.step-self.rho] = nil
-      self.recurrentGradInputs[self.step-self.rho] = nil
-      -- need to keep rho+1 of these
-      self.outputs[self.step] = self.outputs[self.step-self.rho-1] 
-      self.outputs[self.step-self.rho-1] = nil
-   end
-   if self.step > self.rho then
-      assert(self.inputs[self.step] == nil)
-      assert(self.inputs[self.step-self.rho] ~= nil)
-      self.inputs[self.step] = self.inputs[self.step-self.rho] 
-      self.gradOutputs[self.step] = self.gradOutputs[self.step-self.rho] 
-      self.inputs[self.step-self.rho] = nil
-      self.gradOutputs[self.step-self.rho] = nil
-      self.scales[self.step-self.rho] = nil
-   end
-end
-
-function Recurrent:forget()
-
-   if self.train ~= false then
-      -- bring all states back to the start of the sequence buffers
-      local lastStep = self.step - 1
-      
-      if lastStep > self.rho + 1 then
-         local i = 2
-         for step = lastStep-self.rho+1,lastStep do
-            self.recurrentOutputs[i] = self.recurrentOutputs[step]
-            self.recurrentGradInputs[i] = self.recurrentGradInputs[step]
-            self.recurrentOutputs[step] = nil
-            self.recurrentGradInputs[step] = nil
-            -- we keep rho+1 of these : outputs[k]=outputs[k+rho+1]
-            self.outputs[i-1] = self.outputs[step]
-            self.outputs[step] = nil
-            i = i + 1
-         end
-         
-      end
-      
-      if lastStep > self.rho then
-         local i = 1
-         for step = lastStep-self.rho+1,lastStep do
-            self.inputs[i] = self.inputs[step]
-            self.gradOutputs[i] = self.gradOutputs[step]
-            self.inputs[step] = nil
-            self.gradOutputs[step] = nil
-            self.scales[step] = nil
-            i = i + 1
-         end
-
-      end
-   end
-   
-   -- forget the past inputs; restart from first step
-   self.step = 1
-end
-
-function Recurrent:size()
-   return #self.modules
-end
-
-function Recurrent:get(index)
-   return self.modules[index]
-end
-
-function Recurrent:zeroGradParameters()
-   for i=1,#self.modules do
-      self.modules[i]:zeroGradParameters()
-   end
-end
-
-function Recurrent:training()
-   for i=1,#self.modules do
-      self.modules[i]:training()
-   end
-end
-
-function Recurrent:evaluate()
-   for i=1,#self.modules do
-      self.modules[i]:evaluate()
-   end
-end
-
-function Recurrent:share(mlp,...)
-   for i=1,#self.modules do
-      self.modules[i]:share(mlp.modules[i],...); 
-   end
-end
-
-function Recurrent:reset(stdv)
-   self:forget()
-   for i=1,#self.modules do
-      self.modules[i]:reset(stdv)
-   end
-end
-
-function Recurrent:parameters()
-   local function tinsert(to, from)
-      if type(from) == 'table' then
-         for i=1,#from do
-            tinsert(to,from[i])
-         end
-      else
-         table.insert(to,from)
-      end
-   end
-   local w = {}
-   local gw = {}
-   for i=1,#self.modules do
-      local mw,mgw = self.modules[i]:parameters()
-      if mw then
-         tinsert(w,mw)
-         tinsert(gw,mgw)
-      end
-   end
-   return w,gw
 end
 
 function Recurrent:__tostring__()
