@@ -47,6 +47,7 @@ function Recurrent:__init(start, input, feedback, transfer, rho, merge)
    self.inputs = {}
    self.outputs = {}
    self.gradOutputs = {}
+   self.gradInputs = {}
    self.scales = {}
    
    self.gradParametersAccumulated = false
@@ -300,6 +301,7 @@ end
 
 function Recurrent:updateGradInputThroughTime()
    assert(self.step > 1, "expecting at least one updateOutput")
+   self.gradInputs = {}
    local gradInput
    local rho = math.min(self.rho, self.step-1)
    local stop = self.step - rho
@@ -331,6 +333,7 @@ function Recurrent:updateGradInputThroughTime()
       for i,modula in ipairs(modules) do
          recurrentGradInputs[i] = modula.gradInput
       end
+      table.insert(self.gradInputs, 1)
    end
    
    if stop <= 1 then
@@ -352,6 +355,7 @@ function Recurrent:updateGradInputThroughTime()
       for i,modula in ipairs(modules) do
          self.initialGradInputs[i] = modula.gradInput
       end
+      table.insert(self.gradInputs, 1)
    end
    
    return gradInput
