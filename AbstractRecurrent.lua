@@ -84,6 +84,24 @@ local function recursiveAdd(t1, t2)
 end
 AbstractRecurrent.recursiveAdd = recursiveAdd
 
+function AbstractRecurrent:updateGradInput(input, gradOutput)
+   -- Back-Propagate Through Time (BPTT) happens in updateParameters()
+   -- for now we just keep a list of the gradOutputs
+   self.gradOutputs[self.step-1] = self.recursiveCopy(self.gradOutputs[self.step-1] , gradOutput)
+end
+
+function AbstractRecurrent:accGradParameters(input, gradOutput, scale)
+   -- Back-Propagate Through Time (BPTT) happens in updateParameters()
+   -- for now we just keep a list of the scales
+   self.scales[self.step-1] = scale
+end
+
+function AbstractRecurrent:backwardUpdateThroughTime(learningRate)
+   local gradInput = self:updateGradInputThroughTime()
+   self:accUpdateGradParametersThroughTime(learningRate)
+   return gradInput
+end
+
 function AbstractRecurrent:updateParameters(learningRate)
    if self.gradParametersAccumulated then
       for i=1,#self.modules do

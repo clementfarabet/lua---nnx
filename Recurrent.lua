@@ -52,19 +52,6 @@ function Recurrent:__init(start, input, feedback, transfer, rho, merge)
    self.initialGradInputs = {}
    self.recurrentOutputs = {}
    self.recurrentGradInputs = {}
-   
-   self.fastBackward = true
-   self.copyInputs = true
-   
-   self.inputs = {}
-   self.outputs = {}
-   self.gradOutputs = {}
-   self.scales = {}
-   
-   self.gradParametersAccumulated = false
-   self.step = 1
-   
-   self:reset()
 end
 
 function Recurrent:updateOutput(input)
@@ -118,18 +105,6 @@ function Recurrent:updateOutput(input)
    self.step = self.step + 1
    self.gradParametersAccumulated = false
    return self.output
-end
-
-function Recurrent:updateGradInput(input, gradOutput)
-   -- Back-Propagate Through Time (BPTT) happens in updateParameters()
-   -- for now we just keep a list of the gradOutputs
-   self.gradOutputs[self.step-1] = self.recursiveCopy(self.gradOutputs[self.step-1] , gradOutput)
-end
-
-function Recurrent:accGradParameters(input, gradOutput, scale)
-   -- Back-Propagate Through Time (BPTT) happens in updateParameters()
-   -- for now we just keep a list of the scales
-   self.scales[self.step-1] = scale
 end
 
 -- not to be confused with the hit movie Back to the Future
@@ -211,12 +186,6 @@ function Recurrent:backwardThroughTime()
       self:accGradParametersThroughTime()
       return gradInput
    end
-end
-
-function Recurrent:backwardUpdateThroughTime(learningRate)
-   local gradInput = self:updateGradInputThroughTime()
-   self:accUpdateGradParametersThroughTime(learningRate)
-   return gradInput
 end
 
 function Recurrent:updateGradInputThroughTime()
