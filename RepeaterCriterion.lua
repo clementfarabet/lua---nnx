@@ -1,3 +1,9 @@
+------------------------------------------------------------------------
+--[[ RepeaterCriterion ]]--
+-- Applies a criterion to each of the inputs in a Table using the 
+-- same target (the target is repeated). 
+-- Useful for nn.Repeater and nn.Sequencer.
+------------------------------------------------------------------------
 local RepeaterCriterion, parent = torch.class("nn.RepeaterCriterion", "nn.Criterion")
 
 function RepeaterCriterion:__init(criterion)
