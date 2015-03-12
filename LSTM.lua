@@ -3,6 +3,7 @@
 -- Long Short Term Memory architecture.
 -- Ref. A.: http://arxiv.org/pdf/1303.5778v1 (blueprint for this module)
 -- B. http://web.eecs.utk.edu/~itamar/courses/ECE-692/Bobby_paper1.pdf
+-- C. https://github.com/wojzaremba/lstm
 -- Expects 1D or 2D input.
 -- The first input in sequence uses zero value for cell and hidden state
 ------------------------------------------------------------------------
@@ -173,7 +174,6 @@ function LSTM:updateOutput(input)
          or self.recursiveSet(input_, input)     
    end
    
-   
    self.outputs[self.step] = output
    self.cells[self.step] = cell
    
@@ -263,7 +263,7 @@ function LSTM:updateGradInputThroughTime()
       local output = self.outputs[step-1]
       local gradOutput = self.gradOutputs[step]
       if gradInput then
-         gradOutput:add(gradInput)
+         self.recursiveAdd(gradOutput, gradInput) 
       end
       
       local scale = self.scales[step]
@@ -305,6 +305,7 @@ function LSTM:accGradParametersThroughTime()
       local gradOutput = self.gradOutputs[step]
 
       local scale = self.scales[step]
+      -- TODO HERE
       self.recurrentModule:accGradParameters({input, output}, gradOutput, scale/rho)
       
    end

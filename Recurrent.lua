@@ -215,7 +215,7 @@ function Recurrent:updateGradInputThroughTime()
       local output = self.outputs[step-1]
       local gradOutput = self.gradOutputs[step]
       if gradInput then
-         gradOutput:add(gradInput)
+         self.recursiveAdd(gradOutput, gradInput) 
       end
       gradInput = self.recurrentModule:updateGradInput({input, output}, gradOutput)[2]
       for i,modula in ipairs(modules) do
@@ -235,7 +235,7 @@ function Recurrent:updateGradInputThroughTime()
       local input = self.inputs[1]
       local gradOutput = self.gradOutputs[1]
       if gradInput then
-         gradOutput:add(gradInput)
+         self.recursiveAdd(gradOutput, gradInput) 
       end
       gradInput = self.initialModule:updateGradInput(input, gradOutput)
       
