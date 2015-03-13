@@ -218,6 +218,7 @@ function Recurrent:backwardThroughTime()
    local rho = math.min(self.rho, self.step-1)
    local stop = self.step - rho
    if self.fastBackward then
+      self.gradInputs = {}
       local gradInput
       for step=self.step-1,math.max(stop, 2),-1 do
          -- set the output/gradOutput states of current Module
@@ -247,6 +248,7 @@ function Recurrent:backwardThroughTime()
          local scale = self.scales[step]
          
          gradInput = self.recurrentModule:backward({input, output}, gradOutput, scale/rho)[2]
+         table.insert(self.gradInputs, 1, gradInput)
          
          for i,modula in ipairs(modules) do
             recurrentGradInputs[i] = modula.gradInput
@@ -269,6 +271,7 @@ function Recurrent:backwardThroughTime()
          end
          local scale = self.scales[1]
          gradInput = self.initialModule:backward(input, gradOutput, scale/rho)
+         table.insert(self.gradInputs, 1, gradInput)
          
          for i,modula in ipairs(modules) do
             self.initialGradInputs[i] = modula.gradInput
@@ -319,7 +322,7 @@ function Recurrent:updateGradInputThroughTime()
          local output_ = recurrentOutputs[i]
          assert(output_, "updateGradInputThroughTime should be preceded by updateOutput")
          modula.output = output_
-         modula.gradInput = recursiveCopy(recurrentGradInputs[i], gradInput)
+         modula.gradInput = recursiveResizeAs(recurrentGradInputs[i], gradInput)
       end
       
       -- backward propagate through this step
@@ -333,7 +336,7 @@ function Recurrent:updateGradInputThroughTime()
       for i,modula in ipairs(modules) do
          recurrentGradInputs[i] = modula.gradInput
       end
-      table.insert(self.gradInputs, 1)
+      table.insert(self.gradInputs, 1, gradInput)
    end
    
    if stop <= 1 then
@@ -355,7 +358,7 @@ function Recurrent:updateGradInputThroughTime()
       for i,modula in ipairs(modules) do
          self.initialGradInputs[i] = modula.gradInput
       end
-      table.insert(self.gradInputs, 1)
+      table.insert(self.gradInputs, 1, gradInput)
    end
    
    return gradInput
