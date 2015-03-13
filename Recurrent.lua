@@ -235,7 +235,7 @@ function Recurrent:backwardThroughTime()
             local output_ = recurrentOutputs[i]
             assert(output_, "backwardThroughTime should be preceded by updateOutput")
             modula.output = output_
-            modula.gradInput = recursiveCopy(recurrentGradInputs[i], gradInput)
+            modula.gradInput = recursiveResizeAs(recurrentGradInputs[i], gradInput)
          end
          
          -- backward propagate through this step
@@ -260,7 +260,7 @@ function Recurrent:backwardThroughTime()
          local modules = self.initialModule:listModules()
          for i,modula in ipairs(modules) do
             modula.output = self.initialOutputs[i]
-            modula.gradInput = recursiveCopy(self.initialGradInputs[i], modula.gradInput)
+            modula.gradInput = recursiveResizeAs(self.initialGradInputs[i], modula.gradInput)
          end
          
          -- backward propagate through first step
