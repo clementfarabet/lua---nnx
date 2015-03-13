@@ -32,8 +32,9 @@ function Repeater:updateGradInput(input, gradOutput)
       self.rnn:updateGradInput(input, gradOutput[step])
    end
    -- back-propagate through time (BPTT)
-   self.rnn.updateGradInputThroughTime()
-   return self.rnn.gradInputs
+   self.rnn:updateGradInputThroughTime()
+   self.gradInput = self.rnn.gradInputs
+   return self.gradInput
 end
 
 function Repeater:accGradParameters(input, gradOutput, scale)
@@ -45,7 +46,7 @@ function Repeater:accGradParameters(input, gradOutput, scale)
       self.rnn:accGradParameters(input, gradOutput[step], scale)
    end
    -- back-propagate through time (BPTT)
-   self.rnn.accGradParametersThroughTime()
+   self.rnn:accGradParametersThroughTime()
 end
 
 function Repeater:accUpdateGradParameters(input, gradOutput, lr)
@@ -57,5 +58,5 @@ function Repeater:accUpdateGradParameters(input, gradOutput, lr)
       self.rnn:accGradParameters(input, gradOutput[step], 1)
    end
    -- back-propagate through time (BPTT)
-   self.rnn.accUpdateGradParametersThroughTime(lr)
+   self.rnn:accUpdateGradParametersThroughTime(lr)
 end
