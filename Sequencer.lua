@@ -1,8 +1,12 @@
 ------------------------------------------------------------------------
 --[[ Sequencer ]]--
--- Encapsulates an AbstractRecurrent instance (rnn) which is repeatedly 
--- presented with the same input for nStep time steps.
--- The output is a table of nStep outputs of the rnn.
+-- Encapsulates a Module. 
+-- Input is a sequence (a table) of tensors.
+-- Output is a sequence (a table) of tensors of the same length.
+-- Applies the module to each element in the sequence.
+-- Handles both recurrent modules and non-recurrent modules.
+-- The sequences in a batch must have the same size.
+-- But the sequence length of each batch can vary.
 ------------------------------------------------------------------------
 local Sequencer, parent = torch.class("nn.Sequencer", "nn.Container")
 
