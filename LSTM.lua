@@ -188,6 +188,7 @@ end
 
 function LSTM:backwardThroughTime()
    assert(self.step > 1, "expecting at least one updateOutput")
+   self.gradInputs = {}
    local rho = math.min(self.rho, self.step-1)
    local stop = self.step - rho
    if self.fastBackward then
@@ -211,24 +212,23 @@ function LSTM:backwardThroughTime()
          end
          
          -- backward propagate through this step
-         local input = self.inputs[step]
-         local output = self.outputs[step-1]
-         local cell = self.cells[step-1]
          local gradOutput = self.gradOutputs[step] 
          if gradInput then
-            recursiveAdd(gradOutput, gradInput)   
+            recursiveAdd(gradOutput, gradInput)    
          end
          
-         local scale = self.scales[step]
-         local inputTable = {input, cell, output}
-         local gradOutputTable = {gradOutput, gradCell}
-         local gradInputTable = self.recurrentModule:backward(inputTable, gradOutputTable, scale/rho)
+         local scale = self.scales[step]/rho
+         local inputTable = {input, self.cells[step-1], self.outputs[step-1]}
+         local gradOutputTable = {gradOutput, self.gradCells[step]}
+         local gradInputTable = self.recurrentModule:backward(inputTable, gradOutputTable, scale)
          gradInput, gradCell = unpack(gradInputTable)
+         table.insert(self.gradInputs, 1, gradInput)
          
          for i,modula in ipairs(modules) do
             recurrentGradInputs[i] = modula.gradInput
          end
       end
+      return gradInput
    else
       local gradInput = self:updateGradInputThroughTime()
       self:accGradParametersThroughTime()
@@ -238,7 +238,9 @@ end
 
 function LSTM:updateGradInputThroughTime()
    assert(self.step > 1, "expecting at least one updateOutput")
+   self.gradInputs = {}
    local gradInput
+   local gradCell = self.startCell
    local rho = math.min(self.rho, self.step-1)
    local stop = self.step - rho
    for step=self.step-1,math.max(stop,1),-1 do
@@ -259,18 +261,18 @@ function LSTM:updateGradInputThroughTime()
       end
       
       -- backward propagate through this step
-      local input = self.inputs[step]
-      local output = self.outputs[step-1]
       local gradOutput = self.gradOutputs[step]
       if gradInput then
          self.recursiveAdd(gradOutput, gradInput) 
       end
       
-      local scale = self.scales[step]
-      local inputTable = {input, cell, output}
+      self.gradCells[self.step] = gradCell
+      local scale = self.scales[step]/rho
+      local inputTable = {self.inputs[step], self.cells[step-1], self.outputs[step-1]}
       local gradOutputTable = {gradOutput, gradCell}
-      local gradInputTable = self.recurrentModule:backward(inputTable, gradOutputTable, scale/rho)
+      local gradInputTable = self.recurrentModule:backward(inputTable, gradOutputTable, scale)
       gradInput, gradCell = unpack(gradInputTable)
+      table.insert(self.gradInputs, 1, gradInput)
       
       for i,modula in ipairs(modules) do
          recurrentGradInputs[i] = modula.gradInput
@@ -300,14 +302,10 @@ function LSTM:accGradParametersThroughTime()
       end
       
       -- backward propagate through this step
-      local input = self.inputs[step]
-      local output = self.outputs[step-1]
-      local gradOutput = self.gradOutputs[step]
-
-      local scale = self.scales[step]
-      -- TODO HERE
-      self.recurrentModule:accGradParameters({input, output}, gradOutput, scale/rho)
-      
+      local scale = self.scales[step]/rho
+      local inputTable = {self.inputs[step], self.cells[step], self.outputs[step-1]}
+      local gradOutputTable = {self.gradOutputs[step], self.gradCells[step]}
+      self.recurrentModule:accGradParameters(inputTable, gradOutputTable, scale)
    end
    
    self.gradParametersAccumulated = true
@@ -334,12 +332,10 @@ function LSTM:accUpdateGradParametersThroughTime(lr)
       end
       
       -- backward propagate through this step
-      local input = self.inputs[step]
-      local output = self.outputs[step-1]
-      local gradOutput = self.gradOutputs[step]
-
-      local scale = self.scales[step]
-      self.recurrentModule:accUpdateGradParameters({input, output}, gradOutput, lr*scale/rho)
+      local scale = self.scales[step]/rho
+      local inputTable = {self.inputs[step], self.cells[step], self.outputs[step-1]}
+      local gradOutputTable = {self.gradOutputs[step], self.gradCells[step]}
+      self.recurrentModule:accUpdateGradParameters(inputTable, gradOutputTable, lr*scale)
    end
    
    return gradInput
