@@ -24,13 +24,6 @@
 -- WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 -- 
 ----------------------------------------------------------------------
--- description:
---     xlua - lots of new trainable modules that extend the nn 
---            package.
---
--- history: 
---     July  5, 2011, 8:51PM - import from Torch5 - Clement Farabet
-----------------------------------------------------------------------
 
 require 'torch'
 require 'xlua'
@@ -85,17 +78,21 @@ torch.include('nnx', 'NarrowLookupTable.lua')
 torch.include('nnx', 'PushTable.lua')
 torch.include('nnx', 'PullTable.lua')
 torch.include('nnx', 'ZeroGrad.lua')
+torch.include('nnx', 'Padding.lua')
 
 -- recurrent
 torch.include('nnx', 'AbstractRecurrent.lua')
 torch.include('nnx', 'Recurrent.lua')
 torch.include('nnx', 'LSTM.lua')
+torch.include('nnx', 'Repeater.lua')
+torch.include('nnx', 'Sequencer.lua')
 
 -- criterions:
 torch.include('nnx', 'SuperCriterion.lua')
 torch.include('nnx', 'DistNLLCriterion.lua')
 torch.include('nnx', 'DistMarginCriterion.lua')
 torch.include('nnx', 'TreeNLLCriterion.lua')
+torch.include('nnx', 'RepeaterCriterion.lua')
 
 -- datasets:
 torch.include('nnx', 'DataSet.lua')

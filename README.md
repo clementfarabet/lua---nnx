@@ -104,7 +104,7 @@ while true do
    
    i = i + 1
    -- note that updateInterval < rho
-   if i % updateInterval then
+   if i % updateInterval == 0 then
       -- backpropagates through time (BPTT) :
       -- 1. backward through feedback and input layers,
       -- 2. updates parameters
