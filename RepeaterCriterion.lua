@@ -16,6 +16,7 @@ function RepeaterCriterion:forward(inputTable, target)
    for i,input in ipairs(inputTable) do
       self.output = self.output + self.criterion:forward(input, target)
    end
+   return self.output
 end
 
 function RepeaterCriterion:backward(inputTable, target)
