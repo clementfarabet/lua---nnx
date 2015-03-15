@@ -9,8 +9,9 @@
 ------------------------------------------------------------------------
 local LSTM, parent = torch.class('nn.LSTM', 'nn.AbstractRecurrent')
 
-function LSTM:__init(inputSize, outputSize)
-   parent.__init(self)
+function LSTM:__init(inputSize, outputSize, rho)
+   require 'dp'
+   parent.__init(self, rho or 999999999999)
    self.inputSize = inputSize
    self.outputSize = outputSize   
    -- build the model
@@ -21,18 +22,19 @@ function LSTM:__init(inputSize, outputSize)
    self.startOutput = torch.Tensor()
    self.startCell = torch.Tensor()
    self.cells = {}
+   self.gradCells = {}
 end
 
 -------------------------- factory methods -----------------------------
 function LSTM:buildGate()
-   -- Note : inputGate:forward expects an input table : {input, output, cell}
+   -- Note : gate expects an input table : {input, output(t-1), cell(t-1)}
    local gate = nn.Sequential()
    local input2gate = nn.Linear(self.inputSize, self.outputSize)
-   local cell2gate = nn.CMul(self.outputSize) -- diagonal cell to gate weight matrix
    local output2gate = nn.Linear(self.outputSize, self.outputSize)
-   output2gate:noBias() --TODO
+   local cell2gate = nn.CMul(self.outputSize) -- diagonal cell to gate weight matrix
+   --output2gate:noBias() --TODO
    local para = nn.ParallelTable()
-   para:add(input2gate):add(cell2gate):add(output2gate)
+   para:add(input2gate):add(output2gate):add(cell2gate)
    gate:add(para)
    gate:add(nn.CAddTable())
    gate:add(nn.Sigmoid())
@@ -40,11 +42,13 @@ function LSTM:buildGate()
 end
 
 function LSTM:buildInputGate()
-   return self:buildGate()
+   local gate = self:buildGate()
+   return gate
 end
 
 function LSTM:buildForgetGate()
-   return self:buildGate()
+   local gate = self:buildGate()
+   return gate
 end
 
 function LSTM:buildHidden()
@@ -52,15 +56,14 @@ function LSTM:buildHidden()
    local input2hidden = nn.Linear(self.inputSize, self.outputSize)
    local output2hidden = nn.Linear(self.outputSize, self.outputSize) 
    local para = nn.ParallelTable()
-   output2hidden:noBias()
+   --output2hidden:noBias()
    para:add(input2hidden):add(output2hidden)
-   -- input is {input, output, cell}, but we only need {input, output}
+   -- input is {input, output(t-1), cell(t-1)}, but we only need {input, output(t-1)}
    local concat = nn.ConcatTable()
-   concat:add(nn.SelectTable(1):add(nn.SelectTable(2))
+   concat:add(nn.SelectTable(1)):add(nn.SelectTable(2))
    hidden:add(concat)
    hidden:add(para)
    hidden:add(nn.CAddTable())
-   hidden:add(nn.Tanh())
    return hidden
 end
 
@@ -72,7 +75,7 @@ function LSTM:buildCell()
    -- forget = forgetGate{input, output(t-1), cell(t-1)} * cell(t-1)
    local forget = nn.Sequential()
    local concat = nn.ConcatTable()
-   concat:add(self.forgetGate):add(self.SelectTable(3))
+   concat:add(self.forgetGate):add(nn.SelectTable(3))
    forget:add(concat)
    forget:add(nn.CMulTable())
    -- input = inputGate{input, output(t-1), cell(t-1)} * hiddenLayer{input, output(t-1), cell(t-1)}
@@ -87,14 +90,17 @@ function LSTM:buildCell()
    concat3:add(forget):add(input)
    cell:add(concat3)
    cell:add(nn.CAddTable())
+   return cell
 end   
    
 function LSTM:buildOutputGate()
-   return self:buildGate()
+   local gate = self:buildGate()
+   return gate
 end
 
 -- cell(t) = cellLayer{input, output(t-1), cell(t-1)}
--- output = outputGate{input, output(t-1), cell(t)}*tanh(cell(t))
+-- output(t) = outputGate{input, output(t-1), cell(t)}*tanh(cell(t))
+-- output of Model is table : {output(t), cell(t)} 
 function LSTM:buildModel()
    -- build components
    self.cellLayer = self:buildCell()
@@ -102,24 +108,24 @@ function LSTM:buildModel()
    -- assemble
    local concat = nn.ConcatTable()
    local concat2 = nn.ConcatTable()
-   concat2:add(nn.SelectTable(1):add(nn.SelectTable(2))
+   concat2:add(nn.SelectTable(1)):add(nn.SelectTable(2))
    concat:add(concat2):add(self.cellLayer)
    local model = nn.Sequential()
-   model:add(concat2)
-   -- output of concat2 is {{input, output}, cell(t)}, 
+   model:add(concat)
+   -- output of concat is {{input, output}, cell(t)}, 
    -- so flatten to {input, output, cell(t)}
    model:add(nn.FlattenTable())
    local cellAct = nn.Sequential()
-   cellAct:add(nn.Select(3))
+   cellAct:add(nn.SelectTable(3))
    cellAct:add(nn.Tanh())
    local concat3 = nn.ConcatTable()
    concat3:add(self.outputGate):add(cellAct)
-   -- we want the model to output : {output(t), cell(t)}
-   local concat4 = nn.ConcatTable()
    local output = nn.Sequential()
    output:add(concat3)
    output:add(nn.CMulTable())
-   concat4:add(output):add(nn.Identity())
+   -- we want the model to output : {output(t), cell(t)}
+   local concat4 = nn.ConcatTable()
+   concat4:add(output):add(nn.SelectTable(3))
    model:add(concat4)
    return model
 end
@@ -131,9 +137,9 @@ function LSTM:updateOutput(input)
       prevOutput = self.startOutput
       prevCell = self.startCell
       if input:dim() == 2 then
-         self.startOutput:resize(input:size(1), self.outputSize)
+         self.startOutput:resize(input:size(1), self.outputSize):zero()
       else
-         self.startOutput:resize(self.outputSize)
+         self.startOutput:resize(self.outputSize):zero()
       end
       self.startCell:set(self.startOutput)
    else
@@ -154,11 +160,12 @@ function LSTM:updateOutput(input)
          self.recurrentOutputs[self.step] = recurrentOutputs
       end
       for i,modula in ipairs(modules) do
-         local output_ = recursiveResizeAs(recurrentOutputs[i], modula.output)
+         local output_ = self.recursiveResizeAs(recurrentOutputs[i], modula.output)
          modula.output = output_
       end
       -- the actual forward propagation
-      output, cell = self.recurrentModule:updateOutput{input, prevOutput, prevCell}
+      output = self.recurrentModule:updateOutput{input, prevOutput, prevCell}
+      output, cell = unpack(output)
       
       for i,modula in ipairs(modules) do
          recurrentOutputs[i]  = modula.output
@@ -192,7 +199,8 @@ function LSTM:backwardThroughTime()
    local rho = math.min(self.rho, self.step-1)
    local stop = self.step - rho
    if self.fastBackward then
-      local gradInput, gradCell
+      local gradInput, gradPrevOutput
+      local gradCell = self.startCell
       for step=self.step-1,math.max(stop,1),-1 do
          -- set the output/gradOutput states of current Module
          local modules = self.recurrentModule:listModules()
@@ -208,20 +216,21 @@ function LSTM:backwardThroughTime()
             local output_ = recurrentOutputs[i]
             assert(output_, "backwardThroughTime should be preceded by updateOutput")
             modula.output = output_
-            modula.gradInput = recursiveCopy(recurrentGradInputs[i], gradInput)
+            modula.gradInput = self.recursiveCopy(recurrentGradInputs[i], gradInput)
          end
          
          -- backward propagate through this step
          local gradOutput = self.gradOutputs[step] 
-         if gradInput then
-            recursiveAdd(gradOutput, gradInput)    
+         if gradPrevOutput then
+            assert(gradPrevOutput:sum() ~= 0)
+            self.recursiveAdd(gradOutput, gradPrevOutput)    
          end
          
+         self.gradCells[self.step] = gradCell
          local scale = self.scales[step]/rho
-         local inputTable = {input, self.cells[step-1], self.outputs[step-1]}
-         local gradOutputTable = {gradOutput, self.gradCells[step]}
-         local gradInputTable = self.recurrentModule:backward(inputTable, gradOutputTable, scale)
-         gradInput, gradCell = unpack(gradInputTable)
+         local inputTable = {self.inputs[step], self.cells[step-1] or self.startOutput, self.outputs[step-1] or self.startCell}
+         local gradInputTable = self.recurrentModule:backward(inputTable, {gradOutput, gradCell}, scale)
+         gradInput, gradPrevOutput, gradCell = unpack(gradInputTable)
          table.insert(self.gradInputs, 1, gradInput)
          
          for i,modula in ipairs(modules) do
@@ -239,7 +248,7 @@ end
 function LSTM:updateGradInputThroughTime()
    assert(self.step > 1, "expecting at least one updateOutput")
    self.gradInputs = {}
-   local gradInput
+   local gradInput, gradPrevOutput
    local gradCell = self.startCell
    local rho = math.min(self.rho, self.step-1)
    local stop = self.step - rho
@@ -262,16 +271,15 @@ function LSTM:updateGradInputThroughTime()
       
       -- backward propagate through this step
       local gradOutput = self.gradOutputs[step]
-      if gradInput then
-         self.recursiveAdd(gradOutput, gradInput) 
+      if gradPrevOutput then
+         self.recursiveAdd(gradOutput, gradPrevOutput) 
       end
       
       self.gradCells[self.step] = gradCell
       local scale = self.scales[step]/rho
-      local inputTable = {self.inputs[step], self.cells[step-1], self.outputs[step-1]}
-      local gradOutputTable = {gradOutput, gradCell}
-      local gradInputTable = self.recurrentModule:backward(inputTable, gradOutputTable, scale)
-      gradInput, gradCell = unpack(gradInputTable)
+      local inputTable = {self.inputs[step], self.cells[step-1] or self.startOutput, self.outputs[step-1] or self.startCell}
+      local gradInputTable = self.recurrentModule:backward(inputTable, {gradOutput, gradCell}, scale)
+      gradInput, gradPrevOutput, gradCell = unpack(gradInputTable)
       table.insert(self.gradInputs, 1, gradInput)
       
       for i,modula in ipairs(modules) do

@@ -17,7 +17,7 @@
 local Recurrent, parent = torch.class('nn.Recurrent', 'nn.AbstractRecurrent')
 
 function Recurrent:__init(start, input, feedback, transfer, rho, merge)
-   parent.__init(self)
+   parent.__init(self, rho or 5)
    
    local ts = torch.type(start)
    if ts == 'torch.LongTensor' or ts == 'number' then
@@ -29,7 +29,6 @@ function Recurrent:__init(start, input, feedback, transfer, rho, merge)
    self.feedbackModule = feedback
    self.transferModule = transfer or nn.Sigmoid()
    self.mergeModule = merge or nn.CAddTable()
-   self.rho = rho or 5
    
    self.modules = {self.startModule, self.inputModule, self.feedbackModule, self.transferModule, self.mergeModule}
    
@@ -38,8 +37,6 @@ function Recurrent:__init(start, input, feedback, transfer, rho, merge)
    
    self.initialOutputs = {}
    self.initialGradInputs = {}
-   self.recurrentOutputs = {}
-   self.recurrentGradInputs = {}
 end
 
 -- build module used for the first step (steps == 1)
@@ -121,7 +118,7 @@ function Recurrent:backwardThroughTime()
    local stop = self.step - rho
    if self.fastBackward then
       self.gradInputs = {}
-      local gradInput
+      local gradInput, gradPrevOutput
       for step=self.step-1,math.max(stop, 2),-1 do
          -- set the output/gradOutput states of current Module
          local modules = self.recurrentModule:listModules()
@@ -144,12 +141,12 @@ function Recurrent:backwardThroughTime()
          local input = self.inputs[step]
          local output = self.outputs[step-1]
          local gradOutput = self.gradOutputs[step] 
-         if gradInput then
-            self.recursiveAdd(gradOutput, gradInput)   
+         if gradPrevOutput then
+            self.recursiveAdd(gradOutput, gradPrevOutput)   
          end
          local scale = self.scales[step]
          
-         gradInput = self.recurrentModule:backward({input, output}, gradOutput, scale/rho)[2]
+         gradInput, gradPrevOutput = unpack(self.recurrentModule:backward({input, output}, gradOutput, scale/rho))
          table.insert(self.gradInputs, 1, gradInput)
          
          for i,modula in ipairs(modules) do
@@ -168,8 +165,8 @@ function Recurrent:backwardThroughTime()
          -- backward propagate through first step
          local input = self.inputs[1]
          local gradOutput = self.gradOutputs[1]
-         if gradInput then
-            self.recursiveAdd(gradOutput, gradInput)
+         if gradPrevOutput then
+            self.recursiveAdd(gradOutput, gradPrevOutput)
          end
          local scale = self.scales[1]
          gradInput = self.initialModule:backward(input, gradOutput, scale/rho)
@@ -201,7 +198,7 @@ end
 function Recurrent:updateGradInputThroughTime()
    assert(self.step > 1, "expecting at least one updateOutput")
    self.gradInputs = {}
-   local gradInput
+   local gradInput, gradPrevOutput
    local rho = math.min(self.rho, self.step-1)
    local stop = self.step - rho
    for step=self.step-1,math.max(stop,2),-1 do
@@ -225,14 +222,16 @@ function Recurrent:updateGradInputThroughTime()
       local input = self.inputs[step]
       local output = self.outputs[step-1]
       local gradOutput = self.gradOutputs[step]
-      if gradInput then
-         self.recursiveAdd(gradOutput, gradInput) 
+      if gradPrevOutput then
+         self.recursiveAdd(gradOutput, gradPrevOutput) 
       end
-      gradInput = self.recurrentModule:updateGradInput({input, output}, gradOutput)[2]
+      
+      gradInput, gradPrevOutput = unpack(self.recurrentModule:updateGradInput({input, output}, gradOutput))
+      table.insert(self.gradInputs, 1, gradInput)
+      
       for i,modula in ipairs(modules) do
          recurrentGradInputs[i] = modula.gradInput
       end
-      table.insert(self.gradInputs, 1, gradInput)
    end
    
    if stop <= 1 then
@@ -246,15 +245,15 @@ function Recurrent:updateGradInputThroughTime()
       -- backward propagate through first step
       local input = self.inputs[1]
       local gradOutput = self.gradOutputs[1]
-      if gradInput then
-         self.recursiveAdd(gradOutput, gradInput) 
+      if gradPrevOutput then
+         self.recursiveAdd(gradOutput, gradPrevOutput) 
       end
       gradInput = self.initialModule:updateGradInput(input, gradOutput)
+      table.insert(self.gradInputs, 1, gradInput)
       
       for i,modula in ipairs(modules) do
          self.initialGradInputs[i] = modula.gradInput
       end
-      table.insert(self.gradInputs, 1, gradInput)
    end
    
    return gradInput
@@ -286,7 +285,6 @@ function Recurrent:accGradParametersThroughTime()
 
       local scale = self.scales[step]
       self.recurrentModule:accGradParameters({input, output}, gradOutput, scale/rho)
-      
    end
    
    if stop <= 1 then

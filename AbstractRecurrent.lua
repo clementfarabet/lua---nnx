@@ -1,7 +1,9 @@
 local AbstractRecurrent, parent = torch.class('nn.AbstractRecurrent', 'nn.Container')
 
-function AbstractRecurrent:__init(start, input, feedback, transfer, rho, merge)
+function AbstractRecurrent:__init(rho)
    parent.__init(self)
+   
+   self.rho = rho --the maximum number of time steps to BPTT
    
    self.fastBackward = true
    self.copyInputs = true
@@ -13,6 +15,10 @@ function AbstractRecurrent:__init(start, input, feedback, transfer, rho, merge)
    
    self.gradParametersAccumulated = false
    self.step = 1
+   
+   -- stores internal states of Modules at different time-steps
+   self.recurrentOutputs = {}
+   self.recurrentGradInputs = {}
    
    self:reset()
 end
