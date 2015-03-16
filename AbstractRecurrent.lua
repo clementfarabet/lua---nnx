@@ -90,6 +90,42 @@ local function recursiveAdd(t1, t2)
 end
 AbstractRecurrent.recursiveAdd = recursiveAdd
 
+local function recursiveTensorEq(t1, t2)
+   if torch.type(t2) == 'table' then
+      local isEqual = true
+      if torch.type(t1) ~= 'table' then
+         return false
+      end
+      for key,_ in pairs(t2) do
+          isEqual = isEqual and recursiveTensorEq(t1[key], t2[key])
+      end
+      return isEqual
+   elseif torch.isTensor(t2) and torch.isTensor(t2) then
+      local diff = t1-t2
+      local err = diff:abs():max()
+      return err < 0.00001
+   else
+      error("expecting nested tensors or tables. Got "..
+            torch.type(t1).." and "..torch.type(t2).." instead")
+   end
+end
+AbstractRecurrent.recursiveTensorEq = recursiveTensorEq
+
+local function recursiveNormal(t2)
+   if torch.type(t2) == 'table' then
+      for key,_ in pairs(t2) do
+         t2[key] = recursiveNormal(t2[key])
+      end
+   elseif torch.isTensor(t2) then
+      t2:normal()
+   else
+      error("expecting tensor or table thereof. Got "
+           ..torch.type(t2).." instead")
+   end
+   return t2
+end
+AbstractRecurrent.recursiveNormal = recursiveNormal
+
 function AbstractRecurrent:updateGradInput(input, gradOutput)
    -- Back-Propagate Through Time (BPTT) happens in updateParameters()
    -- for now we just keep a list of the gradOutputs
@@ -180,4 +216,66 @@ function AbstractRecurrent:forget()
    
    -- forget the past inputs; restart from first step
    self.step = 1
+end
+
+-- tests whether or not the mlp can be used internally for recursion.
+-- forward A, backward A, forward B, forward A should be consistent with
+-- forward B, backward B, backward A where A and B each 
+-- have their own gradInputs/outputs.
+function AbstractRecurrent.isRecursable(mlp, input)
+   local output = recursiveCopy(nil, mlp:forward(input)) --forward A
+   local gradOutput = recursiveNormal(recursiveCopy(nil, output))
+   mlp:zeroGradParameters()
+   local gradInput = recursiveCopy(nil, mlp:backward(input, gradOutput)) --backward A
+   local params, gradParams = mlp:parameters()
+   gradParams = recursiveCopy(nil, gradParams)
+   
+   -- output/gradInput are the only internal module states that we track
+   local recurrentOutputs = {}
+   local recurrentGradInputs = {}
+   
+   local modules = mlp:listModules()
+   
+   -- save the output/gradInput states of A
+   for i,modula in ipairs(modules) do
+      recurrentOutputs[i]  = modula.output
+      recurrentGradInputs[i] = modula.gradInput
+   end
+   -- set the output/gradInput states for B
+   local recurrentOutputs2 = {}
+   local recurrentGradInputs2 = {}
+   for i,modula in ipairs(modules) do
+      modula.output = recursiveResizeAs(recurrentOutputs2[i], modula.output)
+      modula.gradInput = recursiveResizeAs(recurrentGradInputs2[i], modula.gradInput)
+   end
+   
+   local input2 = recursiveNormal(recursiveCopy(nil, input))
+   local gradOutput2 = recursiveNormal(recursiveCopy(nil, gradOutput))
+   local output2 = mlp:forward(input2) --forward B
+   mlp:zeroGradParameters()
+   local gradInput2 = mlp:backward(input2, gradOutput2) --backward B
+   
+   -- save the output/gradInput state of B
+   for i,modula in ipairs(modules) do
+      recurrentOutputs2[i]  = modula.output
+      recurrentGradInputs2[i] = modula.gradInput
+   end
+   
+   -- set the output/gradInput states for A
+   for i,modula in ipairs(modules) do
+      modula.output = recursiveResizeAs(recurrentOutputs[i], modula.output)
+      modula.gradInput = recursiveResizeAs(recurrentGradInputs[i], modula.gradInput)
+   end
+   
+   mlp:zeroGradParameters()
+   local gradInput3 = mlp:backward(input, gradOutput) --forward A
+   local gradInputTest = recursiveTensorEq(gradInput, gradInput3)
+   local params3, gradParams3 = mlp:parameters()
+   local nEq = 0
+   for i,gradParam in ipairs(gradParams) do
+      nEq = nEq + (recursiveTensorEq(gradParam, gradParams3[i]) and 1 or 0)
+   end
+   local gradParamsTest = (nEq == #gradParams3)
+   mlp:zeroGradParameters()
+   return gradParamsTest and gradInputTest, gradParamsTest, gradInputTest
 end
