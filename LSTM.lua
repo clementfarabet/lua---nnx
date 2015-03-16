@@ -10,14 +10,13 @@
 local LSTM, parent = torch.class('nn.LSTM', 'nn.AbstractRecurrent')
 
 function LSTM:__init(inputSize, outputSize, rho)
-   require 'dp'
    parent.__init(self, rho or 999999999999)
    self.inputSize = inputSize
    self.outputSize = outputSize   
    -- build the model
    self.recurrentModule = self:buildModel()
    -- make it work with nn.Container
-   self.modules[1] = self.model
+   self.modules[1] = self.recurrentModule
    
    self.startOutput = torch.Tensor()
    self.startCell = torch.Tensor()
@@ -222,11 +221,10 @@ function LSTM:backwardThroughTime()
          -- backward propagate through this step
          local gradOutput = self.gradOutputs[step] 
          if gradPrevOutput then
-            assert(gradPrevOutput:sum() ~= 0)
             self.recursiveAdd(gradOutput, gradPrevOutput)    
          end
          
-         self.gradCells[self.step] = gradCell
+         self.gradCells[step] = gradCell
          local scale = self.scales[step]/rho
          local inputTable = {self.inputs[step], self.cells[step-1] or self.startOutput, self.outputs[step-1] or self.startCell}
          local gradInputTable = self.recurrentModule:backward(inputTable, {gradOutput, gradCell}, scale)
@@ -275,7 +273,7 @@ function LSTM:updateGradInputThroughTime()
          self.recursiveAdd(gradOutput, gradPrevOutput) 
       end
       
-      self.gradCells[self.step] = gradCell
+      self.gradCells[step] = gradCell
       local scale = self.scales[step]/rho
       local inputTable = {self.inputs[step], self.cells[step-1] or self.startOutput, self.outputs[step-1] or self.startCell}
       local gradInputTable = self.recurrentModule:backward(inputTable, {gradOutput, gradCell}, scale)

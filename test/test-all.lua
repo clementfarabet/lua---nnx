@@ -342,6 +342,11 @@ function nnxtest.Recurrent()
    -- rho = nSteps
    local mlp = nn.Recurrent(outputSize, inputModule, feedbackModule, transferModule:clone(), nSteps)
    
+   -- test that the internal mlps are recursable :
+   local isRecursable = nn.AbstractRecurrent.isRecursable
+   mytester:assert(isRecursable(mlp.initialModule, torch.randn(inputSize)), "Recurrent isRecursable() initial error")
+   mytester:assert(isRecursable(mlp.recurrentModule, {torch.randn(inputSize), torch.randn(outputSize)}), "Recurrent isRecursable() recurrent error")
+   
    local gradOutputs, outputs = {}, {}
    -- inputs = {inputN, {inputN-1, {inputN-2, ...}}}}}
    local inputs
@@ -583,6 +588,10 @@ function nnxtest.LSTM()
    end
    local lstm = nn.LSTM(inputSize, outputSize)
    
+   local isRecursable = nn.AbstractRecurrent.isRecursable
+   local inputTable = {torch.randn(batchSize, inputSize), torch.randn(batchSize, outputSize), torch.randn(batchSize, outputSize)}
+   mytester:assert(isRecursable(lstm.recurrentModule, inputTable), "LSTM isRecursable() error")
+   
    -- we will use this to build an LSTM step by step (with shared params)
    local lstmStep = lstm.recurrentModule:clone()
    
@@ -627,11 +636,18 @@ function nnxtest.LSTM()
    
    local output2 = mlp2:forward(inputs)
    
-   
    mlp2:zeroGradParameters()
    local gradInput2 = mlp2:backward(inputs, gradOutput[nStep], 1/nStep)
    mytester:assertTensorEq(gradInput2[2][2][1], gradInput, 0.00001, "LSTM gradInput error")
    mytester:assertTensorEq(output[nStep], output2, 0.00001, "LSTM output error")
+   
+   local params, gradParams = lstm:parameters()
+   local params2, gradParams2 = lstmStep:parameters()
+   mytester:assert(#params == #params2, "LSTM parameters error "..#params.." ~= "..#params2)
+   for i, gradParam in ipairs(gradParams) do
+      local gradParam2 = gradParams2[i]
+      mytester:assertTensorEq(gradParam, gradParam2, 0.000001, "LSTM gradParam "..i.." error "..tostring(gradParam).." "..tostring(gradParam2))
+   end
 end
 
 function nnxtest.SpatialNormalization_Gaussian2D()
