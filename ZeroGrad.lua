@@ -16,6 +16,11 @@ local function recursiveZero(t1,t2)
    return t1, t2
 end
 
+function ZeroGrad:updateOutput(input)
+   self.output:set(input)
+   return self.output
+end
+
 -- the gradient is simply zeroed.
 -- useful when you don't want to backpropgate through certain paths.
 function ZeroGrad:updateGradInput(input, gradOutput)
