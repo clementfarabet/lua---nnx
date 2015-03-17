@@ -18,8 +18,9 @@ function LSTM:__init(inputSize, outputSize, rho)
    -- make it work with nn.Container
    self.modules[1] = self.recurrentModule
    
-   self.startOutput = torch.Tensor()
-   self.startCell = torch.Tensor()
+   -- for output(0), cell(0) and gradCell(T)
+   self.zeroTensor = torch.Tensor() 
+   
    self.cells = {}
    self.gradCells = {}
 end
@@ -135,16 +136,15 @@ end
 function LSTM:updateOutput(input)
    local prevOutput, prevCell
    if self.step == 1 then
-      prevOutput = self.startOutput
-      prevCell = self.startCell
+      prevOutput = self.zeroTensor
+      prevCell = self.zeroTensor
       if input:dim() == 2 then
-         self.startOutput:resize(input:size(1), self.outputSize):zero()
+         self.zeroTensor:resize(input:size(1), self.outputSize):zero()
       else
-         self.startOutput:resize(self.outputSize):zero()
+         self.zeroTensor:resize(self.outputSize):zero()
       end
-      self.startCell:set(self.startOutput)
-      self.outputs[0] = self.startOutput
-      self.cells[0] = self.startCell
+      self.outputs[0] = self.zeroTensor
+      self.cells[0] = self.zeroTensor
    else
       -- previous output and cell of this module
       prevOutput = self.output
@@ -201,8 +201,7 @@ function LSTM:backwardThroughTime()
    local rho = math.min(self.rho, self.step-1)
    local stop = self.step - rho
    if self.fastBackward then
-      local gradInput, gradPrevOutput
-      local gradCell = self.startCell
+      local gradInput, gradPrevOutput, gradCell
       for step=self.step-1,math.max(stop,1),-1 do
          -- set the output/gradOutput states of current Module
          local modules = self.recurrentModule:listModules()
@@ -212,13 +211,14 @@ function LSTM:backwardThroughTime()
             recurrentGradInputs = {}
             self.recurrentGradInputs[step] = recurrentGradInputs
          end
+         
          for i,modula in ipairs(modules) do
             local output, gradInput = modula.output, modula.gradInput
             assert(gradInput, "missing gradInput")
             local output_ = recurrentOutputs[i]
             assert(output_, "backwardThroughTime should be preceded by updateOutput")
             modula.output = output_
-            modula.gradInput = self.recursiveCopy(recurrentGradInputs[i], gradInput)
+            modula.gradInput = self.recursiveResizeAs(recurrentGradInputs[i], gradInput) --resize, NOT copy
          end
          
          -- backward propagate through this step
@@ -251,7 +251,7 @@ function LSTM:updateGradInputThroughTime()
    assert(self.step > 1, "expecting at least one updateOutput")
    self.gradInputs = {}
    local gradInput, gradPrevOutput
-   local gradCell = self.startCell
+   local gradCell = self.zeroTensor
    local rho = math.min(self.rho, self.step-1)
    local stop = self.step - rho
    for step=self.step-1,math.max(stop,1),-1 do
@@ -268,7 +268,7 @@ function LSTM:updateGradInputThroughTime()
          local output_ = recurrentOutputs[i]
          assert(output_, "updateGradInputThroughTime should be preceded by updateOutput")
          modula.output = output_
-         modula.gradInput = self.recursiveCopy(recurrentGradInputs[i], gradInput)
+         modula.gradInput = self.recursiveResizeAs(recurrentGradInputs[i], gradInput)
       end
       
       -- backward propagate through this step
@@ -280,7 +280,7 @@ function LSTM:updateGradInputThroughTime()
       self.gradCells[step] = gradCell
       local scale = self.scales[step]/rho
       local inputTable = {self.inputs[step], self.outputs[step-1], self.cells[step-1]}
-      local gradInputTable = self.recurrentModule:backward(inputTable, {gradOutput, gradCell}, scale)
+      local gradInputTable = self.recurrentModule:updateGradInput(inputTable, {gradOutput, gradCell}, scale)
       gradInput, gradPrevOutput, gradCell = unpack(gradInputTable)
       table.insert(self.gradInputs, 1, gradInput)
       

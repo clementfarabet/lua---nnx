@@ -369,6 +369,10 @@ function Recurrent:accUpdateGradParametersThroughTime(lr)
    return gradInput
 end
 
+function Recurrent:forget()
+   parent.forget(self, 1)
+end
+
 function Recurrent:__tostring__()
    local tab = '  '
    local line = '\n'

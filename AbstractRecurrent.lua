@@ -179,15 +179,15 @@ function AbstractRecurrent:recycle()
    end
 end
 
-function AbstractRecurrent:forget()
-
+function AbstractRecurrent:forget(offset)
+   offset = offset or 1
    if self.train ~= false then
       -- bring all states back to the start of the sequence buffers
       local lastStep = self.step - 1
       
-      if lastStep > self.rho + 1 then
-         local i = 2
-         for step = lastStep-self.rho+1,lastStep do
+      if lastStep > self.rho + offset then
+         local i = 1 + offset
+         for step = lastStep-self.rho+offset,lastStep do
             self.recurrentOutputs[i] = self.recurrentOutputs[step]
             self.recurrentGradInputs[i] = self.recurrentGradInputs[step]
             self.recurrentOutputs[step] = nil
