@@ -41,13 +41,13 @@ function LSTM:buildGate()
 end
 
 function LSTM:buildInputGate()
-   local gate = self:buildGate()
-   return gate
+   self.inputGate = self:buildGate()
+   return self.inputGate
 end
 
 function LSTM:buildForgetGate()
-   local gate = self:buildGate()
-   return gate
+   self.forgetGate = self:buildGate()
+   return self.forgetGate
 end
 
 function LSTM:buildHidden()
@@ -63,6 +63,7 @@ function LSTM:buildHidden()
    hidden:add(concat)
    hidden:add(para)
    hidden:add(nn.CAddTable())
+   self.hiddenLayer = hidden
    return hidden
 end
 
@@ -89,12 +90,13 @@ function LSTM:buildCell()
    concat3:add(forget):add(input)
    cell:add(concat3)
    cell:add(nn.CAddTable())
+   self.cellLayer = cell
    return cell
 end   
    
 function LSTM:buildOutputGate()
-   local gate = self:buildGate()
-   return gate
+   self.outputGate = self:buildGate()
+   return self.outputGate
 end
 
 -- cell(t) = cellLayer{input, output(t-1), cell(t-1)}
@@ -141,6 +143,8 @@ function LSTM:updateOutput(input)
          self.startOutput:resize(self.outputSize):zero()
       end
       self.startCell:set(self.startOutput)
+      self.outputs[0] = self.startOutput
+      self.cells[0] = self.startCell
    else
       -- previous output and cell of this module
       prevOutput = self.output
@@ -163,14 +167,13 @@ function LSTM:updateOutput(input)
          modula.output = output_
       end
       -- the actual forward propagation
-      output = self.recurrentModule:updateOutput{input, prevOutput, prevCell}
-      output, cell = unpack(output)
+      output, cell = unpack(self.recurrentModule:updateOutput{input, prevOutput, prevCell})
       
       for i,modula in ipairs(modules) do
          recurrentOutputs[i]  = modula.output
       end
    else
-      output, cell = self.recurrentModule:updateOutput{input, prevOutput, prevCell}
+      output, cell = unpack(self.recurrentModule:updateOutput{input, prevOutput, prevCell})
    end
    
    if self.train ~= false then
@@ -226,7 +229,8 @@ function LSTM:backwardThroughTime()
          
          self.gradCells[step] = gradCell
          local scale = self.scales[step]/rho
-         local inputTable = {self.inputs[step], self.cells[step-1] or self.startOutput, self.outputs[step-1] or self.startCell}
+
+         local inputTable = {self.inputs[step], self.outputs[step-1], self.cells[step-1]}
          local gradInputTable = self.recurrentModule:backward(inputTable, {gradOutput, gradCell}, scale)
          gradInput, gradPrevOutput, gradCell = unpack(gradInputTable)
          table.insert(self.gradInputs, 1, gradInput)
@@ -275,7 +279,7 @@ function LSTM:updateGradInputThroughTime()
       
       self.gradCells[step] = gradCell
       local scale = self.scales[step]/rho
-      local inputTable = {self.inputs[step], self.cells[step-1] or self.startOutput, self.outputs[step-1] or self.startCell}
+      local inputTable = {self.inputs[step], self.outputs[step-1], self.cells[step-1]}
       local gradInputTable = self.recurrentModule:backward(inputTable, {gradOutput, gradCell}, scale)
       gradInput, gradPrevOutput, gradCell = unpack(gradInputTable)
       table.insert(self.gradInputs, 1, gradInput)
@@ -309,7 +313,7 @@ function LSTM:accGradParametersThroughTime()
       
       -- backward propagate through this step
       local scale = self.scales[step]/rho
-      local inputTable = {self.inputs[step], self.cells[step], self.outputs[step-1]}
+      local inputTable = {self.inputs[step], self.outputs[step-1], self.cells[step-1]}
       local gradOutputTable = {self.gradOutputs[step], self.gradCells[step]}
       self.recurrentModule:accGradParameters(inputTable, gradOutputTable, scale)
    end
@@ -339,7 +343,7 @@ function LSTM:accUpdateGradParametersThroughTime(lr)
       
       -- backward propagate through this step
       local scale = self.scales[step]/rho
-      local inputTable = {self.inputs[step], self.cells[step], self.outputs[step-1]}
+      local inputTable = {self.inputs[step], self.outputs[step-1], self.cells[step]}
       local gradOutputTable = {self.gradOutputs[step], self.gradCells[step]}
       self.recurrentModule:accUpdateGradParameters(inputTable, gradOutputTable, lr*scale)
    end
