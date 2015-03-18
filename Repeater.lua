@@ -6,11 +6,12 @@
 ------------------------------------------------------------------------
 local Repeater, parent = torch.class("nn.Repeater", "nn.Container")
 
-function Repeater:__init(nStep, rnn)
+function Repeater:__init(rnn, nStep)
    parent.__init(self)
+   assert(torch.type(nStep) == 'number', "expecting number value for arg 2")
    self.nStep = nStep
    self.rnn = rnn
-   assert(rnn.backwardThroughTime, "expecting AbstractRecurrent instance for arg 2")
+   assert(rnn.backwardThroughTime, "expecting AbstractRecurrent instance for arg 1")
    self.modules[1] = rnn
    self.output = {}
 end
@@ -23,6 +24,9 @@ function Repeater:updateOutput(input)
    return self.output
 end
 
+local recursiveAdd = nn.AbstractRecurrent.recursiveAdd
+local recursiveCopy = nn.AbstractRecurrent.recursiveCopy
+
 function Repeater:updateGradInput(input, gradOutput)
    assert(self.rnn.step - 1 == self.nStep, "inconsistent rnn steps")
    assert(torch.type(gradOutput) == 'table', "expecting gradOutput table")
@@ -33,7 +37,15 @@ function Repeater:updateGradInput(input, gradOutput)
    end
    -- back-propagate through time (BPTT)
    self.rnn:updateGradInputThroughTime()
-   self.gradInput = self.rnn.gradInputs
+   
+   for i,currentGradInput in ipairs(self.rnn.gradInputs) do
+      if i == 1 then
+         self.gradInput = recursiveCopy(self.gradInput, currentGradInput)
+      else
+         recursiveAdd(self.gradInput, currentGradInput)
+      end
+   end
+   
    return self.gradInput
 end
 
@@ -66,9 +78,9 @@ function Repeater:__tostring__()
    local line = '\n'
    local str = torch.type(self) .. ' {' .. line
    str = str .. tab .. '[  input,    input,  ...,  input  ]'.. line
-   str = str .. tab .. '               V                   '.. line
+   str = str .. tab .. '     V         V             V     '.. line
    str = str .. tab .. tostring(self.modules[1]):gsub(line, line .. tab) .. line
-   str = str .. tab .. '               V                   '.. line
+   str = str .. tab .. '     V         V             V     '.. line
    str = str .. tab .. '[output(1),output(2),...,output('..self.nStep..')]' .. line
    str = str .. '}'
    return str

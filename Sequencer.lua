@@ -188,9 +188,9 @@ function Sequencer:__tostring__()
    local line = '\n'
    local str = torch.type(self) .. ' {' .. line
    str = str .. tab .. '[input(1), input(2), ..., input(T)]'.. line
-   str = str .. tab .. '               V                   '.. line
+   str = str .. tab .. '   V           V            V      '.. line
    str = str .. tab .. tostring(self.modules[1]):gsub(line, line .. tab) .. line
-   str = str .. tab .. '               V                   '.. line
+   str = str .. tab .. '   V           V            V      '.. line
    str = str .. tab .. '[output(1),output(2),...,output(T)]' .. line
    str = str .. '}'
    return str
