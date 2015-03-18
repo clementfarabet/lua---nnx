@@ -13,6 +13,7 @@ function RepeaterCriterion:__init(criterion)
 end
 
 function RepeaterCriterion:forward(inputTable, target)
+   self.output = 0
    for i,input in ipairs(inputTable) do
       self.output = self.output + self.criterion:forward(input, target)
    end

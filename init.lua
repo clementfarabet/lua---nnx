@@ -75,12 +75,17 @@ torch.include('nnx', 'SoftMaxTree.lua')
 torch.include('nnx', 'MultiSoftMax.lua')
 torch.include('nnx', 'Balance.lua')
 torch.include('nnx', 'NarrowLookupTable.lua')
-torch.include('nnx', 'Recurrent.lua')
-torch.include('nnx', 'Repeater.lua')
-torch.include('nnx', 'Sequencer.lua')
 torch.include('nnx', 'PushTable.lua')
 torch.include('nnx', 'PullTable.lua')
+torch.include('nnx', 'ZeroGrad.lua')
 torch.include('nnx', 'Padding.lua')
+
+-- recurrent
+torch.include('nnx', 'AbstractRecurrent.lua')
+torch.include('nnx', 'Recurrent.lua')
+torch.include('nnx', 'LSTM.lua')
+torch.include('nnx', 'Repeater.lua')
+torch.include('nnx', 'Sequencer.lua')
 
 -- criterions:
 torch.include('nnx', 'SuperCriterion.lua')

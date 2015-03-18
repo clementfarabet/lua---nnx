@@ -342,6 +342,15 @@ function nnxtest.Recurrent()
    -- rho = nSteps
    local mlp = nn.Recurrent(outputSize, inputModule, feedbackModule, transferModule:clone(), nSteps)
    
+   -- test that the internal mlps are recursable :
+   local isRecursable = nn.AbstractRecurrent.isRecursable
+   mytester:assert(isRecursable(mlp.initialModule, torch.randn(inputSize)), "Recurrent isRecursable() initial error")
+   mytester:assert(isRecursable(mlp.recurrentModule, {torch.randn(inputSize), torch.randn(outputSize)}), "Recurrent isRecursable() recurrent error")
+   
+   -- test that the above test actually works
+   local euclidean = nn.Euclidean(inputSize, outputSize)
+   mytester:assert(not isRecursable(euclidean, torch.randn(batchSize, inputSize)), "AbstractRecurrent.isRecursable error")
+   
    local gradOutputs, outputs = {}, {}
    -- inputs = {inputN, {inputN-1, {inputN-2, ...}}}}}
    local inputs
@@ -355,8 +364,10 @@ function nnxtest.Recurrent()
    mlp:zeroGradParameters()
    local mlp7 = mlp:clone()
    mlp7.rho = nSteps - 1
+   local inputSequence = {}
    for step=1,nSteps do
       local input = torch.randn(batchSize, inputSize)
+      inputSequence[step] = input
       local gradOutput
       if step ~= nSteps then
          -- for the sake of keeping this unit test simple,
@@ -389,7 +400,18 @@ function nnxtest.Recurrent()
    local mlp5 = mlp:clone()
    
    -- backward propagate through time (BPTT)
-   local gradInput = mlp:backwardThroughTime()
+   local gradInput = mlp:backwardThroughTime():clone()
+   mlp:forget() -- test ability to forget
+   mlp:zeroGradParameters()
+   local foutputs = {}
+   for step=1,nSteps do
+      foutputs[step] = mlp:forward(inputSequence[step])
+      mytester:assertTensorEq(foutputs[step], outputs[step], 0.00001, "Recurrent forget output error "..step)
+      mlp:backward(input, gradOutputs[step])
+   end
+   local fgradInput = mlp:backwardThroughTime():clone()
+   mytester:assertTensorEq(gradInput, fgradInput, 0.00001, "Recurrent forget gradInput error")
+   
    mlp4.fastBackward = false
    local gradInput4 = mlp4:backwardThroughTime()
    mytester:assertTensorEq(gradInput, gradInput4, 0.000001, 'error slow vs fast backwardThroughTime')
@@ -562,6 +584,114 @@ function nnxtest.Recurrent_TestTable()
       mlp:backward({input, input:clone()}, {err, err:clone()})
    end
    mlp:backwardThroughTime(learningRate)
+end
+
+function nnxtest.LSTM()
+   local batchSize = math.random(1,2)
+   local inputSize = math.random(3,4)
+   local outputSize = math.random(5,6)
+   local nStep = 3
+   local input = {}
+   local gradOutput = {}
+   for step=1,nStep do
+      input[step] = torch.randn(batchSize, inputSize)
+      if step == nStep then
+         -- for the sake of keeping this unit test simple,
+         gradOutput[step] = torch.randn(batchSize, outputSize)
+      else
+         -- only the last step will get a gradient from the output
+         gradOutput[step] = torch.zeros(batchSize, outputSize)
+      end
+   end
+   local lstm = nn.LSTM(inputSize, outputSize)
+   
+   local isRecursable = nn.AbstractRecurrent.isRecursable
+   local inputTable = {torch.randn(batchSize, inputSize), torch.randn(batchSize, outputSize), torch.randn(batchSize, outputSize)}
+   mytester:assert(isRecursable(lstm.recurrentModule, inputTable), "LSTM isRecursable() error")
+   
+   -- we will use this to build an LSTM step by step (with shared params)
+   local lstmStep = lstm.recurrentModule:clone()
+   
+   -- forward/backward through LSTM
+   local output = {}
+   lstm:zeroGradParameters()
+   for step=1,nStep do
+      output[step] = lstm:forward(input[step])
+      assert(torch.isTensor(input[step]))
+      lstm:backward(input[step], gradOutput[step], 1)
+   end   
+   local gradInput = lstm:backwardThroughTime()
+   
+   local mlp2 -- this one will simulate rho = nSteps
+   local inputs
+   for step=1,nStep do
+      -- iteratively build an LSTM out of non-recurrent components
+      local lstm = lstmStep:clone()
+      lstm:share(lstmStep, 'weight', 'gradWeight', 'bias', 'gradBias')
+      if step == 1 then
+         mlp2 = lstm
+      else
+         local rnn = nn.Sequential()
+         local para = nn.ParallelTable()
+         para:add(nn.Identity()):add(mlp2)
+         rnn:add(para)
+         rnn:add(nn.FlattenTable())
+         rnn:add(lstm)
+         mlp2 = rnn
+      end
+      
+      -- prepare inputs for mlp2
+      if inputs then
+         inputs = {input[step], inputs}
+      else
+         inputs = {input[step], torch.zeros(batchSize, outputSize), torch.zeros(batchSize, outputSize)}
+      end
+   end
+   mlp2:add(nn.SelectTable(1)) --just output the output (not cell)
+   local output2 = mlp2:forward(inputs)
+   
+   mlp2:zeroGradParameters()
+   local gradInput2 = mlp2:backward(inputs, gradOutput[nStep], 1/nStep)
+   mytester:assertTensorEq(gradInput2[2][2][1], gradInput, 0.00001, "LSTM gradInput error")
+   mytester:assertTensorEq(output[nStep], output2, 0.00001, "LSTM output error")
+   
+   local params, gradParams = lstm:parameters()
+   local params2, gradParams2 = lstmStep:parameters()
+   mytester:assert(#params == #params2, "LSTM parameters error "..#params.." ~= "..#params2)
+   for i, gradParam in ipairs(gradParams) do
+      local gradParam2 = gradParams2[i]
+      mytester:assertTensorEq(gradParam, gradParam2, 0.000001, 
+         "LSTM gradParam "..i.." error "..tostring(gradParam).." "..tostring(gradParam2))
+   end
+   
+   gradParams = lstm.recursiveCopy(nil, gradParams)
+   gradInput = gradInput:clone()
+   mytester:assert(lstm.zeroTensor:sum() == 0, "zeroTensor error")
+   lstm:forget()
+   output = lstm.recursiveCopy(nil, output)
+   local output3 = {}
+   lstm:zeroGradParameters()
+   for step=1,nStep do
+      output3[step] = lstm:forward(input[step])
+      lstm:backward(input[step], gradOutput[step], 1)
+   end   
+   local gradInput3 = lstm:updateGradInputThroughTime()
+   lstm:accGradParametersThroughTime()
+   
+   mytester:assert(#output == #output3, "LSTM output size error")
+   for i,output in ipairs(output) do
+      mytester:assertTensorEq(output, output3[i], 0.00001, "LSTM forget (updateOutput) error "..i)
+   end
+   
+   mytester:assertTensorEq(gradInput, gradInput3, 0.00001, "LSTM updateGradInputThroughTime error")
+   --if true then return end
+   local params3, gradParams3 = lstm:parameters()
+   mytester:assert(#params == #params3, "LSTM parameters error "..#params.." ~= "..#params3)
+   for i, gradParam in ipairs(gradParams) do
+      local gradParam3 = gradParams3[i]
+      mytester:assertTensorEq(gradParam, gradParam3, 0.000001, 
+         "LSTM gradParam "..i.." error "..tostring(gradParam).." "..tostring(gradParam3))
+   end
 end
 
 function nnxtest.SpatialNormalization_Gaussian2D()
