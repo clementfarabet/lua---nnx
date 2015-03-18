@@ -394,6 +394,7 @@ function Recurrent:__tostring__()
    str = str .. line .. tab .. next .. '(t~=0): ' .. tostring(self.inputModule):gsub('\n', '\n' .. tab .. ext)
    str = str .. line .. tab .. 'output(t-1)'
    str = str .. line .. tab .. next .. tostring(self.feedbackModule):gsub('\n', line .. tab .. ext)
+   str = str .. line .. "}"
    local tab = '  '
    local line = '\n'
    local next = ' -> '

@@ -694,6 +694,74 @@ function nnxtest.LSTM()
    end
 end
 
+function nnxtest.Sequencer()
+   local batchSize = 4
+   local inputSize = 10
+   local outputSize = 7
+   local nSteps = 5 
+   local inputModule = nn.Linear(inputSize, outputSize)
+   local transferModule = nn.Sigmoid()
+   -- test MLP feedback Module (because of Module:representations())
+   local feedbackModule = nn.Linear(outputSize, outputSize)
+   -- rho = nSteps
+   local rnn = nn.Recurrent(outputSize, inputModule, feedbackModule, transferModule, nSteps)
+   local rnn2 = rnn:clone()
+   
+   local inputs, outputs, gradOutputs = {}, {}, {}
+   for step=1,nSteps do
+      inputs[step] = torch.randn(batchSize, inputSize)
+      outputs[step] = rnn:forward(inputs[step])
+      gradOutputs[step] = torch.randn(batchSize, outputSize)
+      rnn:backward(inputs[step], gradOutputs[step])
+   end
+   rnn:backwardThroughTime()
+   
+   local rnn3 = nn.Sequencer(rnn2)
+   local outputs3 = rnn3:forward(inputs)
+   local gradInputs3 = rnn3:backward(inputs, gradOutputs)
+   mytester:assert(#outputs3 == #outputs, "Sequencer output size err")
+   mytester:assert(#gradInputs3 == #rnn.gradInputs, "Sequencer gradInputs size err")
+   for step,output in ipairs(outputs) do
+      mytester:assertTensorEq(outputs3[step], output, 0.00001, "Sequencer output "..step)
+      mytester:assertTensorEq(gradInputs3[step], rnn.gradInputs[step], 0.00001, "Sequencer gradInputs "..step)
+   end
+end
+
+function nnxtest.Repeater()
+   local batchSize = 4
+   local inputSize = 10
+   local outputSize = 7
+   local nSteps = 5 
+   local inputModule = nn.Linear(inputSize, outputSize)
+   local transferModule = nn.Sigmoid()
+   -- test MLP feedback Module (because of Module:representations())
+   local feedbackModule = nn.Linear(outputSize, outputSize)
+   -- rho = nSteps
+   local rnn = nn.Recurrent(outputSize, inputModule, feedbackModule, transferModule, nSteps)
+   local rnn2 = rnn:clone()
+   
+   local inputs, outputs, gradOutputs = {}, {}, {}
+   local input = torch.randn(batchSize, inputSize)
+   for step=1,nSteps do
+      outputs[step] = rnn:forward(input)
+      gradOutputs[step] = torch.randn(batchSize, outputSize)
+      rnn:backward(input, gradOutputs[step])
+   end
+   rnn:backwardThroughTime()
+   
+   local rnn3 = nn.Repeater(rnn2, nSteps)
+   local outputs3 = rnn3:forward(input)
+   local gradInput3 = rnn3:backward(input, gradOutputs)
+   mytester:assert(#outputs3 == #outputs, "Repeater output size err")
+   mytester:assert(#outputs3 == #rnn.gradInputs, "Repeater gradInputs size err")
+   local gradInput = rnn.gradInputs[1]:clone():zero()
+   for step,output in ipairs(outputs) do
+      mytester:assertTensorEq(outputs3[step], output, 0.00001, "Sequencer output "..step)
+      gradInput:add(rnn.gradInputs[step])
+   end
+   mytester:assertTensorEq(gradInput3, gradInput, 0.00001, "Repeater gradInput err")
+end
+
 function nnxtest.SpatialNormalization_Gaussian2D()
    local inputSize = math.random(11,20)
    local kersize = 9
