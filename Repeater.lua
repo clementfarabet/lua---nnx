@@ -60,3 +60,16 @@ function Repeater:accUpdateGradParameters(input, gradOutput, lr)
    -- back-propagate through time (BPTT)
    self.rnn:accUpdateGradParametersThroughTime(lr)
 end
+
+function Repeater:__tostring__()
+   local tab = '  '
+   local line = '\n'
+   local str = torch.type(self) .. ' {' .. line
+   str = str .. tab .. '[  input,    input,  ...,  input  ]'.. line
+   str = str .. tab .. '               V                   '.. line
+   str = str .. tab .. tostring(self.modules[1]):gsub(line, line .. tab) .. line
+   str = str .. tab .. '               V                   '.. line
+   str = str .. tab .. '[output(1),output(2),...,output('..self.nStep..')]' .. line
+   str = str .. '}'
+   return str
+end

@@ -13,7 +13,7 @@ local Sequencer, parent = torch.class("nn.Sequencer", "nn.Container")
 function Sequencer:__init(module)
    parent.__init(self)
    self.module = module
-   self.isRecurrent = rnn.backwardThroughTime ~= nil
+   self.isRecurrent = module.backwardThroughTime ~= nil
    self.modules[1] = module
    self.sequenceOutputs = {}
    self.output = {}
@@ -181,4 +181,17 @@ function Sequencer:accUpdateGradParameters(input, gradOutput, lr)
          self.module:accUpdateGradParameters(input, gradOutputTable[step], lr)
       end
    end
+end
+
+function Sequencer:__tostring__()
+   local tab = '  '
+   local line = '\n'
+   local str = torch.type(self) .. ' {' .. line
+   str = str .. tab .. '[input(1), input(2), ..., input(T)]'.. line
+   str = str .. tab .. '               V                   '.. line
+   str = str .. tab .. tostring(self.modules[1]):gsub(line, line .. tab) .. line
+   str = str .. tab .. '               V                   '.. line
+   str = str .. tab .. '[output(1),output(2),...,output(T)]' .. line
+   str = str .. '}'
+   return str
 end
