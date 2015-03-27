@@ -78,7 +78,6 @@ torch.include('nnx', 'NarrowLookupTable.lua')
 torch.include('nnx', 'PushTable.lua')
 torch.include('nnx', 'PullTable.lua')
 torch.include('nnx', 'ZeroGrad.lua')
-torch.include('nnx', 'Padding.lua')
 
 -- recurrent
 torch.include('nnx', 'AbstractRecurrent.lua')
