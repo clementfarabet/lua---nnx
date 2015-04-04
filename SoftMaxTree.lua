@@ -325,10 +325,8 @@ function SoftMaxTree:sharedClone()
    smt.childParent = self.childParent
    smt.maxFamilyPath = self.maxFamilyPath
    smt.maxDept = self.maxDept
-   if not self.accUpdate then
-      smt.gradWeight = self.gradWeight:clone()
-      smt.gradBias = self.gradBias:clone()
-   end
+   smt.gradWeight = self.gradWeight
+   smt.gradBias = self.gradBias
    if type == 'torch.CudaTensor' then
       smt.parentChildrenCuda = self.parentChildrenCuda
       smt.childParentCuda = self.childParentCuda
