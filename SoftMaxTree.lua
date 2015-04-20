@@ -264,7 +264,11 @@ function SoftMaxTree:zeroGradParameters()
    for k,gradParam in pairs(gradParams) do
       gradParam:zero()
    end
-   self.updates = {}
+   -- loop is used instead of 'self.updates = {}'
+   -- to handle the case when updates are shared
+   for k,v in pairs(self.updates) do
+      self.updates[k] = nil
+   end
 end
 
 function SoftMaxTree:type(type)
@@ -325,9 +329,10 @@ function SoftMaxTree:sharedClone()
    smt.childParent = self.childParent
    smt.maxFamilyPath = self.maxFamilyPath
    smt.maxDept = self.maxDept
+   smt.updates = self.updates
    if not self.accUpdate then
-      smt.gradWeight = self.gradWeight:clone()
-      smt.gradBias = self.gradBias:clone()
+      smt.gradWeight = self.gradWeight
+      smt.gradBias = self.gradBias
    end
    if type == 'torch.CudaTensor' then
       smt.parentChildrenCuda = self.parentChildrenCuda
