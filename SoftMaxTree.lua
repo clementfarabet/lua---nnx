@@ -232,7 +232,7 @@ function SoftMaxTree:parameters()
          return {self.weight, self.bias}, {self.gradWeight, self.gradBias}
       end
    end
-   return params, grads
+   return params, grads, {}, self.nChildNode*2
 end
 
 function SoftMaxTree:updateParameters(learningRate)
