@@ -10,7 +10,7 @@
 local TreeNLLCriterion, parent = torch.class("nn.TreeNLLCriterion", "nn.Criterion")
 
 function TreeNLLCriterion:__init()
-   self._module = nn.Mean() --not in cunn
+   self._module = nn.Mean() 
    parent.__init(self)
    self._output_grad = torch.Tensor{-1}
 end
