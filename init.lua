@@ -39,9 +39,6 @@ require 'libnnx'
 torch.include('nnx', 'test-all.lua')
 torch.include('nnx', 'test-omp.lua')
 
--- extensions of nn modules
-torch.include('nnx', 'Module.lua')
-
 -- tools:
 torch.include('nnx', 'Probe.lua')
 torch.include('nnx', 'Tic.lua')
@@ -74,24 +71,15 @@ torch.include('nnx', 'Minus.lua')
 torch.include('nnx', 'SoftMaxTree.lua')
 torch.include('nnx', 'MultiSoftMax.lua')
 torch.include('nnx', 'Balance.lua')
-torch.include('nnx', 'NarrowLookupTable.lua')
 torch.include('nnx', 'PushTable.lua')
 torch.include('nnx', 'PullTable.lua')
 torch.include('nnx', 'ZeroGrad.lua')
-
--- recurrent
-torch.include('nnx', 'AbstractRecurrent.lua')
-torch.include('nnx', 'Recurrent.lua')
-torch.include('nnx', 'LSTM.lua')
-torch.include('nnx', 'Repeater.lua')
-torch.include('nnx', 'Sequencer.lua')
 
 -- criterions:
 torch.include('nnx', 'SuperCriterion.lua')
 torch.include('nnx', 'DistNLLCriterion.lua')
 torch.include('nnx', 'DistMarginCriterion.lua')
 torch.include('nnx', 'TreeNLLCriterion.lua')
-torch.include('nnx', 'RepeaterCriterion.lua')
 
 -- datasets:
 torch.include('nnx', 'DataSet.lua')
