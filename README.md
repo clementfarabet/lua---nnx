@@ -7,17 +7,13 @@ their way into 'nn' (some already have).
 
 ## Library Documentation ##
 This section includes documentation for the following objects:
- * [Recurrent](#nnx.Recurrent) : a generalized recurrent neural network container;
- * [SoftMaxTree](#nnx.SoftMaxTree) : a hierarchical log-softmax Module;
- * [TreeNLLCriterion](#nnx.TreeNLLCriterion) : a negative log-likelihood Criterion for the SoftMaxTree;
- * [PushTable (and PullTable)](#nnx.PushTable) : extracts a table element and inserts it later in the network;
- * [MultiSoftMax](#nnx.MultiSoftMax) : performs a softmax over the last dimension of a 2D or 3D input;
- * [SpatialReSampling](#nnx.SpatialReSampling) : performs bilinear resampling of a 3D or 4D input image;
- 
-<a name='nnx.Recurrent'/>
-### Recurrent ###
 
-DEPRECATED July 6th, 2015. Use [rnn](https://github.com/Element-Research/rnn) instead.
+  * [SoftMaxTree](#nnx.SoftMaxTree) : a hierarchical log-softmax Module;
+  * [TreeNLLCriterion](#nnx.TreeNLLCriterion) : a negative log-likelihood Criterion for the SoftMaxTree;
+  * [PushTable (and PullTable)](#nnx.PushTable) : extracts a table element and inserts it later in the network;
+  * [MultiSoftMax](#nnx.MultiSoftMax) : performs a softmax over the last dimension of a 2D or 3D input;
+  * [SpatialReSampling](#nnx.SpatialReSampling) : performs bilinear resampling of a 3D or 4D input image;
+  * [Recurrent](#nnx.Recurrent) : a generalized recurrent neural network container;
 
 <a name='nnx.SoftMaxTree'/>
 ### SoftMaxTree ###
@@ -231,3 +227,8 @@ tests:
 > nnx.test_all()
 > nnx.test_omp()
 ```
+
+<a name='nnx.Recurrent'/>
+### Recurrent ###
+
+DEPRECATED July 6th, 2015. Use [rnn](https://github.com/Element-Research/rnn) instead.
