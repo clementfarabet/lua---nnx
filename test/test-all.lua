@@ -85,15 +85,15 @@ local function template_SpatialReSamplingEx(up, mode)
       local nDims = math.random(2,6)
       local dims = torch.LongStorage(nDims)
       for i = 1,nDims do
-	 dims[i] = math.random(5,20/nDims)
+         dims[i] = math.random(5,20/nDims)
       end
       local xratio, yratio
       if up then
-	 xratio = torch.uniform(1.5, 10)
-	 yratio = torch.uniform(1.5, 10)
+         xratio = torch.uniform(1.5, 10)
+         yratio = torch.uniform(1.5, 10)
       else
-	 xratio = torch.uniform(0.41, 0.7)
-	 yratio = torch.uniform(0.41, 0.7)
+         xratio = torch.uniform(0.41, 0.7)
+         yratio = torch.uniform(0.41, 0.7)
       end
       local ydim = math.random(1,nDims-1)
       local xdim = ydim+1
@@ -551,131 +551,6 @@ function nnxtest.Balance()
    mytester:assert(math.abs(p_y:sum() - 1) < 0.000001)
    
    local gradInput = bl:backward(input, gradOutput)
-end
-
-function nnxtest.NarrowLookupTable()
-   local nIndex = 5
-   local dictSize = 100
-   local batchSize = 8
-   local embedSize = 32
-   local deltaSize = 4
-   local lr = 0.1
-   
-   -- 1D input ascDelta = false
-   local input = torch.randperm(dictSize):narrow(1,1,nIndex)
-   local nlt = nn.NarrowLookupTable(deltaSize, dictSize, embedSize, false)
-   local output = nlt:forward(input)
-   
-   local output2 = torch.Tensor(120):zero()
-   local narrowSize = embedSize
-   local idx = 121 - narrowSize
-   for i=nIndex,1,-1 do
-      output2:narrow(1, idx, narrowSize):copy(nlt.weight[input[i]]:narrow(1,1,narrowSize))
-      narrowSize = narrowSize - deltaSize
-      idx = idx - narrowSize
-   end
-   mytester:assertTensorEq(output, output2, 0.000001, "1D forward ascDelta = false error")
-   
-   nlt:zeroGradParameters()
-   local gradWeight2 = nlt.gradWeight:clone()
-   nlt:backward(input, output)
-   local narrowSize = embedSize
-   local idx = 121 - narrowSize
-   for i=nIndex,1,-1 do
-      gradWeight2[input[i]]:narrow(1, 1, narrowSize):add(output:narrow(1,idx,narrowSize))
-      narrowSize = narrowSize - deltaSize
-      idx = idx - narrowSize
-   end
-   mytester:assertTensorEq(nlt.gradWeight, gradWeight2, 0.000001, "1D backward ascDelta = false error")
-   
-   -- 1D input
-   local input = torch.randperm(dictSize):narrow(1,1,nIndex)
-   local nlt = nn.NarrowLookupTable(deltaSize, dictSize, embedSize)
-   local output = nlt:forward(input)
-   
-   local output2 = torch.Tensor(120):zero()
-   local narrowSize = embedSize
-   local idx = 1
-   for i=1,nIndex do
-      output2:narrow(1, idx, narrowSize):copy(nlt.weight[input[i]]:narrow(1,1,narrowSize))
-      idx = idx + narrowSize
-      narrowSize = narrowSize - deltaSize
-   end
-   mytester:assertTensorEq(output, output2, 0.000001, "1D forward error")
-   
-   nlt:zeroGradParameters()
-   local gradWeight2 = nlt.gradWeight:clone()
-   nlt:backward(input, output)
-   local idx = 1
-   local narrowSize = embedSize
-   for i=1,nIndex do
-      gradWeight2[input[i]]:narrow(1, 1, narrowSize):add(output:narrow(1,idx,narrowSize))
-      idx = idx + narrowSize
-      narrowSize = narrowSize - deltaSize
-   end
-   mytester:assertTensorEq(nlt.gradWeight, gradWeight2, 0.000001, "1D backward error")
-   
-   nlt:zeroGradParameters()
-   local weight2 = nlt.weight:clone()
-   nlt:backwardUpdate(input, output, lr)
-   local idx = 1
-   local narrowSize = embedSize
-   for i=1,nIndex do
-      weight2[input[i]]:narrow(1, 1, narrowSize):add(-lr, output:narrow(1,idx,narrowSize))
-      idx = idx + narrowSize
-      narrowSize = narrowSize - deltaSize
-   end
-   mytester:assertTensorEq(nlt.weight, weight2, 0.000001, "1D backwardUpdate error")
-   
-   -- 2D input
-   nlt:float()
-   local input = torch.randperm(dictSize):narrow(1,1,nIndex*batchSize):view(8,-1)
-   local output = nlt:forward(input)
-   local output2 = torch.FloatTensor(batchSize, 120):zero()
-   for k=1,batchSize do
-      local input = input[k]
-      local output2 = output2[k]
-      local narrowSize = embedSize
-      local idx = 1
-      for i=1,nIndex do
-         output2:narrow(1, idx, narrowSize):add(nlt.weight[input[i]]:narrow(1,1,narrowSize))
-         idx = idx + narrowSize
-         narrowSize = narrowSize - deltaSize
-      end
-   end
-   mytester:assertTensorEq(output, output2, 0.000001, "2D forward error")
-   
-   nlt:zeroGradParameters()
-   local gradWeight2 = nlt.gradWeight:clone()
-   nlt:backward(input, output)
-   for k=1,batchSize do
-      local input = input[k]
-      local output = output[k]
-      local idx = 1
-      local narrowSize = embedSize
-      for i=1,nIndex do
-         gradWeight2[input[i]]:narrow(1,1,narrowSize):add(output:narrow(1,idx,narrowSize))
-         idx = idx + narrowSize
-         narrowSize = narrowSize - deltaSize
-      end
-   end
-   mytester:assertTensorEq(nlt.gradWeight, gradWeight2, 0.000001, "2D backward error")
-   
-   nlt:zeroGradParameters()
-   local weight2 = nlt.weight:clone()
-   nlt:backwardUpdate(input, output, lr)
-   for k=1,batchSize do
-      local input = input[k]
-      local output = output[k]
-      local idx = 1
-      local narrowSize = embedSize
-      for i=1,nIndex do
-         weight2[input[i]]:narrow(1,1,narrowSize):add(-lr, output:narrow(1,idx,narrowSize))
-         idx = idx + narrowSize
-         narrowSize = narrowSize - deltaSize
-      end
-   end
-   mytester:assertTensorEq(nlt.weight, weight2, 0.000001, "2D backwardUpdate error")
 end
 
 function nnxtest.MultiSoftMax()
