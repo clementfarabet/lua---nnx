@@ -60,4 +60,18 @@ function PushTable:updateGradInput(inputTable, gradOutputTable)
 end
 
 
+function PushTable:type(type, tensorCache)
+   assert(type, 'PullTable: must provide a type to convert to')
+
+   tensorCache = tensorCache or {}
+
+   -- find all tensors and convert them
+   for key,param in pairs(self) do
+       if(key ~= "_pulls") then
+             self[key] = nn.utils.recursiveType(param, type, tensorCache)
+        end
+   end
+   return self
+end
+
 
