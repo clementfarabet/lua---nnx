@@ -307,7 +307,7 @@ function SoftMaxTree:type(type)
    if (type == 'torch.CudaTensor') then
       -- cunnx needs this for filling self.updates
       self._nodeUpdateHost = torch.IntTensor()
-      self._nodeUpdateCuda = torch.CudaTensor()
+      self._nodeUpdateCuda = torch.CudaIntTensor()
       self._paramUpdateHost = torch.IntTensor()
       self._paramUpdateCuda = torch.CudaTensor()
       self.parentChildrenCuda = self.parentChildren:type(type)
@@ -323,42 +323,6 @@ function SoftMaxTree:type(type)
    self.gradInput = {self._gradInput, self._gradTarget} 
    self.batchSize = 0 --so that buffers are resized
    return self
-end
-
--- generate a Clone that shares parameters and metadata 
--- without wasting memory
-function SoftMaxTree:sharedClone()
-   -- init a dummy clone (with small memory footprint)
-   local dummyTree = {[1]=torch.IntTensor{1,2}}
-   local smt = nn.SoftMaxTree(self.inputSize, dummyTree, 1, self.accUpdate)
-   -- clone should have same type
-   local type = self.weight:type()
-   smt:type(type)
-   -- share all the metadata
-   smt.rootId = self.rootId
-   smt.nChildNode = self.nChildNode
-   smt.nParentNode = self.nParentNode
-   smt.minNodeId = self.minNodeId
-   smt.maxNodeId = self.maxNodeId
-   smt.maxParentId = self.maxParentId
-   smt.maxChildId = self.maxChildId
-   smt.maxFamily = self.maxFamily
-   smt.childIds = self.childIds
-   smt.parentIds = self.parentIds
-   smt.parentChildren = self.parentChildren
-   smt.childParent = self.childParent
-   smt.maxFamilyPath = self.maxFamilyPath
-   smt.maxDept = self.maxDept
-   smt.updates = self.updates
-   if not self.accUpdate then
-      smt.gradWeight = self.gradWeight
-      smt.gradBias = self.gradBias
-   end
-   if type == 'torch.CudaTensor' then
-      smt.parentChildrenCuda = self.parentChildrenCuda
-      smt.childParentCuda = self.childParentCuda
-   end
-   return smt:share(self, 'weight', 'bias')
 end
 
 function SoftMaxTree:maxNorm(maxNorm)

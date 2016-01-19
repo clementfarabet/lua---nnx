@@ -484,10 +484,12 @@ function nnxtest.SoftMaxTree()
    mytester:assertTensorEq(bias, linear.bias, 0.000001)
    mytester:assertTensorEq(gradBias, linear.gradBias, 0.000001)
    -- sharedClone
-   local smt2 = smt:sharedClone()
-   output = smt:forward{input, target}
-   local output2 = smt2:forward{input, target}
-   mytester:assertTensorEq(output, output2, 0.00001)
+   if pcall(function() require "dpnn" end) then
+      local smt2 = smt:sharedClone()
+      output = smt:forward{input, target}
+      local output2 = smt2:forward{input, target}
+      mytester:assertTensorEq(output, output2, 0.00001)
+   end
    -- accUpdate
    local smt3 = nn.SoftMaxTree(100, hierarchy, root_id, true)
    smt3:zeroGradParameters()
