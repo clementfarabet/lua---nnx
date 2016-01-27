@@ -113,8 +113,8 @@ function SoftMaxTree:__init(inputSize, hierarchy, rootId, accUpdate, static, ver
          treeSize, pathSize = getSize(parentId) 
          treeSize = treeSize + nChildren
          pathSize = pathSize + 1
-         treeSizes[parentId] = treeSize
-         pathSizes[parentId] = pathSize
+         treeSizes[nodeId] = treeSize
+         pathSizes[nodeId] = pathSize
       end
       return treeSize, pathSize
    end
@@ -271,7 +271,7 @@ function SoftMaxTree:zeroGradParameters()
    end
 end
 
-function SoftMaxTree:type(type)
+function SoftMaxTree:type(type, typecache)
    if type == torch.type(self.weight) then
       return self
    end
@@ -295,7 +295,7 @@ function SoftMaxTree:type(type)
    local parentIds = self.parentIds
    self.parentIds = nil
    
-   parent.type(self, type)
+   parent.type(self, type, typecache)
    
    self.hierarchy = hierarchy
    self.parentChildren = parentChildren
