@@ -173,6 +173,11 @@ end
 
 function SoftMaxTree:updateGradInput(inputTable, gradOutput)
    local input, target = unpack(inputTable)
+   if not gradOutput:isContiguous() and torch.type(gradOutput) == 'torch.CudaTensor' then
+      self._gradOutput = self._gradOutput or gradOutput.new()
+      self._gradOutput:resizeAs(gradOutput):copy(gradOutput)
+      gradOutput = self._gradOutput
+   end
    if self.gradInput then
       input.nn.SoftMaxTree_updateGradInput(self, input, gradOutput, target)
    end
@@ -181,6 +186,7 @@ end
 
 function SoftMaxTree:accGradParameters(inputTable, gradOutput, scale)
    local input, target = unpack(inputTable)
+   gradOutput = self._gradOutput or gradOutput
    scale = scale or 1
    input.nn.SoftMaxTree_accGradParameters(self, input, gradOutput, target, scale)
 end
@@ -294,6 +300,7 @@ function SoftMaxTree:type(type, typecache)
    self.childIds = nil
    local parentIds = self.parentIds
    self.parentIds = nil
+   self._gradOutput = nil
    
    parent.type(self, type, typecache)
    
