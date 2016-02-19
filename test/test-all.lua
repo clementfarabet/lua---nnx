@@ -137,8 +137,8 @@ end
 
 function nnxtest.SpatialDownSampling()
    local fanin = math.random(1,4)
-   local sizex = math.random(1,4)
-   local sizey = math.random(1,4)
+   local sizex = math.random(11,4)
+   local sizey = math.random(11,4)
    local mx = math.random(2,6)
    local my = math.random(2,6)
    local module = nn.SpatialDownSampling(mx,my)

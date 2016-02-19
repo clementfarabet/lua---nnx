@@ -22,6 +22,8 @@ function SpatialPadding:__init(pad_l, pad_r, pad_t, pad_b, y_dim, x_dim, val)
    self.pad_b = pad_b or self.pad_l
    self.x_dim = x_dim or 3
    self.y_dim = y_dim or 2
+   if (self.x_dim % 1) ~= 0 then error('x_dim must be integer') end
+   if (self.y_dim % 1) ~= 0 then error('y_dim must be integer') end
    self.val = val or 0
 end
 

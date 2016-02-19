@@ -126,13 +126,12 @@ static int nn_(SoftMaxTree_updateGradInput)(lua_State *L)
   THTensor *logsoftOutput = luaT_getfieldcheckudata(L, 1, "_multiBuffer", torch_Tensor);
   
   THTensor *weight = luaT_getfieldcheckudata(L, 1, "weight", torch_Tensor);
-  THTensor *output = luaT_getfieldcheckudata(L, 1, "output", torch_Tensor);
   THTensor *gradInput = luaT_getfieldcheckudata(L, 1, "_gradInput", torch_Tensor);
   
   THIntTensor *node;
   THTensor *nodeWeight, *nodeOutput;
-  THTensor *nodeGradInput, *nodeGradOutput, *weightTranspose;
-  real *gradInput_data, *output_data;
+  THTensor *nodeGradInput, *weightTranspose;
+  real *output_data;
 
   long i, d;
   
@@ -231,7 +230,7 @@ static int nn_(SoftMaxTree_accGradParameters)(lua_State *L)
   THIntTensor *node;
   THTensor *nodeGradWeight, *nodeGradBias, *nodeInput, *nodeGradOutput;
 
-  long i, d;
+  long i;
   
   luaL_argcheck(L, input->nDimension == 2, 2, "2D(batch mode) tensor expected");
   luaL_argcheck(L, input->size[1] == inputSize, 2, "invalid input size");
