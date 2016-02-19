@@ -105,6 +105,7 @@ static int nn_(SpatialLinear_updateGradInput)(lua_State *L)
   THTensor_(free)(gradOutput_y);
   THTensor_(free)(input_xy);
   THTensor_(free)(input_y);
+  THTensor_(free)(weight_t);
   return 1;
 }
 

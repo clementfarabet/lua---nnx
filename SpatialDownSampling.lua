@@ -26,6 +26,11 @@ function SpatialDownSampling:__init(...)
 end
 
 function SpatialDownSampling:updateOutput(input)
+   if (input:size(2) / self.rH) < 1 then
+      error('input too small in dimension 2')
+   elseif (input:size(3) / self.rW) < 1 then
+      error('input too small in dimension 3')
+   end
    self.output:resize(input:size(1), math.floor(input:size(2) / self.rH),
 		      math.floor(input:size(3) / self.rW))
    input.nn.SpatialDownSampling_updateOutput(self, input)

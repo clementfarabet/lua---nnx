@@ -48,6 +48,8 @@ static int nn_(SpatialDownSampling_updateGradInput)(lua_State *L) {
   int rW = luaT_getfieldcheckint(L, 1, "rW");
   int rH = luaT_getfieldcheckint(L, 1, "rH");
 
+  THArgCheck(gradOutput->nDimension == 3, 2, "gradOutput must be 3D Tensor");
+
   // dims
   int owidth = gradOutput->size[2];
   int oheight = gradOutput->size[1];

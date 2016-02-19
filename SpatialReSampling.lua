@@ -31,6 +31,9 @@ function SpatialReSampling:__init(...)
 end
 
 function SpatialReSampling:updateOutput(input)
+   assert(input:dim() == 3 or input:dim() == 4,
+          'input to SpatialReSampling must be 3D or 4D, received: [' ..
+          table.concat(input:size():totable(), ', ') .. ']')
    local hDim, wDim = 2, 3
    if input:dim() == 4 then
       hDim, wDim = 3, 4
