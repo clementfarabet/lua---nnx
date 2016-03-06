@@ -89,8 +89,8 @@ local function template_SpatialReSamplingEx(up, mode)
       end
       local xratio, yratio
       if up then
-         xratio = torch.uniform(1.5, 10)
-         yratio = torch.uniform(1.5, 10)
+         xratio = torch.uniform(1.5, 5)
+         yratio = torch.uniform(1.5, 5)
       else
          xratio = torch.uniform(0.41, 0.7)
          yratio = torch.uniform(0.41, 0.7)
