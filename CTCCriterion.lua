@@ -1,4 +1,3 @@
-require 'warp_ctc'
 ------------------------------------------------------------------------
 --[[ CTCCriterion ]]--
 -- CTC Alignment for sequence data where input and labels do not align.
@@ -13,6 +12,7 @@ CTCCriterion.dim = 3
 
 function CTCCriterion:__init()
     parent.__init(self)
+    require 'warp_ctc'
     self.acts = torch.Tensor()
     self.convertedGradients = torch.Tensor()
 end
