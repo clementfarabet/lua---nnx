@@ -524,6 +524,28 @@ function nnxtest.TreeNLLCriterion()
    mytester:assertTensorEq(gradInput2:narrow(2,1,1), gradInput, 0.00001)
 end
 
+function nnxtest.CTCCriterion()
+    local criterion = nn.CTCCriterion()
+    local acts = torch.Tensor({{{0,0,0,0,0}}})
+    local targets = {{1}}
+    mytester:eq(criterion:updateOutput(acts,targets), 1.6094379425049, 0, "CTCCriterion.smallTest")
+    local acts =
+    torch.Tensor({{{1,2,3,4,5}, {6,7,8,9,10}, {11,12,13,14,15}}})
+    local targets = {{3,3}}
+    mytester:eq(criterion:updateOutput(acts,targets), 7.355742931366, 0, "CTCCriterion.mediumTest")
+    local acts = torch.Tensor({{{-5,-4,-3,-2,-1}, {-10,-9,-8,-7,-6}, {-15,-14,-13,-12,-11}}})
+    local targets = {{2,3}}
+    mytester:eq(criterion:updateOutput(acts,targets), 4.938850402832, 0, "CTCCriterion.mediumNegativeTest")
+    local acts =
+    torch.Tensor({
+        {{0,0,0,0,0},{0,0,0,0,0},{0,0,0,0,0}},
+        {{1,2,3,4,5},{6,7,8,9,10},{11,12,13,14,15}},
+        {{-5,-4,-3,-2,-1},{-10,-9,-8,-7,-6},{-15,-14,-13,-12,-11}}
+    })
+    local targets = {{1},{3,3},{2,3}}
+    mytester:eq(criterion:updateOutput(acts,targets), 15.331147670746, 0, "CTCCriterion.batchTest")
+end
+
 local function blur(mean, stdv, size)
    local range = torch.range(1,size):float()
    local a = 1/(stdv*math.sqrt(2*math.pi))

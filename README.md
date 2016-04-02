@@ -10,6 +10,7 @@ This section includes documentation for the following objects:
 
   * [SoftMaxTree](#nnx.SoftMaxTree) : a hierarchical log-softmax Module;
   * [TreeNLLCriterion](#nnx.TreeNLLCriterion) : a negative log-likelihood Criterion for the SoftMaxTree;
+  * [CTCCriterion](#nnx.CTCCriterion) : a Connectionist Temporal Classification Criterion based on [warp-ctc](https://github.com/baidu-research/warp-ctc);
   * [PushTable (and PullTable)](#nnx.PushTable) : extracts a table element and inserts it later in the network;
   * [MultiSoftMax](#nnx.MultiSoftMax) : performs a softmax over the last dimension of a 2D or 3D input;
   * [SpatialReSampling](#nnx.SpatialReSampling) : performs bilinear resampling of a 3D or 4D input image;
@@ -144,6 +145,40 @@ In some cases, this can simplify the digraph of Modules. Note that
 a PushTable can be associated to many PullTables, but each PullTable 
 is associated to only one PushTable.
 
+<a name='nnx.CTCCriterion'/>
+### CTCCriterion ###
+```
+criterion = nn.CTCCriterion()
+```
+Creates a Criterion based on Baidus' [warp-ctc](https://github.com/baidu-research/warp-ctc) implementation.
+This Module measures the loss between a 3D output of (batch x time x inputdim) and a target without needing alignment of inputs and labels.
+Must have installed warp-ctc which can be installed via luarocks:
+```
+luarocks install http://raw.githubusercontent.com/baidu-research/warp-ctc/master/torch_binding/rocks/warp-ctc-scm-1.rockspec
+```
+Supports cuda via:
+```
+criterion = nn.CTCCriterion():cuda()
+```
+Example:
+```
+output = torch.Tensor({{{1,2,3,4,5},{6,7,8,9,10}}}) -- Tensor of size 1x1x5 (batch x time x inputdim).
+label = {{1,3}}
+ctcCriterion = nn.CTCCriterion()
+
+print(ctcCriterion:forward(output,label))
+
+ctcCriterion = ctcCriterion:cuda() -- Switch to cuda implementation.
+output = output:cuda()
+
+print(ctcCriterion:forward(output,label))
+```
+
+gives the output:
+```
+4.9038286209106
+4.9038290977478
+```
 <a name='nnx.MultiSoftMax'/>
 ### MultiSoftMax ###
 This Module takes 2D or 3D input and performs a softmax over the last dimension. 
