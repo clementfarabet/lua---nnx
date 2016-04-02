@@ -80,6 +80,7 @@ require('nnx.SuperCriterion')
 require('nnx.DistNLLCriterion')
 require('nnx.DistMarginCriterion')
 require('nnx.TreeNLLCriterion')
+require('nnx.CTCCriterion')
 
 -- datasets:
 require('nnx.DataSet')
