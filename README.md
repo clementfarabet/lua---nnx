@@ -151,7 +151,7 @@ is associated to only one PushTable.
 criterion = nn.CTCCriterion()
 ```
 Creates a Criterion based on Baidus' [warp-ctc](https://github.com/baidu-research/warp-ctc) implementation.
-This Module measures the loss between a 3D output of (batch x time x inputdim) and a target where there is no alignment of inputs and labels.
+This Module measures the loss between a 3D output of (batch x time x inputdim) and a target without needing alignment of inputs and labels.
 Must have installed warp-ctc which can be installed via luarocks:
 ```
 luarocks install http://raw.githubusercontent.com/baidu-research/warp-ctc/master/torch_binding/rocks/warp-ctc-scm-1.rockspec
