@@ -47,7 +47,8 @@ function CTCCriterion:updateGradInput(output, labels)
     if (output:type() == 'torch.CudaTensor') then
         gpu_ctc(acts, grads, labels, sizes)
     else
-        cpu_ctc(acts:float(), grads:float(), labels, sizes)
+        grads = grads:float()
+        cpu_ctc(acts:float(), grads, labels, sizes)
     end
     self.gradInput = self:revertBatching(grads, tensorSizes):typeAs(output)
     return self.gradInput
