@@ -230,7 +230,7 @@ The re-sampled output:
 The Quasi-Diagonal Riemannian Neural Network Linear (QDRiemaNNLinear) module is an implementation
 of the quasi-diagonal reduction of metrics, used for Riemannian gradient descent.
 The algorithm is defined in Riemannian metrics for neural networks I: feedforward networks by Yann Ollivier (http://arxiv.org/abs/1303.0818) and an efficient implementation is described in Practical Riemannian Neural Networks by Yann Ollivier and Gaetan Marceau-Caron (http://arxiv.org/abs/1602.08007).
-To use this module, simply replace nn.Linear(ninput,noutput) with nnx.QDRiemaNNLinear(ninput,noutput).
+To use this module, simply replace `nn.Linear(ninput,noutput)` with `nnx.QDRiemaNNLinear(ninput,noutput)`.
 As always, the step-size must be chosen accordingly.
 Two additional arguments are also possible:
 * gamma (default=0.01): determine the update rate of the metric for a minibatch setting, i.e., (1-gamma) * oldMetric + gamma newMetric. Should be set to 1/#minibatch
