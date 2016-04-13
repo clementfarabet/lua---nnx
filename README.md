@@ -14,8 +14,9 @@ This section includes documentation for the following objects:
   * [PushTable (and PullTable)](#nnx.PushTable) : extracts a table element and inserts it later in the network;
   * [MultiSoftMax](#nnx.MultiSoftMax) : performs a softmax over the last dimension of a 2D or 3D input;
   * [SpatialReSampling](#nnx.SpatialReSampling) : performs bilinear resampling of a 3D or 4D input image;
+  * [QDRiemaNNLinear] (#nnx.QDRiemaNNLinear) : quasi-diagonal reduction for Riemannian gradient descent
   * [Recurrent](#nnx.Recurrent) : a generalized recurrent neural network container;
-
+  
 <a name='nnx.SoftMaxTree'/>
 ### SoftMaxTree ###
 A hierarchy of parameterized log-softmaxes. Used for computing the likelihood of a leaf class. 
@@ -223,6 +224,20 @@ The input:
 The re-sampled output:
 
 ![Lenna re-sampled](doc/image/Lenna-150x150-bilinear.png) 
+
+<a name='nnx.QDRiemaNNLinear'/>
+### QDRiemaNNLinear ###
+The Quasi-Diagonal Riemannian Neural Network Linear (QDRiemaNNLinear) module is an implementation
+of the quasi-diagonal reduction of metrics, used for Riemannian gradient descent.
+The algorithm is defined in http://arxiv.org/abs/1303.0818 and an efficient implementation is described in http://arxiv.org/abs/1602.08007.
+To use this module, simply replace nn.Linear(ninput,noutput) with nnx.QDRiemaNNLinear(ninput,noutput).
+As always, the step-size must be chosen accordingly.
+Two other arguments are also possible:
+gamma (default=0.01): determine the update rate of the metric for a minibatch setting, i.e., (1-gamma) * oldMetric + gamma newMetric. Should be set to 1/#minibatch
+qdFlag (default=true): Whether to use the quasi-diagonal reduction (true) or only the diagonal (false). The former should be better.
+
+To implement a natural gradient descent, one should also use a module for generating the pseudo-labels.
+
 
 ## Requirements
 
