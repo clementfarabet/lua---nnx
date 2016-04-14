@@ -233,7 +233,7 @@ The algorithm is defined in Riemannian metrics for neural networks I: feedforwar
 To use this module, simply replace `nn.Linear(ninput,noutput)` with `nnx.QDRiemaNNLinear(ninput,noutput)`.
 As always, the step-size must be chosen accordingly.
 Two additional arguments are also possible:
-* gamma (default=0.01): determine the update rate of the metric for a minibatch setting, i.e., (1-gamma) * oldMetric + gamma newMetric. Should be set to 1/#minibatch
+* gamma (default=0.01): determine the update rate of the metric for a minibatch setting, i.e., (1-gamma) * oldMetric + gamma newMetric. Smaller minibatches require a smaller gamma.
 * qdFlag (default=true): Whether to use the quasi-diagonal reduction (true) or only the diagonal (false). The former should be better.
 
 To implement a natural gradient descent, one should also use a module for generating the pseudo-labels.
