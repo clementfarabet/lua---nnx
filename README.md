@@ -235,6 +235,7 @@ As always, the step-size must be chosen accordingly.
 Two additional arguments are also possible:
 * gamma (default=0.01): determine the update rate of the metric for a minibatch setting, i.e., (1-gamma) * oldMetric + gamma newMetric. Smaller minibatches require a smaller gamma. A default value depending on the size of the minibatches is `gamma = 1. - torch.pow(1.-1./nTraining,miniBatchSize)` where `nTraining` is the number of training examples of the dataset and `miniBatchSize` is the number of training examples per minibatch. 
 * qdFlag (default=true): Whether to use the quasi-diagonal reduction (true) or only the diagonal (false). The former should be better.
+
 This module is a straightforward implementation of the outer product gradient descent.
 
 ## Requirements
