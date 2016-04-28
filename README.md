@@ -14,8 +14,9 @@ This section includes documentation for the following objects:
   * [PushTable (and PullTable)](#nnx.PushTable) : extracts a table element and inserts it later in the network;
   * [MultiSoftMax](#nnx.MultiSoftMax) : performs a softmax over the last dimension of a 2D or 3D input;
   * [SpatialReSampling](#nnx.SpatialReSampling) : performs bilinear resampling of a 3D or 4D input image;
+  * [QDRiemaNNLinear] (#nnx.QDRiemaNNLinear) : quasi-diagonal reduction for Riemannian gradient descent
   * [Recurrent](#nnx.Recurrent) : a generalized recurrent neural network container;
-
+  
 <a name='nnx.SoftMaxTree'/>
 ### SoftMaxTree ###
 A hierarchy of parameterized log-softmaxes. Used for computing the likelihood of a leaf class. 
@@ -223,6 +224,19 @@ The input:
 The re-sampled output:
 
 ![Lenna re-sampled](doc/image/Lenna-150x150-bilinear.png) 
+
+<a name='nnx.QDRiemaNNLinear'/>
+### QDRiemaNNLinear ###
+The Quasi-Diagonal Riemannian Neural Network Linear (QDRiemaNNLinear) module is an implementation
+of the quasi-diagonal reduction of metrics, used for Riemannian gradient descent.
+The algorithm is defined in Riemannian metrics for neural networks I: feedforward networks by Yann Ollivier (http://arxiv.org/abs/1303.0818) and an efficient implementation is described in Practical Riemannian Neural Networks by Yann Ollivier and Gaetan Marceau-Caron (http://arxiv.org/abs/1602.08007).
+To use this module, simply replace `nn.Linear(ninput,noutput)` with `nnx.QDRiemaNNLinear(ninput,noutput)`.
+As always, the step-size must be chosen accordingly.
+Two additional arguments are also possible:
+* gamma (default=0.01): determine the update rate of the metric for a minibatch setting, i.e., (1-gamma) * oldMetric + gamma newMetric. Smaller minibatches require a smaller gamma. A default value depending on the size of the minibatches is `gamma = 1. - torch.pow(1.-1./nTraining,miniBatchSize)` where `nTraining` is the number of training examples of the dataset and `miniBatchSize` is the number of training examples per minibatch. 
+* qdFlag (default=true): Whether to use the quasi-diagonal reduction (true) or only the diagonal (false). The former should be better.
+
+This module is a straightforward implementation of the outer product gradient descent.
 
 ## Requirements
 
