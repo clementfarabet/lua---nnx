@@ -525,7 +525,7 @@ function nnxtest.TreeNLLCriterion()
 end
 
 function nnxtest.CTCCriterion()
-   local criterion = nn.CTCCriterionTest()
+   local criterion = nn.CTCCriterion()
    local acts = torch.Tensor({{{0,0,0,0,0}}}):transpose(1, 2):contiguous() -- input is seqLength x batch x inputDim
    local targets = {{1}}
    local sizes = torch.Tensor({1})
@@ -549,7 +549,7 @@ function nnxtest.CTCCriterion()
    local sizes = torch.Tensor({1,3,3})
    mytester:eq(criterion:updateOutput(acts, targets, sizes), 13.904030799866, precision, "CTCCriterion.batchTest")
    local gradOutputNorm = criterion:updateGradInput(acts, targets, sizes)
-   criterion = nn.CTCCriterionTest(true) -- batchFirst true, input is batch x seqLength x inputDim
+   criterion = nn.CTCCriterion(true) -- batchFirst true, input is batch x seqLength x inputDim
    local batchFirstActs =
    torch.Tensor({
       {{0,0,0,0,0},{0,0,0,0,0},{0,0,0,0,0}},
