@@ -24,8 +24,8 @@ function CTCCriterion:updateOutput(input, target, sizes)
     assert(sizes,
         "You must pass the size of each sequence in the batch as a tensor")
     local acts = self.acts
+    acts:resizeAs(input):copy(input)
     if input:dim() == 3 then
-        acts:resizeAs(input):copy(input)
         if self.batchFirst then
             acts = acts:transpose(1, 2)
             acts = self:makeContiguous(acts)
@@ -42,7 +42,7 @@ function CTCCriterion:updateOutput(input, target, sizes)
         self.gradInput = self.gradInput:float()
         self.output = sumCosts(cpu_ctc(acts, self.gradInput, target, self.sizes))
     end
-    return self.output
+    return self.output / sizes:size(1)
 end
 
 function CTCCriterion:updateGradInput(input, target)
