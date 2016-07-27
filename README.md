@@ -165,20 +165,44 @@ Example:
 ```
 output = torch.Tensor({{{1,2,3,4,5},{6,7,8,9,10}}}) -- Tensor of size 1x1x5 (batch x time x inputdim).
 label = {{1,3}}
+sizes = torch.Tensor({2}) -- Size of each sequence (sequence-length) in the batch as a tensor
 ctcCriterion = nn.CTCCriterion()
 
-print(ctcCriterion:forward(output,label))
+err = ctcCriterion:forward(output,label,sizes)
+gradOut = ctcCriterion:backward(output,label)
+print("----CPU----")
+print("Error : " .. err)
+print("Gradients :")
+print(gradOut)
 
 ctcCriterion = ctcCriterion:cuda() -- Switch to cuda implementation.
 output = output:cuda()
 
-print(ctcCriterion:forward(output,label))
+err = ctcCriterion:forward(output,label,sizes)
+gradOut = ctcCriterion:backward(output,label)
+print("----GPU----")
+print("Error : " .. err)
+print("Gradients :")
+print(gradOut)
 ```
 
 gives the output:
 ```
-4.9038286209106
-4.9038290977478
+----CPU----	
+Error : 4.9038286209106	
+Gradients :	
+(1,.,.) = 
+  0.0117 -0.9683  0.0861  0.2341  0.6364
+  0.0117  0.0317  0.0861 -0.7659  0.6364
+[torch.FloatTensor of size 1x2x5]
+
+----GPU----	
+Error : 4.9038290977478	
+Gradients :	
+(1,.,.) = 
+  0.0117 -0.9683  0.0861  0.2341  0.6364
+  0.0117  0.0317  0.0861 -0.7659  0.6364
+[torch.CudaTensor of size 1x2x5]
 ```
 <a name='nnx.MultiSoftMax'/>
 ### MultiSoftMax ###
