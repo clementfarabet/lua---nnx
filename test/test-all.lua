@@ -3,7 +3,7 @@ local nnxtest = {}
 local precision = 1e-5
 local mytester
 
--- you can easily test specific units like this: 
+-- you can easily test specific units like this:
 -- th -lnnx -e "nnx.test{'MultiSoftMax'}"
 -- th -lnnx -e "nnx.test{'SoftMaxTree', 'Balance'}"
 
@@ -16,7 +16,7 @@ function nnxtest.SpatialPadding()
    local pad_t = math.random(0,8)
    local pad_b = math.random(0,8)
    local val = torch.randn(1):squeeze()
-   local module = nn.SpatialPadding(pad_l, pad_r, pad_t, pad_b, val)
+   local module = nn.SpatialPadding(pad_l, pad_r, pad_t, pad_b, nil, nil, val)
    local input = torch.rand(fanin,sizey,sizex)
 
    local err = nn.Jacobian.testJacobian(module, input)
@@ -82,10 +82,10 @@ end
 
 local function template_SpatialReSamplingEx(up, mode)
    for iTest = 1,3 do
-      local nDims = math.random(2,6)
+      local nDims = math.random(2,3)
       local dims = torch.LongStorage(nDims)
       for i = 1,nDims do
-         dims[i] = math.random(5,20/nDims)
+         dims[i] = math.random(5,torch.round(20/nDims))
       end
       local xratio, yratio
       if up then
@@ -102,10 +102,10 @@ local function template_SpatialReSamplingEx(up, mode)
       local module = nn.SpatialReSamplingEx({owidth=owidth_, oheight=oheight_,
 					     xDim=xdim, yDim = ydim, mode=mode})
       local input = torch.rand(dims)
-      
+
       local err = nn.Jacobian.testJacobian(module, input)
       mytester:assertlt(err, precision, 'error on state ')
-      
+
       local ferr, berr = nn.Jacobian.testIO(module, input)
       mytester:asserteq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
       mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
@@ -137,8 +137,8 @@ end
 
 function nnxtest.SpatialDownSampling()
    local fanin = math.random(1,4)
-   local sizex = math.random(11,4)
-   local sizey = math.random(11,4)
+   local sizex = math.random(4,11)
+   local sizey = math.random(4,11)
    local mx = math.random(2,6)
    local my = math.random(2,6)
    local module = nn.SpatialDownSampling(mx,my)
@@ -172,21 +172,21 @@ function nnxtest.SpatialReSampling_1()
    local batchSize = math.random(4,8)
    local input2 = torch.rand(batchSize,fanin,sizey,sizex)
    input2[2]:copy(input)
-   
+
    local output = module:forward(input):clone()
    local output2 = module:forward(input2)
    mytester:assertTensorEq(output, output2[2], 0.00001, 'SpatialResampling batch forward err')
-   
+
    local gradInput = module:backward(input, output):clone()
    local gradInput2 = module:backward(input2, output2)
    mytester:assertTensorEq(gradInput, gradInput2[2], 0.00001, 'SpatialResampling batch backward err')
-   
+
    -- test rwidth/rheight
    local input = torch.randn(3,8,10)
    local module = nn.SpatialReSampling{rwidth=0.5,rheight=0.5}
    local output = module:forward(input)
    mytester:assertTableEq(output:size():totable(), {3, 4, 5}, 0.00000001, 'SpatialResampling batch rwidth/rheight err')
-   
+
    local input = torch.randn(2,3,8,10)
    local module = nn.SpatialReSampling{rwidth=0.5,rheight=0.5}
    local output = module:forward(input)
@@ -408,7 +408,7 @@ local function template_SpatialMatching(channels, iwidth, iheight, maxw, maxh, f
    local input = torch.rand(2, channels, iheight, iwidth)
    local err = nn.Jacobian.testJacobian(module, input)
    mytester:assertlt(err, precision, 'error on state ')
-   
+
    local ferr, berr = nn.Jacobian.testIO(module, input)
    mytester:asserteq(ferr, 0, torch.typename(module) .. ' - i/o forward err ')
    mytester:asserteq(berr, 0, torch.typename(module) .. ' - i/o backward err ')
@@ -426,7 +426,7 @@ function nnxtest.SoftMaxTree()
    local grad = torch.randn(5)
    local root_id = 29
    local hierarchy={
-      [29]=torch.IntTensor{30,1,2}, [1]=torch.IntTensor{3,4,5}, 
+      [29]=torch.IntTensor{30,1,2}, [1]=torch.IntTensor{3,4,5},
       [2]=torch.IntTensor{6,7,8}, [3]=torch.IntTensor{9,10,11},
       [4]=torch.IntTensor{12,13,14}, [5]=torch.IntTensor{15,16,17},
       [6]=torch.IntTensor{18,19,20}, [7]=torch.IntTensor{21,22,23},
@@ -439,7 +439,7 @@ function nnxtest.SoftMaxTree()
    local indices = {3,3,4}
    local parentIds = {29,2,8}
    local linears = {}
-   
+
    for i,parentId in ipairs(parentIds) do
       local s = nn.Sequential()
       local linear = nn.Linear(100,hierarchy[parentId]:size(1))
@@ -512,7 +512,7 @@ end
 function nnxtest.TreeNLLCriterion()
    local input = torch.randn(5,10)
    local target = torch.ones(5) --all targets are 1
-   local c = nn.TreeNLLCriterion() 
+   local c = nn.TreeNLLCriterion()
    -- the targets are actually ignored (SoftMaxTree uses them before TreeNLLCriterion)
    local err = c:forward(input, target)
    gradInput = c:backward(input, target)
@@ -577,10 +577,10 @@ local function blur(mean, stdv, size)
 end
 
 function nnxtest.Balance()
-   local inputSize = 7 
+   local inputSize = 7
    local batchSize = 3
    local nBatch = 1
-   
+
    local input = torch.randn(batchSize, inputSize):mul(0.1):float()
    for i=1,batchSize do
       input[i]:add(blur(3, 1, inputSize):float())
@@ -591,36 +591,36 @@ function nnxtest.Balance()
    local gradOutput = torch.randn(batchSize, inputSize):float()
    local bl = nn.Balance(nBatch)
    bl:float()
-   
+
    local output = bl:forward(input)
    local p_y = output:sum(1):div(output:sum())
    mytester:assert(p_y:std() < 0.02)
    mytester:assert(math.abs(p_y:sum() - 1) < 0.000001)
-   
+
    local gradInput = bl:backward(input, gradOutput)
 end
 
 function nnxtest.MultiSoftMax()
-   local inputSize = 7 
+   local inputSize = 7
    local nSoftmax = 5
    local batchSize = 3
-   
+
    local input = torch.randn(batchSize, nSoftmax, inputSize)
    local gradOutput = torch.randn(batchSize, nSoftmax, inputSize)
    local msm = nn.MultiSoftMax()
-   
+
    local output = msm:forward(input)
    local gradInput = msm:backward(input, gradOutput)
    mytester:assert(output:isSameSizeAs(input))
    mytester:assert(gradOutput:isSameSizeAs(gradInput))
-   
+
    local sm = nn.SoftMax()
    local input2 = input:view(batchSize*nSoftmax, inputSize)
    local output2 = sm:forward(input2)
    local gradInput2 = sm:backward(input2, gradOutput:view(batchSize*nSoftmax, inputSize))
-   
-   mytester:assertTensorEq(output, output2, 0.000001)
-   mytester:assertTensorEq(gradInput, gradInput2, 0.000001)
+
+   mytester:assertTensorEq(output:view(-1), output2:view(-1), 0.000001)
+   mytester:assertTensorEq(gradInput:view(-1), gradInput2:view(-1), 0.000001)
 end
 
 function nnxtest.PushPullTable()
@@ -630,14 +630,14 @@ function nnxtest.PushPullTable()
    local gradOutput = torch.randn(5)
    local root_id = 29
    local hierarchy={
-      [29]=torch.IntTensor{30,1,2}, [1]=torch.IntTensor{3,4,5}, 
+      [29]=torch.IntTensor{30,1,2}, [1]=torch.IntTensor{3,4,5},
       [2]=torch.IntTensor{6,7,8}, [3]=torch.IntTensor{9,10,11},
       [4]=torch.IntTensor{12,13,14}, [5]=torch.IntTensor{15,16,17},
       [6]=torch.IntTensor{18,19,20}, [7]=torch.IntTensor{21,22,23},
       [8]=torch.IntTensor{24,25,26,27,28}
    }
    local smt = nn.SoftMaxTree(100, hierarchy, root_id)
-   -- create a network where inputs are fed through softmaxtree 
+   -- create a network where inputs are fed through softmaxtree
    -- and targets are teleported (pushed then pulled) to softmaxtree
    local mlp = nn.Sequential()
    local linear = nn.Linear(50,100)
@@ -663,7 +663,7 @@ function nnxtest.PushPullTable()
    mytester:assertTensorEq(output, output2, 0.00001, "push/pull forward error")
    mytester:assertTensorEq(gradInput[1], gradInput[1], 0.00001, "push/pull backward error")
    mytester:assertTensorEq(gradInput[2], gradInput[2], 0.00001, "push/pull backward error")
-   
+
    -- test multi-pull case
    local mlp = nn.Sequential()
    local push = nn.PushTable(2)
@@ -680,7 +680,7 @@ function nnxtest.PushPullTable()
    mytester:assertTensorEq(output[4], inputTable[2], 0.00001, "push/pull multi-forward error")
    local gradOutput = {inputTable[2]:clone(), inputTable[1]:clone(), inputTable[2]:clone(), inputTable[2]:clone()}
    local gradInput = mlp:backward(inputTable, gradOutput)
-   local gradInput2 = inputTable[2]:clone():mul(3) 
+   local gradInput2 = inputTable[2]:clone():mul(3)
    mytester:assertTensorEq(gradInput[1], gradInput[1], 0.00001, "push/pull multi-backward error")
    mytester:assertTensorEq(gradInput[2], gradInput[2], 0.00001, "push/pull multi-backward error")
 end
