@@ -61,6 +61,7 @@ require('nnx.SpatialMatching')
 require('nnx.SpatialRadialMatching')
 require('nnx.SpatialMaxSampling')
 require('nnx.SpatialColorTransform')
+require('nnx.PixelSort')
 
 -- other modules
 require('nnx.FunctionWrapper')
