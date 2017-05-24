@@ -75,7 +75,6 @@ require('nnx.MultiSoftMax')
 require('nnx.Balance')
 require('nnx.PushTable')
 require('nnx.PullTable')
-require('nnx.ZeroGrad')
 require('nnx.QDRiemaNNLinear')
 
 -- criterions:
